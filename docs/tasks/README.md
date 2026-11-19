@@ -116,6 +116,11 @@ Four agents can work without touching the same files: one on the app's core
   mod was retried and not turned off; the scripts now `sync`. Magisk's safe mode was reached through
   `persist.sys.safemode`, not the key. A clean restart (`svc power reboot`; the XP3's power menu has
   only Power off) keeps a mod on trial. `adb reboot` in the first minute doesn't (known risk).
+  Cost (Wave 0.7.25): watchdog 4's late half used 9.3 s of CPU per judged boot (12% of one core in
+  the settle minute: `getprop` twice and `pidof` every second, about 33 ms each to start on this
+  phone); nothing stays running after it settles. Watchdog 5 follows system_server through `/proc`
+  and looks every five seconds until boot completes: 2.9 s, and 08.1, 08.4, 08.6 and `phone.sh`
+  pass again. Awake time can't be compared over USB (the phone never suspends with it attached).
   Earlier host work: watchdog scripts in
   `app/core/src/main/resources/com/wave/xp3/core/root/`, installed by the engine before the first
   module; tested through pretend boots (good, never-completing, restarted mid-boot, framework

@@ -304,9 +304,15 @@ versioned by a `# wave-watchdog: N` line):
   by `sync` (watchdog 4): on the XP3's f2fs an unsynced rename was lost when
   power was cut, and the mod was tried again instead of turned off.
 - `service.d` acts only while `trying` exists. Settled means
-  `sys.boot_completed=1` and `system_server` keeping the same pid for 60 s;
+  `sys.boot_completed=1` and `system_server` staying the same process for 60 s;
   a shutdown asked for after boot completed counts as settled too, so a
-  quick restart doesn't cost a good mod. Not settled after 300 s: one
+  quick restart doesn't cost a good mod. Android sets
+  `sys.shutdown.requested` only seconds before going down, so during the
+  settle minute it looks every second, starting only `getprop` (system_server
+  is followed through `/proc` by the shell); before boot completes it looks
+  every five seconds. On the XP3 that is about 3 s of CPU per judged boot,
+  and nothing stays running (watchdog 5, measured in
+  `app/ROOT-TESTING.md`). Not settled after 300 s: one
   reboot (`setprop sys.powerctl reboot`), marked `forced`; never a second
   forced reboot in a row (`forced.last`), so a phone that doesn't boot for
   other reasons isn't put in a reboot loop.

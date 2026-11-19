@@ -16,7 +16,9 @@ puts the watchdog in place for 08).
 **Status.** Run end to end on 2026-11-19 on the rooted XP3800 `8516067e`:
 - firmware `3A.0.1-02-8.1.0-11.20.00`, Magisk 24.0 (24000), Zygisk off;
 - Wave 0.7.17 debug (`ca10e4f`) for 06 to 08.3;
-- from 08.4 on, the same build with watchdog 4 (the fix below), as 0.7.19.
+- from 08.4 on, the same build with watchdog 4 (the fix below), as 0.7.19;
+- 08.1, 08.4 and 08.6 again with watchdog 5 (Wave 0.7.25, the cost fix
+  below), plus `phone.sh` (24 of 24).
 
 Every step passed except these:
 - 06.5 can't run on this phone (too much free space);
@@ -38,12 +40,12 @@ Per step:
 | 06.7 | pass | `version=1.1`, then removed |
 | 06.8 | pass | 0.7.17.1 installed through root, Wave reopened by itself, `self-result` empty (the toast itself wasn't caught on screen) |
 | 06.9 | pass | removed from Installed, no Android prompt, queue Done |
-| 08.1 | pass | zygote held stopped; the watchdog rebooted at about 345 s uptime; 403 s from `adb reboot` to the second home screen; `boot-timeout`, `disable` present |
+| 08.1 | pass | zygote held stopped; the watchdog rebooted at about 345 s uptime; 403 s from `adb reboot` to the second home screen; `boot-timeout`, `disable` present. Watchdog 5: rebooted 303 s after the mod started holding, 388 s to the second home screen, `boot-timeout`, `disable` present, the arm file gone |
 | 08.2 | pass | alert text exact, focus on OK, Left reaches Remove It; "Turned off" after OK |
 | 08.3 | pass | Turn On, settled; Remove It, Confirm; Wave's Reboot Now restarted the phone; folder gone |
-| 08.4 | fail on 3, pass on 4 | see "Found and fixed" below; the alert text is exact |
+| 08.4 | fail on 3, pass on 4 and 5 | see "Found and fixed" below; the alert text is exact. Watchdog 5: cut by sysrq about 30 s after post-fs-data, no sync: `boot-incomplete`, `disable` present |
 | 08.5 | pass (property) | `persist.sys.safemode=1`: every module disabled by Magisk, nothing in `disabled`; no alert; "Turned off"; Turn On remounted it |
-| 08.6 | pass | `svc power reboot` 3 s after boot completed: "shutdown asked for after boot completed; modules kept"; 11 s from the command to adb dropping |
+| 08.6 | pass | `svc power reboot` 3 s after boot completed: "shutdown asked for after boot completed; modules kept"; 11 s from the command to adb dropping. Watchdog 5: the same line, module enabled, nothing in `disabled` |
 
 Also seen:
 - `adb reboot` 3 s after boot completed gave `boot-incomplete`, as the
@@ -108,8 +110,9 @@ and `system_server`, and mounting. The cases, all passing:
 `/data/local/tmp/wave-sim`, and removes it afterwards. On `8516067e`
 (stock, Android 8.1) all 24 checks passed on 2026-11-19. That run used
 watchdog version 2. Version 3 changes only the default poll interval,
-which `phone.sh` sets itself, and version 4 adds only `sync`. These parts are
-real:
+which `phone.sh` sets itself, and version 4 adds only `sync`. Version 5
+(how system_server is followed, and the five-second look before boot
+completes) passed all 24 again on 2026-11-19. These parts are real:
 - Wave's root scripts under the phone's own `/system/bin/sh` (mksh R55),
   its toybox and its `grep`, against a pretend `/data/adb`;
 - both watchdog halves under Magisk's armeabi-v7a busybox on the XP3's
@@ -141,6 +144,43 @@ the home screen was often missed, and the next boot turned the module off
 as `boot-incomplete`. `sim.py` caught it at the real timings; the desktop
 tests hadn't, because they keep the property set. The watchdog now looks
 every second (version 3). Step 08.6 is the check on hardware.
+
+**Measured and fixed: what the watchdog costs.** Only a boot with a mod
+on trial (the first after Wave installs or turns on one) does anything; any
+other boot's late half checks for `trying` and exits. Measured on `8516067e`
+(MSM8909, four Cortex-A7 cores) by sampling the late half's own
+`/proc/<pid>/stat` every second (its time plus that of the programs it
+started), through a whole boot with `wave_test_ok` on trial:
+
+| | before boot completed | the settle minute | in all |
+|---|---|---|---|
+| watchdog 4 | 1.43 s of CPU in 23 s | 7.86 s in 65 s (12% of one core) | 9.3 s |
+| watchdog 5 | 0.42 s in 23 s | 2.48 s in 61 s (4% of one core) | 2.9 s |
+
+- Each program the shell starts costs about 33 ms of CPU on this phone
+  (`getprop` 33 ms, `pidof system_server` 56 ms, measured 30 times each).
+  Watchdog 4 started `getprop` twice and `pidof` once every second.
+  Watchdog 5 starts only `getprop sys.shutdown.requested` each second of the
+  settle minute: it finds `system_server` once and then follows it by
+  reading `/proc/<pid>/stat` in the shell, comparing its start time, so a
+  restart is seen even if the new process gets the same pid. Before boot
+  completes it looks every five seconds, since nothing there needs a quick
+  look.
+- Nothing is left after settling: the process is gone, `ps -A` shows no
+  shell, `sleep` or `getprop` of Wave's, and Wave's scripts hold no wake
+  lock and set no alarm.
+- Awake time couldn't be compared: with USB attached the XP3 never
+  suspends (`batterystats`: awake 100% of 15 minutes, with and without a
+  trial). The watchdog's whole life lies inside the boot and the first
+  minute after it, when the phone is awake anyway.
+- The whole phone, from power-on to 960 s of uptime with the screen off
+  after boot: 172.4 s of CPU without a mod, 186.8 s with watchdog 4 judging
+  one (14.4 s more: its 9.3 s, the sampler and the mod).
+- Why not one `sleep` until the deadline: a restart the user asks for in
+  the settle minute is seen only through `sys.shutdown.requested`, which
+  Android sets a few seconds before the phone goes down (08.6). Without
+  that look the next boot would turn a good mod off as `boot-incomplete`.
+  One `getprop` a second for a minute, once per mod change, is the price.
 
 **Proven: nothing on a device should break.**
 - Every command the watchdog runs is an applet of Magisk's busybox, except
@@ -548,8 +588,8 @@ installed or turned on is judged: Wave lists it in
 - If it was disabled with `boot-incomplete`: a user restart was taken for a
   crash. Record it, and how long the phone took from the restart to the
   screen going dark (11 s on `8516067e`). Watchdog 2 polled every five
-  seconds and missed short shutdowns. Version 3 and later poll every
-  second, so this shouldn't happen.
+  seconds and missed short shutdowns. Version 3 and later look every
+  second once boot has completed, so this shouldn't happen.
 
 ## Clean up
 

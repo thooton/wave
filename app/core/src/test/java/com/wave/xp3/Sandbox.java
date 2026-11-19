@@ -21,7 +21,10 @@ import java.util.stream.Stream;
  * `id`, `pm`, `cmd`, `magisk`, `svc`, `am`, and for the boot watchdog
  * `getprop`, `setprop`, `pidof` and `sleep`, which read and write files
  * under `props/` and count ticks so a test can script a boot. Every fake
- * appends what it was asked to `calls`.
+ * appends what it was asked to `calls`. The processes named by `pid.NAME`
+ * props are also in a pretend /proc (WAVE_PROC), for the watchdog that
+ * follows system_server there; each started at the time in `start.NAME`, or
+ * else at its pid.
  *
  * Runs the scripts with the host's /bin/sh (dash on CI: POSIX, not bash), or
  * with WAVE_TEST_SH when set, such as "/path/to/busybox ash", the shell
@@ -60,6 +63,7 @@ final class Sandbox implements AutoCloseable {
         env.put("WAVE_TMP", tmp.getAbsolutePath());
         env.put("FAKE", root.getAbsolutePath());
         env.put("FAKE_LOG", calls.getAbsolutePath());
+        env.put("WAVE_PROC", new File(root, "proc").getAbsolutePath());
         return env;
     }
 
@@ -124,7 +128,14 @@ final class Sandbox implements AutoCloseable {
         fake("sync", "echo \"sync $(ls \"$WAVE_ADB/wave\" 2>/dev/null | tr '\\n' ' ')\" >> \"$FAKE_LOG\"");
         // Each sleep is a tick; at tick N, files in at/N/ become props.
         fake("sleep", "n=$(cat \"$FAKE/ticks\" 2>/dev/null || echo 0); n=$((n + 1)); echo $n > \"$FAKE/ticks\"\n"
-            + "if [ -d \"$FAKE/at/$n\" ]; then cp \"$FAKE/at/$n\"/* \"$FAKE/props/\"; fi");
+            + "if [ -d \"$FAKE/at/$n\" ]; then cp \"$FAKE/at/$n\"/* \"$FAKE/props/\"; fi\n"
+            + "rm -rf \"$FAKE/proc\"\n"
+            + "for f in \"$FAKE/props\"/pid.*; do [ -f \"$f\" ] || continue; n=${f##*/pid.}\n"
+            + "  s=$(cat \"$FAKE/props/start.$n\" 2>/dev/null)\n"
+            + "  for p in $(cat \"$f\"); do\n"
+            + "    mkdir -p \"$FAKE/proc/$p\"; echo \"$p ($n) S 1 1 1 0 -1 0 0 0 0 0 0 0 0 0 20 0 1 0 ${s:-$p} 0 0\" > \"$FAKE/proc/$p/stat\"\n"
+            + "  done\n"
+            + "done");
     }
 
     private void fake(String name, String body) throws IOException {
@@ -136,6 +147,23 @@ final class Sandbox implements AutoCloseable {
     /** Sets a property now. */
     void prop(String name, String value) throws IOException {
         write(new File(props, name), value + "\n");
+        if (!name.startsWith("pid.") && !name.startsWith("start.")) return;
+        File proc = new File(root, "proc");
+        File[] old = proc.listFiles();
+        if (old != null) for (File d : old) {
+            new File(d, "stat").delete();
+            d.delete();
+        }
+        File[] named = props.listFiles((dir, n) -> n.startsWith("pid."));
+        if (named != null) for (File f : named) {
+            String n = f.getName().substring(4);
+            File start = new File(props, "start." + n);
+            String at = start.isFile() ? new String(Files.readAllBytes(start.toPath()), StandardCharsets.UTF_8).trim() : null;
+            for (String p : new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).trim().split("\\s+")) {
+                if (p.isEmpty()) continue;
+                write(new File(proc, p + "/stat"), p + " (" + n + ") S 1 1 1 0 -1 0 0 0 0 0 0 0 0 0 20 0 1 0 " + (at != null ? at : p) + " 0 0\n");
+            }
+        }
     }
 
     /** Sets a property when the `tick`th sleep happens. */

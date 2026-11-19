@@ -270,6 +270,13 @@ final class RootTests {
         // A user restart is seen only in the few seconds Android takes to go
         // down, so the late half looks every second unless a test says otherwise.
         check.ok("late half looks every second", Watchdog.service().contains("STEP=${WAVE_STEP:-1}\n"));
+        // Before boot completes nothing needs a quick look: every five seconds.
+        check.ok("until boot completes, every five", Watchdog.service().contains("WAIT=${WAVE_WAIT:-5}\n"));
+        // Each program started costs about 30 ms of CPU on the XP3, so a look
+        // starts at most getprop; system_server is followed through /proc.
+        String loop = Watchdog.service().substring(Watchdog.service().indexOf("while :; do"));
+        check.ok("pidof only when system_server changed", loop.split("pidof", -1).length == 2
+            && loop.indexOf("pidof") > loop.indexOf("else"));
     }
 
     /** Runs the early and late halves as Magisk would, through pretend boots. */
@@ -278,6 +285,7 @@ final class RootTests {
         fast.put("WAVE_BOOT_LIMIT", "30");
         fast.put("WAVE_SETTLE", "10");
         fast.put("WAVE_STEP", "5");
+        fast.put("WAVE_WAIT", "5");
 
         try (Sandbox box = new Sandbox()) {
             // Installed through the scripts Wave sends.
@@ -379,6 +387,25 @@ final class RootTests {
             for (int t = 1; t <= 8; t++) box.propAt(t, "pid.system_server", String.valueOf(100 + t));
             box.sh(late, fast);
             check.ok("restarting framework forces a reboot", box.calls().contains("setprop sys.powerctl reboot"));
+        }
+
+        try (Sandbox box = new Sandbox()) {
+            box.sh(Watchdog.install(), null);
+            String early = "sh " + box.file("post-fs-data.d/wave-watchdog.sh").getPath();
+            String late = "sh " + box.file("service.d/wave-watchdog.sh").getPath();
+            // A restarted system_server is a new process even if it got the same pid back.
+            module(box, "reused");
+            box.sh(Scripts.markPending("reused"), null);
+            box.sh(early, fast);
+            box.prop("sys.boot_completed", "1");
+            box.prop("pid.system_server", "42");
+            for (int t = 1; t <= 8; t++) {
+                // pid 42 throughout, but started anew at each tick (field 22).
+                Sandbox.write(new File(box.root, "at/" + t + "/pid.system_server"), "42\n");
+                Sandbox.write(new File(box.root, "at/" + t + "/start.system_server"), String.valueOf(1000 + t) + "\n");
+            }
+            box.sh(late, fast);
+            check.ok("same pid, new process: not settled", box.calls().contains("setprop sys.powerctl reboot"));
         }
 
         try (Sandbox box = new Sandbox()) {
