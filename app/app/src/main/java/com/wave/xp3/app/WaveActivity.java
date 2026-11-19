@@ -246,8 +246,10 @@ public final class WaveActivity extends Activity {
             String body = "The phone didn't finish starting with version " + off.version
                 + ", so Wave turned it off. The phone is as it was before it.";
             if (off.reason != null && !off.reason.isEmpty()) body = off.reason;
+            WaveData.Detail known = snapshot.detail(off.id);
+            AppIcons.Ref icon = known != null ? Rows.icon(this, known.pkg) : AppIcons.Ref.tile(off.id, off.name);
             AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle(off.name + " Was Turned Off")
+                .setCustomTitle(dialogHead(icon, off.name, "Turned off"))
                 .setMessage(body)
                 .setPositiveButton("OK", (d, w) -> data.ackTurnedOff(off.id))
                 .setNegativeButton(red("Remove It"), (d, w) -> {
@@ -341,6 +343,26 @@ public final class WaveActivity extends Activity {
             .setPositiveButton("Reboot", (d, w) -> data.reboot())
             .show()
             .getButton(AlertDialog.BUTTON_POSITIVE).requestFocus();
+    }
+
+    /** A dialog's title as the mockups draw it: the icon, the name, a grey line. */
+    View dialogHead(AppIcons.Ref icon, String name, String sub) {
+        LinearLayout head = new LinearLayout(this);
+        head.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        head.setPadding(Kit.dp(this, 14), Kit.dp(this, 14), Kit.dp(this, 14), 0);
+        android.widget.ImageView image = Kit.iconView(this, 32);
+        icons.into(image, icon, 32);
+        head.addView(image);
+        LinearLayout texts = new LinearLayout(this);
+        texts.setOrientation(LinearLayout.VERTICAL);
+        TextView title = Kit.line(this, name, 16, Look.TEXT);
+        title.setTypeface(Look.MEDIUM);
+        texts.addView(title);
+        texts.addView(Kit.line(this, sub, 12, Look.MUTED));
+        LinearLayout.LayoutParams tl = Kit.weight();
+        tl.leftMargin = Kit.dp(this, 8);
+        head.addView(texts, tl);
+        return head;
     }
 
     void toast(String text) {

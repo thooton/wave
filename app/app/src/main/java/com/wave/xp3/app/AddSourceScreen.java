@@ -195,21 +195,9 @@ final class AddSourceScreen extends Screen {
 
     /** The question: this source's packages run with root; add it? */
     private void trust(final WaveData.Preview preview) {
-        LinearLayout head = new LinearLayout(app);
-        head.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        head.setPadding(Kit.dp(app, 14), Kit.dp(app, 14), Kit.dp(app, 14), 0);
-        ImageView icon = Kit.iconView(app, 32);
-        app.icons.into(icon, new AppIcons.Ref("preview:" + preview.redactedUrl, preview.name, null, preview.icon(), null), 32);
-        head.addView(icon);
-        LinearLayout texts = new LinearLayout(app);
-        texts.setOrientation(LinearLayout.VERTICAL);
-        texts.addView(Kit.line(app, preview.name, 16, Look.TEXT));
-        ((TextView) texts.getChildAt(0)).setTypeface(Look.MEDIUM);
         String who = preview.maintainer != null ? preview.maintainer + ", " : "";
-        texts.addView(Kit.line(app, who + preview.packageCount + (preview.packageCount == 1 ? " package" : " packages"), 12, Look.MUTED));
-        LinearLayout.LayoutParams tl = Kit.weight();
-        tl.leftMargin = Kit.dp(app, 8);
-        head.addView(texts, tl);
+        View head = app.dialogHead(new AppIcons.Ref("preview:" + preview.redactedUrl, preview.name, null, preview.icon(), null),
+            preview.name, who + preview.packageCount + (preview.packageCount == 1 ? " package" : " packages"));
         String whom = preview.maintainer != null ? preview.maintainer : "its maintainer";
         AlertDialog dialog = new AlertDialog.Builder(app)
             .setCustomTitle(head)
