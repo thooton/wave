@@ -118,7 +118,33 @@ final class Rows {
             addView(texts);
             name = Kit.name(texts);
             sub = (TextView) texts.getChildAt(1);
+            // As wide as the name (it is one ellipsized line either way): a new
+            // text then lays itself out at that width, and the row is the same
+            // size whatever it says, so a rebind needn't measure it again.
+            sub.getLayoutParams().width = ViewGroup.LayoutParams.MATCH_PARENT;
             addView(Kit.chevron(app));
+        }
+
+        /*
+         * Every browse row is the same size by construction (fixed height,
+         * fixed-size icon and chevron, texts as wide as what's left, one line
+         * each), so a measurement is kept and reused for the same constraints
+         * until the detail line comes or goes.
+         */
+        private int specW = -1, specH = -1, sizeW, sizeH;
+        private boolean subShown = true;
+
+        @Override
+        protected void onMeasure(int widthSpec, int heightSpec) {
+            if (widthSpec == specW && heightSpec == specH) {
+                setMeasuredDimension(sizeW, sizeH);
+                return;
+            }
+            super.onMeasure(widthSpec, heightSpec);
+            specW = widthSpec;
+            specH = heightSpec;
+            sizeW = getMeasuredWidth();
+            sizeH = getMeasuredHeight();
         }
 
         BrowseRow bind(Pkg p, View.OnClickListener open, boolean last) {
@@ -127,7 +153,12 @@ final class Rows {
             icon.setBadge(badge(p));
             name.setText(p.name);
             sub.setText(p.summary);
-            sub.setVisibility(p.summary == null || p.summary.isEmpty() ? GONE : VISIBLE);
+            boolean shown = p.summary != null && !p.summary.isEmpty();
+            if (shown != subShown) {
+                subShown = shown;
+                specW = -1; // the texts move: measure them again
+            }
+            sub.setVisibility(shown ? VISIBLE : GONE);
             boolean dim = unfit(p);
             name.setTextColor(dim ? 0x73000000 : Look.TEXT);
             icon.setAlpha(dim ? 0.45f : 1f);
