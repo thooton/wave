@@ -18,18 +18,32 @@ nothing above API 27, `:core` plain Java compiled with `--release 8`.
   desktop JVM. Today: `Version`, `Catalog` (manifest.json), `Status`,
   `Notes` (what's new, the App Store's dates), `Releases` (fetch and
   download over HttpURLConnection). The git client goes in
-  `com.wave.xp3.core.git` (brief 03). Tests are `src/test/java`, run by
+  `com.wave.xp3.core.git` (brief 03), sources in `core.sources` (05).
+  Root in `core.root`: `Scripts` (every shell script Wave sends), `Frame`,
+  `ProcessShell` (the one `su` shell), `PmResult`, `Modules`, `Facts`,
+  `Watchdog` (the boot watchdog; its scripts are resources beside it).
+  The install engine in `core.install`: `Plan`, `Download`, `Verify`,
+  `Receipts`, `Packages`, `Engine`. `Sandbox` in the tests is a pretend
+  phone (fake `su`, `pm`, `magisk`, `getprop`...) that runs the real
+  scripts; `WAVE_TEST_SH="busybox ash"` runs them under Magisk's shell.
+  Tests are `src/test/java`, run by
   `com.wave.xp3.SelfTest` with `com.xp3.common.Check` (from
   `:common:core`'s test fixtures); no test framework.
 - `app` (`:app:app`, `com.wave.xp3`): `MainActivity` (the list, keys, menu,
   What's New, install queue), `AppAdapter`, `ProgressRing`, `Icons`,
-  `ApkProvider` (serves a downloaded APK to the installer).
+  `ApkProvider` (serves a downloaded APK to the installer); `RootShell`,
+  `Phone` (what's installed; the engine's platform), `EngineService` (runs
+  a plan in the foreground), `StockApps` (apps through Installer without
+  root), `AfterBoot` (self-update result and watchdog notices on launch).
+  `src/debug`: `DebugActivity`, adb-only, for `ROOT-TESTING.md`.
 - `../common/`: a copy of `wave_packages/common`. Never edit it here; change
   it upstream and run `../tools/sync-common.sh` (writes `common/UPSTREAM`).
 
-Installs still go to Installer (`com.installer.xp3`) through its
-signature-only permission, which Wave holds because it is signed with the
-same shared key (`../signing/`). Brief 06 replaces that path with root.
+Root is opt-in: `su` is opened only when the user does something that
+needs it (any module, or once root has worked: `RootShell.known`). Without
+it, apps go to Installer (`com.installer.xp3`) through its signature-only
+permission, which Wave holds because it is signed with the same shared key
+(`../signing/`). On-phone root checks: `ROOT-TESTING.md`.
 
 ## Build and validation
 
