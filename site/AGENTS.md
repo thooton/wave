@@ -9,6 +9,8 @@ mouse. Distinguish illustrated screens, planned packages and unverified steps
 from shipped/tested behavior.
 
 - `index.html`, `assets/`: public landing, shared visual assets and styles.
+  `assets/wave-home.png` is a reviewed copy of `mockups/shots/wave-home.png`,
+  an app design preview, not a hardware screenshot.
 - `platforms/index.html`: USB compatibility and troubleshooting.
 - `setup/`: local setup-file generator. Use `spec/setup-payload.md` and the
   canonical per-app descriptors from wave_packages. Regenerate the reviewed,
