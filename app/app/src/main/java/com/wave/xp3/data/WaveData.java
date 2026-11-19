@@ -38,13 +38,15 @@ public interface WaveData extends AutoCloseable {
     final class Preview {
         public final String name, maintainer, redactedUrl;
         public final int packageCount;
+        /** Packages in the source Wave can't read; packageCount leaves them out. */
+        public final int unreadable;
         private final byte[] icon;
         final Object token;
         public Preview(String name, String maintainer, int packageCount, byte[] icon, String redactedUrl) {
-            this(name, maintainer, packageCount, icon, redactedUrl, null);
+            this(name, maintainer, packageCount, 0, icon, redactedUrl, null);
         }
-        Preview(String name, String maintainer, int packageCount, byte[] icon, String redactedUrl, Object token) {
-            this.name = name; this.maintainer = maintainer; this.packageCount = packageCount;
+        Preview(String name, String maintainer, int packageCount, int unreadable, byte[] icon, String redactedUrl, Object token) {
+            this.name = name; this.maintainer = maintainer; this.packageCount = packageCount; this.unreadable = unreadable;
             this.icon = icon == null ? null : icon.clone(); this.redactedUrl = redactedUrl; this.token = token;
         }
         public byte[] icon() { return icon == null ? null : icon.clone(); }
@@ -56,11 +58,27 @@ public interface WaveData extends AutoCloseable {
         public final boolean isDefault, refreshing, needsNewerWave;
         public final long refreshedAt;
         public final int packageCount;
+        /**
+         * What the source's page lists as not read, as "folder: reason" lines:
+         * packages left out, then icons ignored (their packages are listed).
+         */
+        public final List<String> unreadable, iconsIgnored;
+        /** How many packages can't be read (the lines stop at 20, then "and N more"). */
+        public final int unreadableCount;
         public Src(String id, String name, String url, File iconFile, boolean isDefault, String maintainer,
                    long refreshedAt, int packageCount, boolean refreshing, String error, boolean needsNewerWave) {
+            this(id, name, url, iconFile, isDefault, maintainer, refreshedAt, packageCount, refreshing, error, needsNewerWave,
+                0, Collections.emptyList(), Collections.emptyList());
+        }
+        public Src(String id, String name, String url, File iconFile, boolean isDefault, String maintainer,
+                   long refreshedAt, int packageCount, boolean refreshing, String error, boolean needsNewerWave,
+                   int unreadableCount, List<String> unreadable, List<String> iconsIgnored) {
+            this.unreadableCount = unreadableCount;
             this.id = id; this.name = name; this.url = url; this.iconFile = iconFile; this.isDefault = isDefault;
             this.maintainer = maintainer; this.refreshedAt = refreshedAt; this.packageCount = packageCount;
             this.refreshing = refreshing; this.error = error; this.needsNewerWave = needsNewerWave;
+            this.unreadable = Collections.unmodifiableList(new ArrayList<>(unreadable));
+            this.iconsIgnored = Collections.unmodifiableList(new ArrayList<>(iconsIgnored));
         }
     }
 

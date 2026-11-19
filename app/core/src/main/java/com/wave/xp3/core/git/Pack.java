@@ -61,7 +61,8 @@ final class Pack {
         long version = in.u32();
         if (version != 2 && version != 3) throw new IOException("Unsupported Git pack version");
         long count = in.u32();
-        if (count > MAX_OBJECTS || count > (end - in.pos) / 9) throw new IOException("Invalid Git pack object count");
+        if (count > MAX_OBJECTS) throw new SourceFailure(SourceFailure.Kind.TOO_BIG, "Git pack has over " + MAX_OBJECTS + " objects");
+        if (count > (end - in.pos) / 9) throw new IOException("Invalid Git pack object count");
         MessageDigest digest = sha1();
         digest.update(bytes, 0, end);
         byte[] trailer = digest.digest();

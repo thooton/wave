@@ -86,14 +86,29 @@ final class SourceScreen extends Screen {
         int total = snap.packages(sourceId, null).size();
         Kit.Row all = Rows.link(app, "All Packages", null, 0, null, 0, String.valueOf(total), false);
         all.setOnClickListener(v -> app.push(new SectionScreen(app, sourceId, null, "All Packages")));
-        if (sections.isEmpty()) all.last();
+        boolean notRead = src != null && src.unreadableCount > 0;
+        if (sections.isEmpty() && !notRead) all.last();
         feed.add(keyed(all, "all"));
         for (int i = 0; i < sections.size(); i++) {
             final Section section = sections.get(i);
             Kit.Row row = Rows.link(app, section.name, null, 0, null, 0, String.valueOf(section.count), false);
-            if (i == sections.size() - 1) row.last();
+            if (i == sections.size() - 1 && !notRead) row.last();
             row.setOnClickListener(v -> app.push(new SectionScreen(app, sourceId, section.folder, section.name)));
             feed.add(keyed(row, "section:" + section.folder));
+        }
+        if (notRead) {
+            // For whoever publishes the source: which packages Wave left out, and why.
+            int n = src.unreadableCount;
+            Kit.Row row = Rows.link(app, n == 1 ? "1 package can't be read" : n + " packages can't be read",
+                null, 0, null, 0, null, false);
+            row.last();
+            final List<String> lines = src.unreadable, icons = src.iconsIgnored;
+            row.setOnClickListener(v -> {
+                StringBuilder text = new StringBuilder(android.text.TextUtils.join("\n", lines));
+                if (!icons.isEmpty()) text.append("\n\nIcons ignored:\n").append(android.text.TextUtils.join("\n", icons));
+                app.alert("Can't Be Read", text.toString());
+            });
+            feed.add(keyed(row, "unreadable"));
         }
         if (sourceId != null) {
             List<Pkg> featured = snap.featured(sourceId);

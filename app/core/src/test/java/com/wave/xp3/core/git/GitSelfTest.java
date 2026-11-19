@@ -20,6 +20,7 @@ public final class GitSelfTest {
         check.run("Git packet lines", () -> packets(check));
         check.run("Git packs", () -> packs(check));
         check.run("Git HTTP", () -> http(check));
+        check.run("Git source limits and left-out files", () -> limits(check));
         check.run("Source failures in plain words", () -> plainFailures(check));
         check.run("The Git client throws only SourceFailure", () -> onlySourceFailures(check));
     }
@@ -71,7 +72,7 @@ public final class GitSelfTest {
         check.fails("corrupt compressed object", "zlib", () -> Pack.parse(corrupt));
         check.fails("truncated data", () -> Pack.parse(Arrays.copyOf(good, good.length - 1)));
         check.fails("truncated header", () -> Pack.parse(Arrays.copyOf(good, 10)));
-        check.fails("size cap", "too big", () -> Pack.parse(new byte[Pack.MAX_PACK + 1]));
+        check.fails("size cap", "8 MB", () -> Pack.parse(new byte[Pack.MAX_PACK + 1]));
     }
 
     private static void http(Check check) throws Exception {
@@ -210,6 +211,140 @@ public final class GitSelfTest {
                 check.same("plain HTTP", SourceFailure.Kind.ADDRESS, e.kind);
             }
         } finally { server.stop(0); }
+    }
+
+    /** A pack built here: whole objects only, enough for Tree's walk. */
+    private static final class Builder {
+        private final ByteArrayOutputStream body = new ByteArrayOutputStream();
+        private int count;
+
+        String blob(byte[] data) throws Exception { return add(3, "blob", data); }
+
+        /** Entries as mode, name, id; Git sorts them by name, so pass them sorted. */
+        String tree(String... entries) throws Exception {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            for (int i = 0; i < entries.length; i += 3) {
+                out.write((entries[i] + " " + entries[i + 1] + "\0").getBytes(StandardCharsets.US_ASCII));
+                for (int j = 0; j < 40; j += 2) out.write(Integer.parseInt(entries[i + 2].substring(j, j + 2), 16));
+            }
+            return add(2, "tree", out.toByteArray());
+        }
+
+        String commit(String tree) throws Exception {
+            return add(1, "commit", ("tree " + tree + "\nauthor t <t@t> 0 +0000\ncommitter t <t@t> 0 +0000\n\nx\n")
+                .getBytes(StandardCharsets.US_ASCII));
+        }
+
+        private String add(int type, String name, byte[] data) throws Exception {
+            MessageDigest sha = MessageDigest.getInstance("SHA-1");
+            sha.update((name + " " + data.length + "\0").getBytes(StandardCharsets.US_ASCII));
+            String id = Pack.hex(sha.digest(data), 0, 20);
+            long size = data.length;
+            int first = (int) (type << 4 | (size & 15));
+            size >>>= 4;
+            body.write(size > 0 ? first | 128 : first);
+            while (size > 0) {
+                int b = (int) (size & 127);
+                size >>>= 7;
+                body.write(size > 0 ? b | 128 : b);
+            }
+            java.util.zip.DeflaterOutputStream z = new java.util.zip.DeflaterOutputStream(body);
+            z.write(data);
+            z.finish();
+            count++;
+            return id;
+        }
+
+        Pack pack() throws Exception { return Pack.parse(bytes(count)); }
+
+        byte[] bytes(long claimed) throws Exception {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            out.write("PACK".getBytes(StandardCharsets.US_ASCII));
+            out.write(new byte[] {0, 0, 0, 2});
+            out.write(java.nio.ByteBuffer.allocate(4).putInt((int) claimed).array());
+            body.writeTo(out);
+            out.write(MessageDigest.getInstance("SHA-1").digest(out.toByteArray()));
+            return out.toByteArray();
+        }
+    }
+
+    private static byte[] json(int size) {
+        byte[] data = new byte[size];
+        Arrays.fill(data, (byte) ' ');
+        data[0] = '{';
+        data[size - 1] = '}';
+        return data;
+    }
+
+    private static void limits(Check check) throws Exception {
+        // Files the format reads but over 64 KB are left out, and the walk says which; nothing else is noted.
+        Builder b = new Builder();
+        String small = b.blob("{}".getBytes(StandardCharsets.US_ASCII)), big = b.blob(json(70 * 1024));
+        String bigIcon = b.blob(new byte[70 * 1024]);
+        String bigFolder = b.tree("100644", "icon.png", bigIcon, "100644", "package.json", small);
+        String demo = b.tree("100644", "package.json", big);
+        String ok = b.tree("100644", "package.json", small);
+        String apps = b.tree("40000", "big", bigFolder, "40000", "demo", demo, "40000", "ok", ok);
+        String docs = b.tree("100644", "notes.md", big);
+        String other = b.tree("40000", "x", docs);
+        String root = b.tree("40000", ".github", other, "40000", "apps", apps, "40000", "docs", other,
+            "100644", "README.md", big, "100644", "wave.json", small);
+        String head = b.commit(root);
+        Map<String, byte[]> files = Tree.files(b.pack(), head);
+        check.same("left out: the format's big files only", "apps/big/icon.png\napps/demo/package.json\n",
+            new String(files.get(Tree.DROPPED), StandardCharsets.US_ASCII));
+        check.ok("the rest kept", files.containsKey("apps/ok/package.json") && files.containsKey("apps/big/package.json")
+            && files.containsKey("wave.json") && files.size() == 4);
+        check.same("record read back", Arrays.asList("apps/big/icon.png", "apps/demo/package.json"),
+            Tree.dropped(files.get(Tree.DROPPED)));
+
+        Builder plain = new Builder();
+        String w = plain.blob("{}".getBytes(StandardCharsets.US_ASCII));
+        String headPlain = plain.commit(plain.tree("100644", "wave.json", w));
+        check.ok("no record when nothing is left out", !Tree.files(plain.pack(), headPlain).containsKey(Tree.DROPPED));
+
+        StringBuilder torn = new StringBuilder("wave.json\n../escape\napps/x/package.json\napps/x/package.json\nnot/a/path\n");
+        for (int i = 0; i < 300; i++) torn.append("apps/p").append(i).append("/package.json\n");
+        torn.append("apps/").append(new String(new char[300]).replace('\0', 'a')).append("/package.json\n");
+        java.util.List<String> read = Tree.dropped(torn.toString().getBytes(StandardCharsets.US_ASCII));
+        check.same("a torn record keeps only well-formed paths, at most 200", Tree.MAX_DROPPED, read.size());
+        check.ok("and never an escape or a repeat", read.get(0).equals("wave.json") && read.get(1).equals("apps/x/package.json")
+            && !read.contains("../escape") && !read.contains("not/a/path"));
+        check.ok("garbage is no record", Tree.dropped(new byte[] {0, -1, 10}).isEmpty() && Tree.dropped(null).isEmpty());
+
+        // More package folders than Wave keeps: its own words, not the 8 MB ones.
+        Builder many = new Builder();
+        String pkg = many.tree("100644", "package.json", many.blob("{}".getBytes(StandardCharsets.US_ASCII)));
+        String[] entries = new String[12_001 * 3];
+        for (int i = 0; i < 12_001; i++) {
+            entries[i * 3] = "40000";
+            entries[i * 3 + 1] = String.format("p%05d", i);
+            entries[i * 3 + 2] = pkg;
+        }
+        String section = many.tree(entries);
+        String headMany = many.commit(many.tree("40000", "apps", section));
+        try {
+            Tree.files(many.pack(), headMany);
+            check.ok("12,001 packages refused", false);
+        } catch (SourceFailure e) {
+            check.same("12,001 packages: " + e.detail(), SourceFailure.Kind.TOO_MANY, e.kind);
+        }
+
+        // A pack claiming more objects than Wave reads is too big, not unreadable.
+        try {
+            Pack.parse(new Builder().bytes(64_001));
+            check.ok("64,001 objects refused", false);
+        } catch (SourceFailure e) {
+            check.same("64,001 objects: " + e.detail(), SourceFailure.Kind.TOO_BIG, e.kind);
+        }
+        try {
+            Pack.parse(new Builder().bytes(1000));
+            check.ok("a count past the data refused", false);
+        } catch (SourceFailure e) {
+            check.ok("a count past the data is not too big", e.kind != SourceFailure.Kind.TOO_BIG);
+        } catch (IOException e) {
+            check.ok("a count past the data is unreadable", true);
+        }
     }
 
     /** Whatever leaves the package can only fail in the screen's words: no public method declares a bare IOException. */

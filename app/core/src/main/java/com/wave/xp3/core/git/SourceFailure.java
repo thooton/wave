@@ -23,7 +23,10 @@ public final class SourceFailure extends IOException {
         UNSUPPORTED("That source's server doesn't work with Wave."),
         EMPTY("That source is empty."),
         UNREADABLE("That source sent something Wave can't read."),
-        TOO_BIG("That source is too big for Wave."),
+        /** Over what Wave fetches at once: it reads the whole latest commit, whatever else the repository holds. */
+        TOO_BIG("That source is over the 8 MB Wave fetches. Keep only the source there."),
+        /** Within the fetch, but more package files and icons than Wave keeps. */
+        TOO_MANY("That source lists too much for Wave (12,000 files, 16 MB at most)."),
         TIMEOUT("The connection timed out. Try again."),
         OFFLINE("Couldn't reach the source. Check the connection."),
         INSECURE("The secure connection to the source failed."),
@@ -42,9 +45,22 @@ public final class SourceFailure extends IOException {
     }
 
     public SourceFailure(Kind kind, String detail, Throwable cause) {
-        super(kind.says, cause);
+        this(kind, kind.says, detail, cause);
+    }
+
+    private SourceFailure(Kind kind, String says, String detail, Throwable cause) {
+        super(says, cause);
         this.kind = kind;
         this.detail = detail == null ? "" : detail;
+    }
+
+    /**
+     * A failure of the kind whose screen text is more specific than the kind's
+     * own, such as which field of the source's details is wrong. The text must
+     * already be plain words.
+     */
+    public static SourceFailure saying(Kind kind, String says, String detail, Throwable cause) {
+        return new SourceFailure(kind, says, detail, cause);
     }
 
     /** A reply other than 200 from the source's server. */

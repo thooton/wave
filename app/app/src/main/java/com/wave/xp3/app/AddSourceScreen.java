@@ -197,7 +197,8 @@ final class AddSourceScreen extends Screen {
     private void trust(final WaveData.Preview preview) {
         String who = preview.maintainer != null ? preview.maintainer + ", " : "";
         View head = app.dialogHead(new AppIcons.Ref("preview:" + preview.redactedUrl, preview.name, null, preview.icon(), null),
-            preview.name, who + preview.packageCount + (preview.packageCount == 1 ? " package" : " packages"));
+            preview.name, who + preview.packageCount + (preview.packageCount == 1 ? " package" : " packages")
+                + (preview.unreadable > 0 ? " (" + preview.unreadable + " can't be read)" : ""));
         String whom = preview.maintainer != null ? preview.maintainer : "its maintainer";
         AlertDialog dialog = new AlertDialog.Builder(app)
             .setCustomTitle(head)

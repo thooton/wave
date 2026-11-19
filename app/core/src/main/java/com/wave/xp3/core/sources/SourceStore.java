@@ -76,6 +76,8 @@ public final class SourceStore {
         public final String url;
         public final SourceManifest manifest;
         public final int packageCount;
+        /** Package folders whose package file was left out or can't be read (packageCount excludes them). */
+        public final int unreadable;
         private final Source source;
         private final Map<String, byte[]> files;
 
@@ -85,12 +87,15 @@ public final class SourceStore {
             this.manifest = manifest;
             this.files = files;
             Set<String> packages = new HashSet<>();
+            int bad = 0;
             for (Map.Entry<String, byte[]> entry : files.entrySet()) {
                 if (!entry.getKey().endsWith("/package.json")) continue;
-                try { packages.add(PackageManifest.parse(entry.getValue()).id); }
-                catch (IllegalArgumentException ignored) { /* Broken package, not a broken source. */ }
+                try { if (!packages.add(PackageManifest.parse(entry.getValue()).id)) bad++; }
+                catch (IllegalArgumentException ignored) { bad++; /* Broken package, not a broken source. */ }
             }
+            for (String path : Tree.dropped(files.get(Tree.DROPPED))) if (path.endsWith("/package.json")) bad++;
             packageCount = packages.size();
+            unreadable = bad;
         }
 
         /** Optional source icon for the trust dialog. No file is created before approval. */
@@ -218,8 +223,16 @@ public final class SourceStore {
     }
 
     private static SourceManifest header(Update update) throws IOException {
-        try { return SourceManifest.parse(update.files.get("wave.json")); }
-        catch (IllegalArgumentException e) { throw new SourceFailure(SourceFailure.Kind.UNREADABLE, "wave.json: " + e.getMessage(), e); }
+        byte[] bytes = update.files.get("wave.json");
+        if (bytes == null && Tree.dropped(update.files.get(Tree.DROPPED)).contains("wave.json")) {
+            throw SourceFailure.saying(SourceFailure.Kind.UNREADABLE, Index.OWN_DETAILS_BIG, "wave.json over 64 KiB", null);
+        }
+        try { return SourceManifest.parse(bytes); }
+        catch (IllegalArgumentException e) {
+            // A missing one means this isn't a source; anything else names the field to fix.
+            if (bytes == null) throw new SourceFailure(SourceFailure.Kind.UNREADABLE, "wave.json: " + e.getMessage(), e);
+            throw SourceFailure.saying(SourceFailure.Kind.UNREADABLE, Index.ownDetails(e.getMessage()), "wave.json: " + e.getMessage(), e);
+        }
     }
 
     /** The fetch's failures as the screen should say them; a fetcher's own words become the detail. */
@@ -282,11 +295,12 @@ public final class SourceStore {
             for (Map.Entry<String, byte[]> entry : files.entrySet()) {
                 String relative = entry.getKey();
                 String[] parts = relative.split("/", -1);
-                boolean allowed = parts.length == 1 && ("wave.json".equals(relative) || "icon.png".equals(relative)) ||
+                boolean allowed = parts.length == 1 && ("wave.json".equals(relative) || "icon.png".equals(relative)
+                        || Tree.DROPPED.equals(relative)) ||
                     parts.length == 3 && Fields.FOLDER.matcher(parts[0]).matches() && Fields.FOLDER.matcher(parts[1]).matches() &&
                     ("package.json".equals(parts[2]) || "icon.png".equals(parts[2]));
                 if (!allowed) throw new SourceFailure(SourceFailure.Kind.UNREADABLE, "Invalid source path " + relative);
-                if (entry.getValue().length > Tree.MAX_FILE) throw new SourceFailure(SourceFailure.Kind.TOO_BIG, "Over the file size limit: " + relative);
+                if (entry.getValue().length > Tree.MAX_FILE) throw new SourceFailure(SourceFailure.Kind.UNREADABLE, "Over the file size limit: " + relative);
                 Path path = staging.resolve(relative);
                 Files.createDirectories(path.getParent());
                 // No per-file sync: a thousand fsyncs take minutes on flash. The digest below makes a torn write detectable.

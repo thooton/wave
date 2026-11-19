@@ -59,6 +59,8 @@ public final class SourceController implements WaveData {
     private String firstLoadError, actionError, rootLabel = "Checking…";
     private Inventory inventory = new Inventory();
     private Index shown;
+    // Main thread: the source page's lines per index source, by identity.
+    private final java.util.Map<Index.Source, List<List<String>>> pageLines = new java.util.IdentityHashMap<>();
     private CatalogModel catalog;
     private QueueView queue;
     private Snapshot snapshot;
@@ -96,13 +98,22 @@ public final class SourceController implements WaveData {
 
     private void render() {
         List<Src> rows = new ArrayList<>();
+        // Each index source's page lines are built once; only the shown index's are kept.
+        java.util.Set<Index.Source> live = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        if (shown != null) live.addAll(shown.sources());
+        pageLines.keySet().retainAll(live);
         if (shown != null) for (Index.Source s : shown.sources()) {
             String error = sourceErrors.get(s.info.id);
-            // The issue itself is a diagnosis in the format's terms; the screen only needs to know there is one.
-            if (error == null && s.issues.containsKey("wave.json")) error = com.wave.xp3.core.git.SourceFailure.Kind.UNREADABLE.says;
+            // The reader's words for the source's own details, never the raw issue.
+            if (error == null && s.issues.containsKey("wave.json")) {
+                error = s.headerProblem != null ? s.headerProblem : com.wave.xp3.core.git.SourceFailure.Kind.UNREADABLE.says;
+            }
+            List<List<String>> lines = pageLines.get(s);
+            if (lines == null) pageLines.put(s, lines = Index.pageLines(s, 20));
             rows.add(new Src(s.info.id, s.info.name, s.info.url, s.icon, s.info.builtIn,
                 s.manifest == null ? "" : s.manifest.maintainer, s.info.lastRefresh, s.packages.size(),
-                refreshing.contains(s.info.id), error, s.manifest != null && s.manifest.needsNewerWave()));
+                refreshing.contains(s.info.id), error, s.manifest != null && s.manifest.needsNewerWave(),
+                s.unreadable(), lines.get(0), lines.get(1)));
         }
         List<TurnedOff> alerts = new ArrayList<>();
         for (TurnedOff alert : inventory.turnedOff) if (!acknowledged.contains(alert.id)) alerts.add(alert);
@@ -249,7 +260,8 @@ public final class SourceController implements WaveData {
     @Override public void preview(String url, Result<Preview> callback) {
         request(network, () -> {
             SourceStore.Preview result = sources().preview(url);
-            return new Preview(result.manifest.name, result.manifest.maintainer, result.packageCount, result.icon(), result.url, result);
+            return new Preview(result.manifest.name, result.manifest.maintainer, result.packageCount, result.unreadable,
+                result.icon(), result.url, result);
         }, callback);
     }
 

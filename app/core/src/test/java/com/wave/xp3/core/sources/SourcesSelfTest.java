@@ -36,6 +36,125 @@ public final class SourcesSelfTest {
         check.run("Tree generations under readers and a removal", () -> generations(check));
         check.run("Empty, maximal and very large sources", () -> extremes(check));
         check.run("Store failures in plain words", () -> plainFailures(check));
+        check.run("What a source's page lists as not read", () -> notRead(check));
+    }
+
+    private static byte[] edited(byte[] json, String from, String to) {
+        String text = new String(json, StandardCharsets.UTF_8);
+        if (!text.contains(from)) throw new AssertionError("fixture lacks " + from);
+        return text.replace(from, to).getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static void notRead(Check check) throws Exception {
+        Path root = Files.createTempDirectory("wave-not-read-test");
+        try {
+            Map<String, byte[]> files = example();
+            AtomicReference<SourceStore.Update> payload = new AtomicReference<>(new SourceStore.Update(HEAD_A, files));
+            SourceStore store = new SourceStore(root.toFile(), (url, commit) -> payload.get());
+
+            // (e) All fine: nothing listed.
+            SourceStore.Source fine = store.add(store.preview("https://sample.test/fine"));
+            Index.Source clean = store.index().source(fine.id);
+            check.ok("all fine: no problems", clean.problems.isEmpty() && clean.unreadable() == 0 && clean.headerProblem == null);
+            check.ok("a generation without a record isn't damaged", clean.packages.size() == 2);
+            store.remove(fine.id);
+
+            // (a)-(d) A missing field, a repeated id, a file over 64 KB and an icon too large.
+            Map<String, byte[]> mixed = new LinkedHashMap<>(files);
+            byte[] list = files.get(LIST);
+            mixed.put("applications/nosummary/package.json", edited(edited(list, "com.list.xp3", "com.nosummary.xp3"),
+                "\"summary\": \"A small checklist for a small screen\",", ""));
+            mixed.put("applications/zz-copy/package.json", list);
+            mixed.put(LIST_ICON, variant("huge-icon/icon.png"));
+            mixed.put(com.wave.xp3.core.git.Tree.DROPPED,
+                "applications/huge/package.json\n../escape\nsystem/big-icon/icon.png\n".getBytes(StandardCharsets.US_ASCII));
+            payload.set(new SourceStore.Update(HEAD_B, mixed));
+            SourceStore.Preview preview = store.preview("https://sample.test/mixed");
+            check.same("preview counts what it can read", 2, preview.packageCount);
+            check.same("preview counts what it can't", 3, preview.unreadable);
+            SourceStore.Source added = store.add(preview);
+            Index.Source mixedView = store.index().source(added.id);
+            java.util.List<String> lines = new java.util.ArrayList<>();
+            for (Index.Problem p : mixedView.problems) lines.add((p.icon ? "icon " : "") + p.folder + ": " + p.reason);
+            check.same("what the page lists", Arrays.asList(
+                "huge: Over 64 KB", "nosummary: summary is required", "zz-copy: Same id as list",
+                "icon big-icon: Over 64 KB", "icon list: Icon must be at most 1024 pixels square"), lines);
+            check.same("unreadable packages", 3, mixedView.unreadable());
+            check.same("the page's icon lines", Arrays.asList("big-icon: Over 64 KB", "list: Icon must be at most 1024 pixels square"),
+                Index.pageLines(mixedView, 20).get(1));
+            check.ok("an ignored icon keeps its package", store.index().get(APP_ID) != null && store.index().get(APP_ID).icon == null);
+            check.ok("the record isn't a package or an issue of its own",
+                !mixedView.issues.containsKey(com.wave.xp3.core.git.Tree.DROPPED) && mixedView.packages.size() == 2);
+            // A new process checks the generation's digest again, record included.
+            SourceStore again = new SourceStore(root.toFile(), (url, commit) -> payload.get());
+            check.same("the record survives a restart", 3, again.index().source(added.id).unreadable());
+            Path record = root.resolve("sources").resolve(added.id).resolve("tree").resolve(HEAD_B)
+                .resolve(com.wave.xp3.core.git.Tree.DROPPED);
+            Files.write(record, "applications/other/package.json\n".getBytes(StandardCharsets.US_ASCII));
+            SourceStore tampered = new SourceStore(root.toFile(), (url, commit) -> payload.get());
+            check.ok("a changed record is caught by the digest", tampered.index().source(added.id).packages.isEmpty());
+            store = tampered;
+            store.remove(added.id);
+
+            // (f) 25 bad packages: 20 on the page, then the rest counted.
+            Map<String, byte[]> bad = new LinkedHashMap<>(files);
+            StringBuilder dropped = new StringBuilder();
+            for (int i = 0; i < 25; i++) dropped.append(String.format("applications/p%02d/package.json\n", i));
+            bad.put(com.wave.xp3.core.git.Tree.DROPPED, dropped.toString().getBytes(StandardCharsets.US_ASCII));
+            payload.set(new SourceStore.Update(HEAD_A, bad));
+            SourceStore.Source many = store.add(store.preview("https://sample.test/many"));
+            java.util.List<String> all = new java.util.ArrayList<>();
+            for (Index.Problem p : store.index().source(many.id).problems) all.add(p.folder + ": " + p.reason);
+            java.util.List<String> shown = Index.pageLines(store.index().source(many.id), 20).get(0);
+            check.same("25 bad: 20 and the rest", 21, shown.size());
+            check.same("then", "and 5 more", shown.get(20));
+            check.same("no icons, no lines", 0, Index.pageLines(store.index().source(many.id), 20).get(1).size());
+            check.same("short lists whole", 3, Index.capped(all.subList(0, 3), 20, 3).size());
+            store.remove(many.id);
+
+            // 1,000 bad packages: the source keeps 200 to list and counts the rest.
+            Path thousand = root.resolve("thousand");
+            Files.createDirectories(thousand);
+            Files.write(thousand.resolve("wave.json"), files.get("wave.json"));
+            for (int i = 0; i < 1000; i++) {
+                Path folder = thousand.resolve("applications").resolve(String.format("p%04d", i));
+                Files.createDirectories(folder);
+                Files.write(folder.resolve("package.json"), "{}".getBytes(StandardCharsets.US_ASCII));
+            }
+            Index.Source flood = Index.read(null, thousand);
+            check.same("1,000 bad: 200 kept", Index.MAX_PROBLEMS, flood.problems.size());
+            check.same("1,000 bad: the rest counted", 800, flood.moreProblems);
+            check.same("1,000 bad: all unreadable", 1000, flood.unreadable());
+            check.same("1,000 bad: the page's last line", "and 980 more", Index.pageLines(flood, 20).get(0).get(20));
+
+            // (g) The source's own details: over 64 KB, or one field wrong, say so plainly.
+            Map<String, byte[]> noHeader = new LinkedHashMap<>(files);
+            noHeader.remove("wave.json");
+            noHeader.put(com.wave.xp3.core.git.Tree.DROPPED, "wave.json\n".getBytes(StandardCharsets.US_ASCII));
+            payload.set(new SourceStore.Update(HEAD_A, noHeader));
+            final SourceStore s1 = store;
+            failsSaying(check, "wave.json over 64 KB", "64 KiB", "The source's details are over 64 KB.",
+                () -> s1.preview("https://sample.test/big-header"));
+            Map<String, byte[]> unnamed = new LinkedHashMap<>(files);
+            unnamed.put("wave.json", edited(files.get("wave.json"), "\"name\": \"Example Source\",", ""));
+            payload.set(new SourceStore.Update(HEAD_A, unnamed));
+            failsSaying(check, "wave.json without a name", "name", "The source's details: name is required.",
+                () -> s1.preview("https://sample.test/unnamed"));
+            Map<String, byte[]> missing = new LinkedHashMap<>(files);
+            missing.remove("wave.json");
+            payload.set(new SourceStore.Update(HEAD_A, missing));
+            failsBecause(check, "no wave.json at all", "wave.json", () -> s1.preview("https://sample.test/none"));
+
+            // The same words on the row of a saved copy that fails to read.
+            Path checkout = root.resolve("checkout");
+            Files.createDirectories(checkout);
+            Files.write(checkout.resolve("wave.json"), unnamed.get("wave.json"));
+            check.same("row words for a saved copy", "The source's details: name is required.",
+                Index.read(null, checkout).headerProblem);
+            Files.write(checkout.resolve("wave.json"), "{".getBytes(StandardCharsets.US_ASCII));
+            check.same("row words when it isn't one field", "The source's details can't be read.",
+                Index.read(null, checkout).headerProblem);
+        } finally { erase(root); }
     }
 
     /** Refused with a SourceFailure whose detail (not shown on screen) mentions `detail`, and whose message is plain. */
@@ -46,6 +165,20 @@ public final class SourcesSelfTest {
         } catch (com.wave.xp3.core.git.SourceFailure e) {
             check.ok(name + ": " + e.detail(), e.detail().contains(detail));
             check.same(name + ": the screen's words", e.kind.says, e.getMessage());
+        } catch (Exception e) {
+            check.ok(name + ": not a SourceFailure: " + e, false);
+        }
+    }
+
+    /** Like failsBecause, but the screen gets more specific words than the kind's own. */
+    static void failsSaying(Check check, String name, String detail, String says, Check.Body body) {
+        try {
+            body.run();
+            check.ok(name + ": refused", false);
+        } catch (com.wave.xp3.core.git.SourceFailure e) {
+            check.ok(name + ": " + e.detail(), e.detail().contains(detail));
+            check.same(name + ": the screen's words", says, e.getMessage());
+            check.ok(name + ": plain", !JARGON.matcher(e.getMessage()).find());
         } catch (Exception e) {
             check.ok(name + ": not a SourceFailure: " + e, false);
         }
@@ -168,7 +301,8 @@ public final class SourcesSelfTest {
             Map<String, byte[]> invalid = new LinkedHashMap<>(valid);
             invalid.put("wave.json", variant("bad-header/wave.json"));
             payload.set(new SourceStore.Update(HEAD_B, invalid));
-            failsBecause(check, "failed validation leaves active tree", "wave.json", () -> store.refresh(added.id));
+            failsSaying(check, "failed validation leaves active tree", "wave.json", "The source's details can't be read.",
+                () -> store.refresh(added.id));
             check.same("old HEAD survives validation failure", HEAD_A, store.index().source(added.id).info.commit);
             invalid.put("wave.json", valid.get("wave.json"));
             invalid.put("../../escape.png", new byte[0]);
