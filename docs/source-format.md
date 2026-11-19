@@ -18,9 +18,11 @@ icon.png                     optional
 
 - Exactly two levels. A top-level folder is a section if it contains at least
   one `<folder>/package.json`; anything else in the repository is ignored.
-- Section and package folder names: lowercase letters, digits and `-`.
-  The package folder name is only a name; identity is the `id` in the file.
-- Files are UTF-8. A manifest is at most 64 KB and an icon at most 64 KB:
+- Section and package folder names start with a lowercase letter or digit
+  and may also contain `-`. The package folder name is only a name; identity
+  is the `id` in the file. Manifest and icon paths are regular files, not symlinks.
+- Files are UTF-8. A manifest is at most 64 KB and an icon at most 64 KB
+  (65,536 bytes each):
   Wave fetches with a 256 KB blob limit and anything larger never reaches
   the phone.
 - Icons are square PNGs, 96x96 recommended. Wave rounds the corners. A
@@ -102,11 +104,13 @@ icon.png                     optional
 | `depends` | no | Packages installed first. Each is an id, or `{ "id": "...", "min": "1.2.0" }` |
 | `conflicts` | no | Ids that can't be installed alongside; Wave refuses and says which |
 | `replaces` | no | Ids Wave removes as part of installing this one |
-| `changes` | no | What's new, newest first, at most 10: `version`, `date` (`YYYY-MM-DD`), `text` |
+| `changes` | no | What's new, newest first, at most 10: `version` and `text` are required; `date` is an optional calendar date (`YYYY-MM-DD`) |
 
 Rules for readers and writers:
 
 - Unknown fields are ignored, so fields can be added without a new version.
+- `wavesrc lint` validates the version 1 package types. Wave's reader can
+  still list an unknown type or a package from a newer source as unavailable.
 - A manifest that fails to parse or lacks a required field hides that one
   package, not the source.
 - The same `id` in several sources is one package; the highest version wins,

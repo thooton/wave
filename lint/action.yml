@@ -1,0 +1,32 @@
+name: Lint a Wave source
+description: Check a Wave source checkout, optionally downloading and verifying its packages
+inputs:
+  source:
+    description: Source directory in the caller's workspace
+    default: '.'
+  download:
+    description: Whether to download and verify packages (true or false)
+    default: 'false'
+  aapt2:
+    description: Optional path to Android SDK aapt2
+    default: ''
+runs:
+  using: composite
+  steps:
+    - name: Lint source
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        WAVESRC: ${{ github.action_path }}/../tools/wavesrc/wavesrc
+        SOURCE: ${{ inputs.source }}
+        DOWNLOAD: ${{ inputs.download }}
+        AAPT2_PATH: ${{ inputs.aapt2 }}
+      run: |
+        args=()
+        case "$DOWNLOAD" in
+          true) args+=(--download) ;;
+          false) ;;
+          *) echo 'download: expected true or false'; exit 1 ;;
+        esac
+        if [[ -n "$AAPT2_PATH" ]]; then args+=(--aapt2 "$AAPT2_PATH"); fi
+        python3 "$WAVESRC" lint "${args[@]}" -- "$SOURCE"

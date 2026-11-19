@@ -14,7 +14,7 @@
     "sections": {
       "type": "object",
       "description": "Section folder -> display name. Key order is display order.",
-      "propertyNames": { "pattern": "^[a-z0-9][a-z0-9-]*$" },
+      "propertyNames": { "pattern": "^[a-z0-9][a-z0-9-]*(?![\\s\\S])" },
       "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 30 }
     },
     "featured": {

@@ -55,6 +55,12 @@ moving; resolve open questions when the relevant brief has evidence.
    inventory or migration status is unknown, keep the old channel.
 4. **`wave_repository` is generated.** A package's fixed metadata and icon
    live beside its code in `wave_packages/<pkg>/wave/`; CI writes the source.
+   `wavesrc` uses the v1 schemas and checks HTTPS URLs and square PNGs.
+   The schemas now enforce one-line summaries and exact end anchors; the
+   format text specifies folder starts and optional calendar dates. The
+   existing example source already meets these rules. When publishing, CI
+   restarts from the current branch tip on a concurrent push; an older or
+   different same-version binary cannot replace the current release.
 5. **Wave keeps a copy of `common/`** (`common/core`, `common/ui`), synced
    from `wave_packages` by a script that records the commit it came from.
    `wave_packages/common` stays the original. The alternative is making this

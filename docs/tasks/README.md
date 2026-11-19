@@ -24,7 +24,7 @@ rules.
 | :- | :--- | :-- | :--- | :-: |
 | 00 | [Mockups of the app's screens](00-mockups.md) | W | | [ ] |
 | 01 | [Create and rename the repos](01-repos.md) | all | | [x] |
-| 02 | [wavesrc: lint and publish](02-wavesrc.md) | W | | [ ] |
+| 02 | [wavesrc: lint and publish](02-wavesrc.md) | W | | [x] |
 | 03 | [The git client](03-git-client.md) | W | 04 | [x] |
 | 04 | [App foundation from the Updater](04-app-foundation.md) | W | | [x] |
 | 05 | [Sources, index and search](05-sources-index.md) | W | 03, 04 | [ ] |
@@ -58,6 +58,8 @@ Four agents can work without touching the same files: one on the app's core
 ## Work notes
 
 (Record completion evidence, decisions, and blocked checks here.)
+
+- **02 done:** Standard-library `wavesrc`, both composite Actions, and the [publishing guide](../publishing.md). Example lint passes with the expected retired-module warning. All 18 tests pass, including publishing the real List APK (`com.list.xp3` 1.2.6) and retrying a concurrent update against a disposable local Git repository. Hosted Actions were not run.
 
 - **10 (site implemented; phone import pending):** Landing page, USB platform notes and Pages build (`494d22d`, `590b889`), plus the setup-file generator (`bba23b8`). `node --test site/tests/*.test.mjs` and `python3 site/scripts/sync_setup.py ../sonim --check` pass. Chromium served the staged site under `/wave/`, downloaded files for all six apps without sending credential requests or leaving values in browser storage, and the Android core `Config.parse` accepted those six downloads. Setup files are the v1 transport; source QR creation awaits camera validation. Imports on a reserved XP3800 with the corresponding app builds are not verified. GitHub Pages must be enabled by the owner with GitHub Actions as the source; no remote deployment was attempted.
 

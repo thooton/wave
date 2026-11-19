@@ -1,0 +1,61 @@
+name: Publish a Wave package
+description: Generate a manifest from a built APK or Magisk module and publish it to a Wave source
+inputs:
+  source-repository:
+    description: GitHub repository containing the Wave source (owner/name)
+    required: true
+  source-token:
+    description: Token with contents write access to the source repository
+    required: true
+  section:
+    description: Section folder name
+    required: true
+  folder:
+    description: Optional package folder name, otherwise derived from the display name
+    default: ''
+  meta:
+    description: Static package metadata file in the caller's workspace
+    required: true
+  icon:
+    description: Package PNG icon in the caller's workspace
+    required: true
+  binary:
+    description: Built artifact in the caller's workspace
+    required: true
+  url:
+    description: Immutable HTTPS URL where the artifact is already hosted
+    required: true
+  changes-from:
+    description: Package Git checkout in the caller's workspace (fetch-depth 0 recommended)
+    default: '.'
+  changes-path:
+    description: Package directory relative to changes-from
+    required: true
+  aapt2:
+    description: Optional path to Android SDK aapt2
+    default: ''
+runs:
+  using: composite
+  steps:
+    - name: Check out the source
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ inputs.source-repository }}
+        token: ${{ inputs.source-token }}
+        path: .wavesrc-target
+    - name: Publish manifest and icon
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        SOURCE: .wavesrc-target
+        WAVESRC: ${{ github.action_path }}/../tools/wavesrc/wavesrc
+        SECTION: ${{ inputs.section }}
+        FOLDER: ${{ inputs.folder }}
+        META: ${{ inputs.meta }}
+        ICON: ${{ inputs.icon }}
+        BINARY: ${{ inputs.binary }}
+        URL: ${{ inputs.url }}
+        CHANGES_FROM: ${{ inputs.changes-from }}
+        CHANGES_PATH: ${{ inputs.changes-path }}
+        AAPT2_PATH: ${{ inputs.aapt2 }}
+      run: bash "$GITHUB_ACTION_PATH/push.sh"
