@@ -1,5 +1,5 @@
 #!/system/bin/sh
-# wave-watchdog: 2
+# wave-watchdog: 3
 #
 # Wave's boot watchdog, late half: /data/adb/service.d/wave-watchdog.sh,
 # installed by the Wave app (com.wave.xp3). See docs/design.md section 5 and
@@ -14,7 +14,9 @@
 #   - never a second forced reboot in a row (forced.last): then it leaves the
 #     phone alone.
 # A clean shutdown or restart the user asks for after boot completed counts
-# as good too, so a quick restart doesn't cost a healthy module.
+# as good too, so a quick restart doesn't cost a healthy module. It looks
+# every second: Android sets sys.shutdown.requested only a few seconds
+# before the phone goes down, and a slower look missed it.
 #
 # Magisk runs this in the background (late_start); it may wait.
 
@@ -22,7 +24,7 @@ ADB=${WAVE_ADB:-/data/adb}
 W=$ADB/wave
 LIMIT=${WAVE_BOOT_LIMIT:-300}
 SETTLE=${WAVE_SETTLE:-60}
-STEP=${WAVE_STEP:-5}
+STEP=${WAVE_STEP:-1}
 
 log() {
     echo "$(date +%s) service: $*" >> "$W/log"

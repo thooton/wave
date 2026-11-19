@@ -1,0 +1,2 @@
+#!/system/bin/sh
+echo "reboot $*" >> /data/local/tmp/wave-sim/calls

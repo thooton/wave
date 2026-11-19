@@ -27,6 +27,121 @@ isn't rooted. On 2026-11-19 the harness was dry-run on the stock phone
 Record each run's results in `docs/tasks/README.md` under 06 and 08 (see
 "Recording" at the end).
 
+## What is already proven, and what is assumed
+
+Two harnesses in `app/root-tests/magisk/` check the root side against the
+real Magisk 24.0 (from `../rphone/Magisk-v24.0.apk`) before any rooted
+phone is involved. Rerun both after changing anything in `core/root`:
+
+```sh
+app/root-tests/magisk/sim.py            # desktop, about 6 minutes (--fast: 2)
+app/root-tests/magisk/phone.sh <serial> # any XP3, rooted or not, 30 seconds
+```
+
+**`sim.py`** boots a pretend phone in a `bwrap` sandbox as often as each case
+needs. These parts are real:
+- the shell and its applets: Magisk's own busybox, taken from the APK. The
+  x86_64 build runs on the desktop; its applet table is byte-identical to
+  the armeabi-v7a build the XP3 gets, and `sim.py` checks that each run;
+- module installs: `magisk --install-module` runs the APK's
+  `util_functions.sh` `install_module` unchanged;
+- Wave's scripts, exactly as the app builds them (`Gen.java`), and the
+  `root-tests` modules;
+- what magiskd does at each stage (`boot.sh`, copied step by step from
+  v24.0's `bootstages.cpp`, `scripting.cpp` and `module.cpp`):
+  - the environment: `ASH_STANDALONE=1`, and `PATH` is init's plus `:/sbin`;
+  - post-fs-data.d runs only regular executable files, waiting for them at
+    most 35 seconds in all, before `modules_update` is moved into place and
+    the modules are collected;
+  - service.d runs in the background at late_start;
+  - safe mode writes `disable` into every module and runs no scripts;
+  - `remove` runs the module's `uninstall.sh`;
+- the layout: `/data/adb`, and `/sbin/.magisk/busybox/busybox`. The XP3
+  isn't system-as-root, so Magisk's tmpfs is `/sbin`.
+
+These parts are pretend: `getprop`, `setprop`, `/system/bin/reboot`, zygote
+and `system_server`, and mounting. The cases, all passing:
+- a good module settles;
+- the broken module hangs the boot, the watchdog reboots once, and the
+  module is turned off (`boot-timeout`);
+- a framework that keeps restarting leads to one reboot and the module
+  turned off;
+- a power cut gives `boot-incomplete`, and Turn On brings the module back;
+- a user restart right after boot keeps the module;
+- safe mode leaves the watchdog out, and Turn On recovers;
+- a slow neighbour in post-fs-data.d (see the risks below).
+
+**`phone.sh`** runs on the real XP3 as the shell user, only inside
+`/data/local/tmp/wave-sim`, and removes it afterwards. On `8516067e`
+(stock, Android 8.1) all 24 checks passed on 2026-11-19. That run used
+watchdog version 2; version 3 changes only the default poll interval,
+which `phone.sh` sets itself. These parts are
+real:
+- Wave's root scripts under the phone's own `/system/bin/sh` (mksh R55),
+  its toybox and its `grep`, against a pretend `/data/adb`;
+- both watchdog halves under Magisk's armeabi-v7a busybox on the XP3's
+  kernel, with the phone's real `getprop sys.boot_completed` and `pidof
+  system_server`. The settle path ended in "boot settled".
+
+`setprop`, `reboot`, `chown` and `magisk` are stubs there that only record
+the call, so nothing can reboot or change the phone.
+
+**Found and fixed: a user restart could cost a good mod.** The late half
+looked every five seconds. Android sets `sys.shutdown.requested` only a few
+seconds before the phone goes down, so a restart in the first minute after
+the home screen was often missed, and the next boot turned the module off
+as `boot-incomplete`. `sim.py` caught it at the real timings; the desktop
+tests hadn't, because they keep the property set. The watchdog now looks
+every second (version 3). Step 08.6 is the check on hardware.
+
+**Proven: nothing on a device should break.**
+- Every command the watchdog runs is an applet of Magisk's busybox, except
+  `getprop` and `setprop`. Those are in the XP3's `/system/bin`, which is
+  on magiskd's `PATH`, as is `/system/bin/reboot`.
+- Every command Wave's root scripts use exists on the XP3. The XP3 has no
+  `unzip`, but Wave doesn't use it; Magisk's installer uses its busybox's.
+- The watchdog reads no variable from Magisk. Post-fs-data.d and service.d
+  scripts get only `ASH_STANDALONE`, `PATH` and maybe `ZYGISK_ENABLED`;
+  `MODDIR` is for module scripts. The `WAVE_*` settings are for tests, so
+  on a phone the defaults apply.
+- Magisk ignores these scripts' exit status. Even so, both halves exit 0
+  in every case.
+- `/data/adb` is usable at post-fs-data. The XP3 reports
+  `ro.crypto.state=unencrypted`, so there is no wait for decryption.
+- Installing a module, which is how Wave updates one, clears
+  the module's `disable`: Magisk's `install_module` deletes it. So
+  updating a mod the watchdog turned off brings it back, on trial.
+- The safe-mode key is visible to Magisk: see "The ways out".
+
+**Risks, accepted for now.**
+- *A slow neighbour.* If another post-fs-data.d script runs first and
+  takes over 35 seconds, Magisk stops waiting. The watchdog still runs, but
+  races the module collection, so a `disable` it writes can come one boot
+  late. A broken mod would then hang that boot once more, with no forced
+  reboot, because `trying` is already cleared; the boot after that is
+  clean. Magisk runs these scripts in directory order, which isn't sorted.
+  Nothing Wave installs blocks.
+- *`adb reboot` in the first minute.* A reboot that doesn't go through
+  Android's shutdown (`adb reboot`, or `reboot` in a root shell) may not
+  set `sys.shutdown.requested`. One in the first minute after the home
+  screen then counts as an incomplete boot for a mod on trial. That's why
+  the steps below wait two minutes before such a reboot.
+
+**Still assumptions, only a rooted XP3 can settle them.** These are the
+point of the steps below:
+- Magisk's `su`: the prompt, the remembered grant, and that Wave's scripts
+  run as root in Magisk's SELinux domain and can write `/data/adb` (06.1,
+  06.6);
+- `pm install` and the self-update through root (06.2, 06.8);
+- that the broken module's `setprop ctl.stop zygote` really holds the boot
+  at the animation, and that `sys.boot_completed` stays unset meanwhile
+  (08.1);
+- that `setprop sys.powerctl reboot` from Magisk's context reboots the XP3,
+  and how long its boots take against the five-minute limit (08.1);
+- how long Android takes from `sys.shutdown.requested` to going down
+  (08.6);
+- the safe-mode key on the hardware (08.5).
+
 ## Before you start
 
 - **The phone.** Use a rooted test phone, never one holding the owner's data
@@ -38,8 +153,12 @@ Record each run's results in `docs/tasks/README.md` under 06 and 08 (see
   write only their own files in `/data/adb`. The test app is
   `com.wave.xp3.testapp`.
 - **The ways out, before 08.** Know all three:
-  - Magisk's safe mode: hold Volume Down while the phone boots. On the XP3
-    the timing isn't known yet; 08.5 finds it.
+  - Magisk's safe mode: hold the side Volume Down key from power-on until
+    the boot animation shows. Magisk 24.0 checks once, when post-fs-data
+    starts: the key must already be down then and stay down for 3 seconds
+    (`check_key_combo` in `bootstages.cpp`). On the XP3 that key is on
+    `qpnp_pon` (`getevent -p` lists 0072, KEY_VOLUMEDOWN), so Magisk can
+    see it. 08.5 confirms it on the phone.
   - The site's Rescue.
   - From adb, once the phone is up:
     `adb shell su -c 'touch /data/adb/modules/<id>/remove' && adb reboot`.
@@ -185,8 +304,8 @@ plan to install 1.0 over 2.0 is refused as a downgrade.
 - Do: `p module-install`
   - Expect:
     - `INSTALL wave_test_ok: DONE`, `succeeded=true reboot=true`, and the
-      line `Boot watchdog 2 installed.`;
-    - `d facts` shows `watchdogPfd=2` and `watchdogService=2`;
+      line `Boot watchdog 3 installed.`;
+    - `d facts` shows `watchdogPfd=3` and `watchdogService=3`;
     - this command:
       ```sh
       adb -s $S shell su -c 'ls -l /data/adb/post-fs-data.d /data/adb/service.d; cat /data/adb/wave/pending; ls /data/adb/modules_update /data/adb/modules/wave_test_ok'
@@ -257,8 +376,8 @@ plan to install 1.0 over 2.0 is refused as a downgrade.
 
 ## 08: the boot watchdog
 
-Before you start, `d facts` must show `watchdogPfd=2` and
-`watchdogService=2` (from 06.6).
+Before you start, `d facts` must show `watchdogPfd=3` and
+`watchdogService=3` (from 06.6).
 
 **08.1 A broken mod is turned off.** Only the first boot after a mod is
 installed or turned on is judged: Wave lists it in
@@ -340,9 +459,8 @@ installed or turned on is judged: Wave lists it in
 **08.5 Magisk's safe mode.**
 
 - Do: `p module-install`, reboot, and wait two minutes, until the log says
-  `boot settled`. Then reboot
-  and hold Volume Down while the phone boots. Try from the Sonim logo
-  first, then from power-on.
+  `boot settled`. Then reboot and hold Volume Down from the moment you
+  press Power until the boot animation shows (see "The ways out").
 - Expect: every module comes up disabled, which is Magisk's own doing.
   `cat /data/adb/wave/disabled` is empty, because the watchdog didn't do
   it.
@@ -362,7 +480,10 @@ installed or turned on is judged: Wave lists it in
 - Expect: the module stays enabled. The log says `service: shutdown asked
   for after boot completed; modules kept`.
 - If it was disabled with `boot-incomplete`: a user restart was taken for a
-  crash. Record it.
+  crash. Record it, and how long the phone took from the power menu's
+  Restart to the screen going dark. Watchdog 2 polled every five seconds
+  and missed short shutdowns. Version 3 polls every second, so this
+  shouldn't happen.
 
 ## Clean up
 

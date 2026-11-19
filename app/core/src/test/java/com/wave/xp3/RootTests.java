@@ -267,6 +267,9 @@ final class RootTests {
             .contains("five minutes"));
         check.same("scripts versioned alike", Watchdog.version(Watchdog.postFsData()),
             Watchdog.version(Watchdog.service()));
+        // A user restart is seen only in the few seconds Android takes to go
+        // down, so the late half looks every second unless a test says otherwise.
+        check.ok("late half looks every second", Watchdog.service().contains("STEP=${WAVE_STEP:-1}\n"));
     }
 
     /** Runs the early and late halves as Magisk would, through pretend boots. */

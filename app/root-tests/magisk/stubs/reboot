@@ -1,0 +1,3 @@
+#!/sbin/.magisk/busybox/busybox sh
+echo "reboot $*" >> /fake/calls
+touch /fake/rebooted
