@@ -84,10 +84,11 @@ Sahara/Firehose references are bkerler/edl and commaai/qdl.js.
 - **Chromium, staged Restore page:** checked both 33,554,432-byte backups
   entirely in the browser, confirmed the known hash and byte-for-byte
   equality, and verified that the page refuses a different expected hash.
-- **Sahara:** the implementation transferred the pinned programmer on the
-  stock device and got the successful handoff response. Verification of the
-  Firehose client over live USB is pending. The complete read-only operation
-  was verified using bkerler/edl as above.
+- **Development EDL client on Linux:** the pinned Sahara loader completed
+  its handoff and Firehose acknowledged eMMC configure. The live
+  `getstorageinfo` phase then timed out; full reads from this client are
+  only verified by replay. The desktop reference completed both full
+  reads, and the phone returned to stock Android after each EDL session.
 - **Not tested:** rooted Rescue, rooting or stock restore from the public
   pages, and device USB workflows on macOS, Windows, ChromeOS or Android OTG.
   The public pages do not perform rooting or partition writes. Firefox and
