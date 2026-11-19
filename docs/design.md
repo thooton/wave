@@ -366,9 +366,10 @@ for adding a source by QR code.
 `messages_argon`, `launcher_argon` and `music_argon` become Messages
 Improved, Launcher Improved and Music Improved, living at
 `wave_packages/mods/{messages,launcher,music}` with one shared toolkit
-(`mods/tools`: apktool wrapper, `splice_apk.py`, `smalipatch.py`, packaging)
+(`mods/tools`: apktool setup, `smalipatch.py`, unsigned requests, signature
+verification and packaging)
 instead of three copies. In the code, `Argon` becomes `Wave` everywhere:
-classes (`WaveTray`), log tags (`WaveMms`), the build flag (`WAVE_RCS`), files
+classes (`WaveTray`), log tags (`WaveMms`), files
 on the phone (`wave_tray.txt`), preferences. Module ids become
 `messages_improved`, `launcher_improved`, `music_improved`, each `replaces`
 its old id. Anything stored on a phone under an old name is migrated on first
