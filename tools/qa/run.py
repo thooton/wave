@@ -13,9 +13,11 @@ import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 from xml.etree import ElementTree as ET
+from zipfile import ZipFile, BadZipFile
 
 from pixels import WIDTH, HEIGHT, decode, difference
 
@@ -23,7 +25,9 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 SERIAL = '8516067e'
 PACKAGE = 'com.wave.xp3'
-ACTIVITY = PACKAGE + '/.MainActivity'
+ACTIVITIES = {'com.wave.xp3.MainActivity', 'com.wave.xp3.app.WaveActivity'}
+FIXTURES = ('browse', 'reboot', 'errors', 'offline', 'noroot', 'search')
+FIXTURE_DESCRIPTOR = b'Lcom/wave/xp3/app/FakeWaveData;'
 LOCK = ROOT / '.oak' / 'phone.lock'
 KEYS = {'DPAD_UP', 'DPAD_DOWN', 'DPAD_LEFT', 'DPAD_RIGHT', 'ENTER', 'BACK', 'MENU'}
 REGION = (0, 25, WIDTH, 270)  # Omit status/navigation bars. Override for finer focus checks.
@@ -100,7 +104,7 @@ def command(args, timeout=12, check=True):
     return result
 
 
-def inspect_apk(path):
+def inspect_apk(path, fixture):
     sdk = Path(os.environ.get('ANDROID_HOME') or os.environ.get('ANDROID_SDK_ROOT') or '/opt/android-sdk')
     tools = sorted(sdk.glob('build-tools/*/aapt'), reverse=True)
     aapt = shutil.which('aapt') or next((str(candidate) for candidate in tools if os.access(candidate, os.X_OK)), None)
@@ -110,9 +114,25 @@ def inspect_apk(path):
     metadata = re.search(r"^package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'", text, re.M)
     if not metadata or metadata[1] != PACKAGE:
         raise HarnessError(f'APK must be {PACKAGE}; nothing sent to the phone.')
+    launchable = re.search(r"^launchable-activity: name='([^']+)'", text, re.M)
+    if not launchable or launchable[1] not in ACTIVITIES:
+        raise HarnessError('APK has no recognized Wave launcher activity.')
+    if fixture:
+        if launchable[1] != 'com.wave.xp3.app.WaveActivity' or 'application-debuggable' not in text.splitlines():
+            raise HarnessError('Fixtures require a debuggable WaveActivity build.')
+        try:
+            with ZipFile(path) as archive:
+                has_fake = any(re.fullmatch(r'classes[0-9]*\.dex', entry.filename)
+                               and entry.file_size <= 16 * 1024 * 1024
+                               and FIXTURE_DESCRIPTOR in archive.read(entry)
+                               for entry in archive.infolist())
+        except BadZipFile as e:
+            raise HarnessError('Could not inspect the fixture APK.') from e
+        if not has_fake:
+            raise HarnessError('Fixture provider missing from the APK. No real plans are exercised in fixture mode.')
     with path.open('rb') as apk:
         digest = hashlib.file_digest(apk, 'sha256').hexdigest()
-    return f'{metadata[3]} (code {metadata[2]}), SHA-256 {digest}'
+    return f'{metadata[3]} (code {metadata[2]}), SHA-256 {digest}', PACKAGE + '/' + launchable[1]
 
 
 @contextmanager
@@ -143,7 +163,9 @@ def phone_lock():
 
 
 class Device:
-    def __init__(self, adb):
+    def __init__(self, adb, activity, fixture):
+        self.activity = activity
+        self.fixture = fixture
         self.prefix = [adb, '-s', SERIAL]
         self.marker = 'qa_' + uuid.uuid4().hex
         self.dump_path = '/data/local/tmp/wave-' + self.marker + '.xml'
@@ -324,7 +346,8 @@ def run_steps(device, scenario, output, frames):
         if before is not None and not device.foreground():
             raise CheckFailed('Wave lost foreground while reading the hierarchy; no key sent.')
         if action == 'launch':
-            reply = device.text('shell', 'am', 'start', '-W', '-n', ACTIVITY, timeout=20)
+            extras = ('--es', 'fixture', device.fixture) if device.fixture else ()
+            reply = device.text('shell', 'am', 'start', '-W', '-n', device.activity, *extras, timeout=20)
             if not re.search(r'^Status: ok$', reply, re.M):
                 raise CheckFailed('Activity did not report a successful launch.')
         elif action != 'capture':
@@ -410,25 +433,36 @@ def main():
     choice = parser.add_mutually_exclusive_group(required=True)
     choice.add_argument('--dry-run', action='store_true', help='run the non-installing in-app smoke path on the real handset')
     choice.add_argument('--scenario', type=Path, help='run a reviewed local JSON scenario')
+    parser.add_argument('--fixture', choices=FIXTURES, help='use mock data in a debug-only WaveActivity build')
     parser.add_argument('--out', type=Path, help='new report folder (default .oak/tmp/wave-qa/<UTC>_<id>)')
     args = parser.parse_args()
-    path = (args.scenario or HERE / 'scenarios/foundation-smoke.json').resolve()
+    if args.fixture and not args.scenario:
+        parser.error('--fixture requires an explicit --scenario')
+    path = args.scenario.resolve() if args.scenario else None
     run_id = f'{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}_{uuid.uuid4().hex[:8]}'
     output = (args.out or ROOT / '.oak/tmp/wave-qa' / run_id).resolve()
     output.mkdir(parents=True, mode=0o700, exist_ok=False)
     status, metadata = 'PASS', 'APK not inspected'
     frames, notes = [], []
-    title = path.name
+    title = path.name if path else 'Wave device smoke'
     signal.signal(signal.SIGTERM, interrupt)
     try:
-        scenario = read_scenario(path)
-        title = scenario['name']
-        apk = args.apk.resolve()
-        metadata = inspect_apk(apk)
         adb = shutil.which('adb')
         if not adb:
             raise HarnessError('adb not found on PATH.')
-        device_run(Device(adb), apk, scenario, output, frames, notes)
+        # A sibling build can replace Gradle's artifact while a run is in flight.
+        # Inspect and install the same private snapshot; never retain it in the report.
+        with tempfile.TemporaryDirectory(prefix='apk-', dir=output) as temp:
+            apk = Path(temp) / 'wave.apk'
+            shutil.copyfile(args.apk.resolve(strict=True), apk)
+            metadata, activity = inspect_apk(apk, args.fixture)
+            if path is None:
+                path = HERE / 'scenarios' / ('07-launch.json' if activity.endswith('.WaveActivity') else 'foundation-smoke.json')
+            scenario = read_scenario(path)
+            title = scenario['name']
+            if args.fixture:
+                metadata += f', debug fixture {args.fixture}'
+            device_run(Device(adb, activity, args.fixture), apk, scenario, output, frames, notes)
     except CheckFailed as e:
         status = 'FAIL'
         notes.append(str(e))

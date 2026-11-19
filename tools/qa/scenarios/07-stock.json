@@ -1,6 +1,10 @@
 {
-  "name": "Wave root gate on stock XP3800 (07)",
+  "name": "Wave Home and root information on stock XP3800 (07; empty cache)",
   "steps": [
-    {"name": "Root unavailable", "action": "launch", "wait_ms": 2500, "text_all": ["This Phone Isn't Jailbroken", "Check Again"]}
+    {"name": "Launch on stock", "action": "launch", "wait_ms": 1500, "text_all": ["Welcome to Wave", "Add a Source"]},
+    {"name": "Focus Add a Source", "key": "DPAD_DOWN", "focus_moved": true},
+    {"name": "Focus Root for System Mods", "key": "DPAD_DOWN", "text_all": ["Root for System Mods", "Not granted"], "focus_moved": true},
+    {"name": "Read root requirements without asking for root", "key": "ENTER", "before_text": ["Root for System Mods", "Not granted"], "text_all": ["Wave Needs Root for Mods", "Check Again"], "changed": true},
+    {"name": "Leave the root information screen", "key": "BACK", "text_all": ["Root for System Mods"], "changed": true}
   ]
 }

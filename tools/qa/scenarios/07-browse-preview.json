@@ -1,15 +1,17 @@
 {
-  "name": "Source, package and cancel a plan (07; fixture APK)",
+  "name": "Browse Wave source, preview a module plan and cancel (07, debug browse fixture)",
   "steps": [
-    {"name": "Wave Home", "action": "launch", "wait_ms": 2500, "text_all": ["Welcome to Wave"]},
-    {"name": "Open Sources", "key": "DPAD_RIGHT", "text_all": ["All Sources", "Example Source"], "changed": true},
-    {"name": "Focus the fixture source", "key": "DPAD_DOWN", "text_all": ["Example Source"], "focus_moved": true},
-    {"name": "Browse fixture sections", "key": "ENTER", "before_text": ["All Sources", "Example Source"], "text_all": ["Applications", "System"], "changed": true},
+    {"name": "Wave Home", "action": "launch", "wait_ms": 800, "text_all": ["Welcome to Wave", "Messages Improved"]},
+    {"name": "Open Sources", "key": "DPAD_RIGHT", "text_all": ["All Sources", "wave_repository"], "changed": true},
+    {"name": "Focus the Wave source", "key": "DPAD_DOWN", "text_all": ["wave_repository"], "focus_moved": true},
+    {"name": "Browse Wave sections", "key": "ENTER", "before_text": ["All Sources", "wave_repository"], "text_all": ["All Packages", "Applications", "System"], "changed": true},
     {"name": "Focus Applications", "key": "DPAD_DOWN", "text_all": ["Applications"], "focus_moved": true},
-    {"name": "Open Applications", "key": "ENTER", "before_text": ["Applications", "System"], "text_all": ["Applications", "List"], "changed": true},
-    {"name": "Show List details", "key": "ENTER", "before_text": ["Applications", "List"], "text_all": ["List", "GET"], "changed": true},
-    {"name": "Preview List install", "key": "ENTER", "before_text": ["List", "GET"], "text_all": ["Confirm", "Cancel", "List"], "changed": true},
-    {"name": "Cancel without installing", "key": "BACK", "text_all": ["List", "GET"], "changed": true},
-    {"name": "Back to Applications", "key": "BACK", "text_all": ["Applications", "List"], "changed": true}
+    {"name": "Focus System", "key": "DPAD_DOWN", "text_all": ["System"], "focus_moved": true},
+    {"name": "Open System", "key": "ENTER", "before_text": ["All Packages", "System"], "text_all": ["System", "Launcher Improved", "Messages Improved", "Music Improved"], "changed": true},
+    {"name": "Focus Messages Improved", "key": "DPAD_DOWN", "text_all": ["Messages Improved"], "focus_moved": true},
+    {"name": "Show Messages Improved details", "key": "ENTER", "before_text": ["Launcher Improved", "Messages Improved"], "text_all": ["Messages Improved", "GET"], "changed": true},
+    {"name": "Preview module install plan", "key": "ENTER", "before_text": ["Messages Improved", "GET"], "text_all": ["Confirm", "Cancel", "Messages Improved", "SQLite Upgrade"], "changed": true},
+    {"name": "Cancel without installing", "key": "BACK", "text_all": ["Messages Improved", "GET"], "changed": true},
+    {"name": "Back to System", "key": "BACK", "text_all": ["Launcher Improved", "Messages Improved", "Music Improved"], "changed": true}
   ]
 }

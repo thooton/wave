@@ -7,14 +7,16 @@ SDK build-tools (`aapt` on `PATH` or under `ANDROID_HOME`). With XP3800
 ```sh
 python3 tools/qa/run.py --dry-run
 python3 tools/qa/run.py --apk /path/to/wave.apk --scenario tools/qa/scenarios/07-stock.json
+python3 tools/qa/run.py --apk app/app/build/outputs/apk/debug/app-debug.apk \
+  --fixture browse --scenario tools/qa/scenarios/07-browse-preview.json
 python3 -m unittest discover -s tools/qa -v   # no device needed
 ```
 
 `--dry-run` really installs the current release APK (`app/app/build/outputs/apk/release/app-release.apk`),
-launches it, opens the foundation build's Updates menu, closes it, and removes
-only that temporary install. No in-app installs are confirmed. This mode
-expects the older Updates screen (verified with 0.1.0 and 0.3.0); use
-`--scenario` for other milestones.
+launches it, and removes only that temporary install. It selects the older
+Updates-menu smoke (verified with 0.1.0 and 0.3.0) or the newer Home-to-Sources
+smoke using the APK's launcher activity. No in-app installs are confirmed.
+Use `--scenario` for specific paths.
 The harness reserves `.oak/phone.lock` for the device session, uses only this
 serial, and refuses to replace an installed Wave. Wake/unlock the handset
 before running; the harness neither changes Wi-Fi nor sends keys outside Wave.
@@ -51,11 +53,11 @@ records a settled state without keys. Other fields:
 
 `foundation-list.json` exercises row focus for a connected foundation build
 with a populated catalog. The `07-…` scenarios follow the mockup checklist:
-stock root gate, four tabs including the empty Search field, source > section
-> package > plan > Back. The browse preview assumes an explicit fixture build
-with `spec/example-source/` preseeded as the first actual source, keyboard
-focus at the first row, and List absent. It is a candidate scenario, not a
-verified on-device route. Typing a search phrase would require the number
-keys or a preseeded test query; this harness deliberately exposes only the
-listed d-pad/menu keys. No package installs, source edits, or reboots belong
+stock root information, four tabs including the empty Search field, source > section
+> package > plan > Back. The browse preview and tabs use the debug-only
+`browse` fixture from `FakeWaveData`, with known source and package labels.
+The harness inspects the exact APK snapshot before touching the phone and
+refuses to run a fixture if the app is not debuggable or lacks `FakeWaveData`.
+Typing a search phrase would require the number keys or a preseeded test
+query; this harness deliberately exposes only the listed d-pad/menu keys. No package installs, source edits, or reboots belong
 in these UI scenarios.
