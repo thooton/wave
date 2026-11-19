@@ -23,7 +23,7 @@ rules.
 | # | Brief | Repo | Needs | Done |
 | :- | :--- | :-- | :--- | :-: |
 | 00 | [Mockups of the app's screens](00-mockups.md) | W | | [x] |
-| 01 | [Create and rename the repos](01-repos.md) | all | | [x] |
+| 01 | [Create and rename the repos](01-repos.md) | all | | local |
 | 02 | [wavesrc: lint and publish](02-wavesrc.md) | W | | [x] |
 | 03 | [The git client](03-git-client.md) | W | 04 | [x] |
 | 04 | [App foundation from the Updater](04-app-foundation.md) | W | | [x] |
@@ -40,6 +40,9 @@ rules.
 | 15 | [The default source](15-default-source.md) | R | 01, 02 | [x] |
 | 16 | [Source and Tablet in their own repo and source](16-private-source.md) | new | 13's CI pattern, 14's shared setup | [ ] |
 | 17 | [First phone, end to end](17-first-phone.md) | all | 07, 08, 09, 12, 13, 15; 14 and 16 for migration | [ ] |
+
+"local": everything that can be done here is done and checked; the GitHub
+steps wait on the [owner checklist](01-owner-checklist.md).
 
 ## What can run at the same time
 
