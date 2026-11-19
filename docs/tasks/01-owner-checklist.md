@@ -290,11 +290,12 @@ There is no signing material, so skip this. Nothing else depends on it.
 
 ## 12. Private source for Source and Tablet (blocked: don't start yet)
 
-**Stop condition:** Wave can't download a private APK yet. Private
-releases need an authenticated asset download, which is designed but not
-built (decisions open item 4). Until it is, steps 4 and 5 below would
-leave both apps uninstallable from the private source. Steps 1 to 3 are
-safe to do early.
+**Stop condition:** the real private asset has not been fetched on a phone
+yet. Wave 0.7.14 and later send the token from the source address to that
+repository's GitHub release-asset URLs (and nowhere else, redirect hops
+included); this is covered by host tests only (decisions open item 4). Until
+step 5 passes on the migration phone, steps 4 and 5 would risk leaving both
+apps uninstallable from the private source. Steps 1 to 3 are safe to do early.
 
 1. **Review the history.** Review `../wave_private_packages` (`bd56fd0`)
    for bundled credentials. An automated scan found none, which is not a
@@ -322,7 +323,7 @@ safe to do early.
    - A phone lost with it means revoking it.
    - The Delta setup files for Source and Tablet are separate. They go
      straight to those apps, never into a repo.
-5. **Test on the migration phone,** once Wave has authenticated downloads:
+5. **Test on the migration phone** (with Wave 0.7.14 or later installed):
    1. set the variable `PRIVATE_PUBLISH_ENABLED` = `true`;
    2. run **Build private Wave apps** on `master`;
    3. add the source on the reserved migration phone, refresh, and update
