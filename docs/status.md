@@ -68,7 +68,7 @@ work locally. The packages build. The default source is empty.
   phones, and waiting on the owner.
 - **Versions.** Every app on common has an unpublished patch bump (P
   `375e34e` and later). Publishing needs the cutover first. W's `common/`
-  copy is synced to P `de87d48` (`common/UPSTREAM`).
+  copy is synced to P `a361464` (`common/UPSTREAM`).
 - **First phone, end to end ([17](tasks/17-first-phone.md)).** Only the
   stock pass ([first-phone.md](first-phone.md)) and an install, update and
   remove cycle from a local source ([first-install.md](first-install.md))
