@@ -72,8 +72,8 @@ function render(resetMode = false) {
     byId('managed').open = false;
     managed.checked = false;
   }
-  byId('managed').hidden = !descriptor.delta.supported;
-  backend = descriptor.delta.supported && managed.checked ? 'delta' : 'settings';
+  byId('managed').hidden = !descriptor.delta.supported || descriptor.direct === false;
+  backend = descriptor.direct === false || (descriptor.delta.supported && managed.checked) ? 'delta' : 'settings';
   byId('folder').textContent = `Android/data/${descriptor.package}/files/`;
   const noFile = backend === 'settings' && descriptor.settings.length === 0;
   byId('output').hidden = noFile;

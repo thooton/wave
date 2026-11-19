@@ -73,3 +73,11 @@ test('managed setup is allowed only for supported apps and well-formed credentia
     assert.throws(() => makeSetupFile(catalog.mail, 'delta', { server: 'https://example.org', token }), /token/);
   }
 });
+
+
+test('descriptors that require a managed server never generate a direct payload', () => {
+  const descriptor = { format: 1, app: 'test', direct: false, settings: [], delta: { supported: true } };
+  assert.throws(() => makeSetupFile(descriptor, 'settings', {}), /requires managed setup/);
+  const delta = { server: 'https://test.example.org', token: fake };
+  assert.deepEqual(JSON.parse(makeSetupFile(descriptor, 'delta', delta).text), { wave: 1, app: 'test', delta });
+});

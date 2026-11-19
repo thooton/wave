@@ -62,6 +62,7 @@ function delta(descriptor, values) {
 export function makeSetupFile(descriptor, backend, values, label = '') {
   if (descriptor.format !== 1 || !APP_ID.test(descriptor.app)) throw new Error('Unsupported app descriptor.');
   if (backend !== 'settings' && backend !== 'delta') throw new Error('Unsupported setup mode.');
+  if (backend === 'settings' && descriptor.direct === false) throw new Error('This app requires managed setup.');
   const payload = { wave: 1, app: descriptor.app };
   if ((label = label.trim())) {
     if (label.length > 60) throw new Error('The setup label is too long.');
