@@ -89,8 +89,8 @@ moving; resolve open questions when the relevant brief has evidence.
    scanning is supported.
 5. **Windows.** The WinUSB driver step for EDL is the one part of the
    jailbreak that isn't "open a page". Acceptable, or worth a small helper?
-6. **Local folder names.** This folder is `sonim_wave` and the packages are
-   in `../sonim`; the docs call them `wave` and `wave_packages`. Rename the
-   folders when the repos are renamed (`tasks/01-repos.md`).
+6. **Local folder names (closed).** W is already `wave`; keep P at
+   `../sonim` on this shared machine. GitHub uses `wave_packages`. A later
+   fresh clone can use the remote name. See `tasks/01-owner-checklist.md`.
 7. **Wave updates in the background?** Version 1 checks when opened and on
    Refresh. A daily check with a notification is easy to add later.

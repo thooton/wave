@@ -23,7 +23,7 @@ rules.
 | # | Brief | Repo | Needs | Done |
 | :- | :--- | :-- | :--- | :-: |
 | 00 | [Mockups of the app's screens](00-mockups.md) | W | | [ ] |
-| 01 | [Create and rename the repos](01-repos.md) | all | | [ ] |
+| 01 | [Create and rename the repos](01-repos.md) | all | | [x] |
 | 02 | [wavesrc: lint and publish](02-wavesrc.md) | W | | [ ] |
 | 03 | [The git client](03-git-client.md) | W | 04 | [ ] |
 | 04 | [App foundation from the Updater](04-app-foundation.md) | W | | [ ] |
@@ -65,3 +65,5 @@ Four agents can work without touching the same files: one on the app's core
   `com.wave.xp3.SelfTest` using `com.xp3.common.Check`), `:app:app`, `:common:core`, `:common:ui`.
   Needs `local.properties` with `sdk.dir=/opt/android-sdk` (gitignored). APK:
   `app/app/build/outputs/apk/release/app-release.apk`.
+
+- **01 (local complete, remote blocked):** Verified final local origins in W/P/R, kept active worktrees in place. No authenticated GitHub changes or redirect check; see [owner cutover checklist](01-owner-checklist.md).
