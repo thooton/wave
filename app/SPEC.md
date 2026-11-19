@@ -22,8 +22,8 @@ the user asks.
   (`wave_packages` DESIGN.md rule 7).
 - Caching the release: Check Again must see a release made a minute ago.
 - Using the XP3's own installer as the normal path: it refuses anything not
-  Sonim-signed, so APKs go to Installer (`wave_packages/installer`) until brief 06
-  installs through root.
+  Sonim-signed, so without root APKs go to Installer (`wave_packages/installer`);
+  once root has worked on the phone they install through it (brief 06).
 
 ## Screens
 
@@ -153,8 +153,11 @@ each:
    as the phone's copy, and not an older versionCode ("The download is X,
    not Y.", "The phone's copy is signed with a different key.", "The
    release's X is older than the phone's Y.").
-4. Hand it to Installer with `package` set, so Installer refuses any other
-   package. Without Installer, fall back to the system installer. Before
+4. Once root has worked here, `pm install` it from the root shell (Wave
+   itself from a detached one that starts Wave again). Otherwise, or when
+   root is refused, hand it to Installer with `package` set, so Installer
+   refuses any other package. Without Installer, fall back to the system
+   installer. Before
    updating itself, Wave toasts "Wave closes to update itself".
 5. On success, toast "Updated <app> to <v>", "Installed <app> <v>" or
    "Reinstalled <app> <v>"; the row moves to Installed with OPEN.
