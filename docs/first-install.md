@@ -61,9 +61,10 @@ folder `.oak/tmp/temp4/fi/`, which isn't committed.
   which clears a finished queue when a new plan starts, is still to be
   committed. A re-run on a build of `f886fda` (bad hash,
   then GET again with the right file) went straight to Done with no alert.
-- **The trust warning** says "Its packages install with root and can change
-  anything on the phone" even for a source of plain apps, which install
-  without root on stock. It was handed to the UI owner and is still open.
+- **The trust warning** in the 0.7.6 build said "Its packages install with
+  root and can change anything on the phone", even for a source of plain
+  apps, which install without root on stock. It already reads "Its packages
+  can change anything on this phone" since `ffbcae1` (0.7.7).
 
 ## Cleanup
 
