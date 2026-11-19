@@ -59,6 +59,8 @@ Four agents can work without touching the same files: one on the app's core
 
 (Record completion evidence, decisions, and blocked checks here.)
 
+- **10 (site implemented; phone import pending):** Landing page, USB platform notes and Pages build (`494d22d`, `590b889`), plus the setup-file generator (`bba23b8`). `node --test site/tests/*.test.mjs` and `python3 site/scripts/sync_setup.py ../sonim --check` pass. Chromium served the staged site under `/wave/`, downloaded files for all six apps without sending credential requests or leaving values in browser storage, and the Android core `Config.parse` accepted those six downloads. Setup files are the v1 transport; source QR creation awaits camera validation. Imports on a reserved XP3800 with the corresponding app builds are not verified. GitHub Pages must be enabled by the owner with GitHub Actions as the source; no remote deployment was attempted.
+
 - **04 build is in** (commit 98aa658): `JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:core:selfTest :app:app:assembleRelease`
   (JDK 21 required; the machine default is 27, which Gradle 8.9 can't run). Modules `:app:core`
   (`app/core/src/main/java/com/wave/xp3/core/...`, tests `app/core/src/test/java/`, runner
