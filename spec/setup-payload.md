@@ -115,8 +115,13 @@ at run time; the site copies the six files when it is built. Fields (see
   and so does the generator.
 - `delta.supported`: whether a Delta payload is accepted (false for
   Charge: the generator offers only the direct form). `delta.about`:
-  what the command center does for the app. The direct backend is always
-  available.
+  what the command center does for the app.
+- `direct` (default true): whether the app has a direct backend. `false`
+  marks an app only a command center sets up (Source, Tablet): its
+  `settings` must be empty, `delta.supported` true, and a payload with
+  `settings` is refused ("<App> needs a command center"). The generator
+  offers only the Delta form, and the phone neither offers "On this phone
+  only" nor manual settings.
 
 ## Transports
 

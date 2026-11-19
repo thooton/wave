@@ -130,6 +130,11 @@
         "maxLength": 300
       }
     },
+    "direct": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether the app has a direct backend. false: only a command center sets it up (settings must then be empty, and delta.supported true); a payload with settings is refused."
+    },
     "delta": {
       "type": "object",
       "required": [
