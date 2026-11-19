@@ -213,7 +213,10 @@ export class Adb {
     try {
       await this.runService('reboot:', stream => stream.drain(), { announceOpen: () => { opened = true; } });
     } catch (error) {
-      if (!opened || error.name !== 'NotFoundError') throw error;
+      // Once adbd has accepted reboot:, the phone drops off USB. Chromium on
+      // Linux reports that as NetworkError (a transfer error), not only
+      // NotFoundError, and either means the restart is under way.
+      if (!opened || !['NotFoundError', 'NetworkError'].includes(error.name)) throw error;
     } finally {
       await this.close();
     }

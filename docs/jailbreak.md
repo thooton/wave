@@ -277,7 +277,46 @@ A phone that does not boot needs a cold EDL start (battery pull).
   binary read and `ACK rawmode="false"` afterward. The captured trailing
   ZLP is accepted without including it in the image. Merely adding a
   longer timeout did not fix the blocked command.
-- **Not tested:** rooted Rescue, rooting or stock restore from the public
+- **Rescue on the rooted XP3800 (Linux, Chromium 156, 2026-11-19):** the
+  built Rescue page ran in headless Chromium over real WebUSB to the phone's
+  adbd (`WebUsbAllowDevicesForUrls` for `1d9c:8339` on a loopback origin,
+  mounted in a Bubblewrap profile). The harness changed two things only: the
+  chooser was replaced by the one device the policy granted, and the page's
+  fresh RSA key by the desktop's already-authorized adb key. So the chooser and
+  the "Allow USB debugging?" prompt are still untested. A marker module
+  (`wave_rescue_marker`: `module.prop` and a `service.sh` that logs the boot
+  ID) was installed with `magisk --install-module`. Results:
+  - The page listed it while pending (`modules_update`) and when active.
+  - **Disable selected** wrote `disable` and reported "1 module marked
+    disabled. Restart Android to apply the change.", and the list emptied.
+  - **Reboot Android** restarted the phone. The next boot ran no
+    `service.sh`, and the page then said "No enabled modules found."
+  - After removing `disable` (what Magisk's toggle does), the page listed it
+    again and the next boot ran `service.sh`. After `remove` and a reboot it
+    was gone.
+  - Magisk's policy table was the same before and after each run, as the page
+    says.
+
+  One mismatch was found and fixed: after a successful **Reboot Android** the
+  page reported "The browser could not claim the USB interface", because
+  Chromium surfaces the phone dropping off USB as `NetworkError`. `Adb.reboot()`
+  now treats `NetworkError` after `reboot:` was accepted like `NotFoundError`.
+  Re-run on the phone, it shows "Restart requested. Wait for Android to finish
+  booting." Notes:
+  - A module marked for removal still appears in the list until the next boot,
+    since it has no `disable` file. That is harmless.
+  - The "authorize Shell if prompted" step was not exercised, because Shell is
+    already granted on this phone.
+  - The Volume Down safe-mode gesture is still unverified.
+- **Magisk app (24.0) on this phone:** `../rphone/Magisk-v24.0.apk` is
+  byte-identical to the official GitHub release `v24.0/Magisk-v24.0.apk`
+  (SHA-256 `f7ac4e2a…346a`, signer CN=John Wu). `am start` opens
+  `.ui.MainActivity` (about 9 s cold) and the crash buffer is empty. Agent 1
+  also saw no crash during ROOT-TESTING. A "Magisk has stopped" dialog was
+  seen once, before the app's first-run setup and reboot, and could not be
+  reproduced. Its only logged error now is the update check failing with
+  Wi-Fi off. No warning about the APK is needed.
+- **Not tested:** rooting or stock restore from the public
   pages, and device USB workflows on macOS, Windows, ChromeOS or Android OTG.
   The public pages do not perform rooting or partition writes. Firefox and
   Safari do not supply WebUSB; the local verifier does not require WebUSB.
