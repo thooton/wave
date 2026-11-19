@@ -205,6 +205,27 @@ The source screens can use `com.wave.xp3.core.sources` without Android calls:
   The catalog's URL is safe to display; `sources.json` can contain Basic-auth
   credentials and must be excluded from backup.
 
+### Android data wiring (brief 07)
+
+`com.wave.xp3.data.SourceController` publishes immutable `WaveData.Snapshot`
+values to the screens on the main thread. Source fetch and validation run on
+two bounded workers; search has its own worker and only delivers the latest
+query. Cached rows stay available during refresh, and one failing source does
+not clear another's rows. An empty cache with a failed refresh exposes a retry
+message instead of an empty catalog.
+
+The Installed tab includes APKs found through a known package ID, Wave itself,
+and still-installed packages with Wave receipts, even if their source has
+been removed. The phone decides if a package is installed. Pending module
+changes and watchdog-disabled modules are read from the existing Magisk
+state; acknowledgment does not enable a module. An unavailable root shell
+leaves the app in the no-root state; Wave never grants itself root.
+
+A queue preview is made from the current index and installed inventory. An
+incompatible winner cannot be used as a dependency or action target. Confirm
+accepts only the latest preview from the current index and sends it to
+`EngineService`, which owns progress independently of the open screen.
+
 ## Look
 
 `wave_packages` DESIGN.md's "Updater: as the App Store shows it" governs, and sets aside

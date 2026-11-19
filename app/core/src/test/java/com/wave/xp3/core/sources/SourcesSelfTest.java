@@ -70,6 +70,7 @@ public final class SourcesSelfTest {
             SourceStore.Preview preview = store.preview("https://sample.test/preview");
             check.same("preview identifies source", "Example Source", preview.manifest.name);
             check.same("preview counts working packages", 2, preview.packageCount);
+            check.ok("preview exposes valid PNG without persisting any tree", Arrays.equals(valid.get("icon.png"), preview.icon()));
             check.same("preview is not persisted", 1, store.sources().size());
             SourceStore.Source approved = store.add(preview);
             check.same("approval uses fetched tree", HEAD_A, store.index().source(approved.id).info.commit);

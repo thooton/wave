@@ -88,6 +88,14 @@ public final class SourceStore {
             }
             packageCount = packages.size();
         }
+
+        /** Optional source icon for the trust dialog. No file is created before approval. */
+        public byte[] icon() {
+            byte[] icon = files.get("icon.png");
+            if (icon == null) return null;
+            try { Png.check(icon); return icon.clone(); }
+            catch (IllegalArgumentException e) { return null; }
+        }
     }
 
     public static final class Refresh {
@@ -310,8 +318,9 @@ public final class SourceStore {
             "commit", source.commit, "lastRefresh", source.lastRefresh));
         byte[] data = Json.write(entries).getBytes(StandardCharsets.UTF_8);
         if (data.length > MAX_STORE) throw new IOException("Wave source list is too large");
-        Files.createDirectories(list.getParent());
-        Path temporary = Files.createTempFile(list.getParent(), "sources-", ".tmp");
+        // Keep the credential-bearing temporary file inside the backup-excluded sources directory.
+        Files.createDirectories(root);
+        Path temporary = Files.createTempFile(root, "catalog-", ".tmp");
         try {
             // App-private directory; also keep this credential-bearing file owner-only.
             File file = temporary.toFile();
