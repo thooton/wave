@@ -231,7 +231,7 @@ public final class Engine {
             if (Watchdog.needsInstall(facts)) {
                 Shell.Result r = shell.run(Watchdog.install(), QUICK_MS);
                 if (!r.ok()) {
-                    fail(first, "Couldn't set up the boot watchdog: " + last(r.output));
+                    fail(first, "Couldn't set up the boot watchdog, which keeps a mod that stops the phone starting from staying on.");
                     return first;
                 }
                 watchdogNote = "Boot watchdog " + Watchdog.version() + " installed.";
@@ -290,7 +290,7 @@ public final class Engine {
             if (!pm.ok) return fail(item, pm.message);
         } else {
             Shell.Result r = shell.run(Scripts.removeModule(s.id), QUICK_MS);
-            if (!r.ok()) return fail(item, "Couldn't mark it for removal: " + last(r.output));
+            if (!r.ok()) return fail(item, "Couldn't mark it for removal.");
             rebootNeeded = true;
             item.message = "Removed when the phone restarts.";
         }
@@ -354,7 +354,7 @@ public final class Engine {
                 } else {
                     Shell.Result r = shell.run(Scripts.selfUpdate(file.getAbsolutePath(), file.length(), self,
                         platform.selfActivity()), QUICK_MS);
-                    failed = r.ok() ? null : "Couldn't start updating Wave: " + last(r.output);
+                    failed = r.ok() ? null : "Couldn't start updating Wave.";
                 }
                 if (failed != null) {
                     selfUpdating = false;
@@ -427,8 +427,8 @@ public final class Engine {
                 break;
             }
         }
-        if (found == null) found = last(output);
-        return found.isEmpty() ? "Magisk couldn't install it." : "Magisk couldn't install it: " + found;
+        // Anything else it printed is for a shell, not a person.
+        return found == null || found.isEmpty() ? "Magisk couldn't install it." : "Magisk couldn't install it: " + found;
     }
 
     /** Leaves no download behind (Wave's own update has its own copy by now). */
@@ -450,13 +450,7 @@ public final class Engine {
         return text.replaceAll("[^A-Za-z0-9._-]", "_");
     }
 
-    static String last(String output) {
-        if (output == null) return "";
-        String[] lines = output.trim().split("\n");
-        return lines.length == 0 ? "" : lines[lines.length - 1].trim();
-    }
-
     private static String message(IOException e) {
-        return e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+        return e.getMessage() != null && !e.getMessage().trim().isEmpty() ? e.getMessage() : "Something went wrong.";
     }
 }
