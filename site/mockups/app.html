@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Wave: mockups of the app's screens</title>
+<meta name="viewport" content="width=device-width">
+<link rel="stylesheet" href="mockups.css">
+</head>
+<body>
+<div id="root"></div>
+<script src="frames.js"></script>
+<script>
+// app.html shows every frame with its keys; app.html?frame=<id> shows one
+// frame alone at 240x320, for shoot.sh to screenshot.
+const want = new URLSearchParams(location.search).get('frame');
+const root = document.getElementById('root');
+if (want) {
+  document.body.className = 'solo';
+  const f = FRAMES.find((x) => x.id === want);
+  root.innerHTML = f ? f.html : 'no frame ' + want;
+} else {
+  document.body.className = 'gallery';
+  let html = `<h1>Wave: the app's screens</h1>
+  <div class="intro">Every screen of Wave at the XP3800's real size (240x320, 1dp = 1px), drawn with the phone's own Roboto.
+  The look is the Updater's (the App Store's light chrome, iOS blue, grey hairlines, focus drawn as a press); the arrangement is Cydia's.
+  Under each frame: what Left/Right, Up/Down, OK, Back and Menu do there. Screenshots of each frame are in <code>shots/</code>;
+  the frame and d-pad checklist is in <code>CHECKLIST.md</code>. Sample data is illustrative.</div>`;
+  let group = null;
+  for (const f of FRAMES) {
+    if (f.group !== group) {
+      if (group) html += '</div>';
+      html += `<h2>${f.group}</h2><div class="grid">`;
+      group = f.group;
+    }
+    const k = f.keys;
+    html += `<div class="card" id="${f.id}">${f.html}<h3>${f.title} <code>${f.id}</code></h3><ul class="keys">` +
+      `<li><b>Left/Right</b> ${k.lr}</li><li><b>Up/Down</b> ${k.ud}</li><li><b>OK</b> ${k.ok}</li><li><b>Back</b> ${k.back}</li><li><b>Menu</b> ${k.menu}</li></ul>` +
+      (f.note ? `<p class="note">${f.note}</p>` : '') + '</div>';
+  }
+  root.innerHTML = html + '</div>';
+}
+</script>
+</body>
+</html>
