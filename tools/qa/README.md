@@ -80,3 +80,32 @@ key that reveals it.
 the `big` fixture's 500-package lists. `focus_on` checks the focused node's label,
 `text_none` that none of the listed strings is on screen, and `fixture_confirm`
 lets an ENTER step press Confirm, only in a fixture scenario (the queue is pretend).
+
+## What a pass proves, and what it does not
+
+A PASS shows that, on the reserved XP3800 with the APK named in the report, the
+app installed, launched, stayed in the foreground, drew a 240×320 screen,
+responded to each d-pad key, showed the text each step expects (as exposed to
+accessibility), moved focus or changed the screen where a step says so, and
+produced no Wave `FATAL EXCEPTION`, recorded crash or ANR during the run.
+
+It does not prove:
+
+- That a screen looks right. Text and pixel-change checks cannot see layout,
+  colour, truncation or alignment. The reference is the side-by-side comparison
+  of the `site/mockups/phone/` captures with `site/mockups/shots/`.
+  Screenshots in a report are for a human to read.
+- That an install, removal, update or reboot happened. Fixture scenarios run a
+  pretend queue in a debug-only data provider and change nothing on the phone;
+  release-build scenarios never confirm a plan. Real installs need their own
+  verification (see `docs/first-phone.md`).
+- Anything that needs root: mods, the watchdog turning a module off, Check
+  Again granting `su`, Reboot Now. The phone is stock, so those paths were not
+  exercised.
+- Network behaviour. Fixtures bypass sources, Git and downloads; offline
+  scenarios check only the messages Wave shows.
+- Coverage beyond the listed paths. A step passes if its checks pass; whatever
+  is not asserted is not checked. A crash outside the run, or in another app,
+  is not seen.
+- That the build in the report is the one that ships. The report records the
+  APK's version and SHA-256; compare it with the release you mean.
