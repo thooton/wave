@@ -1,0 +1,242 @@
+package com.wave.xp3.app;
+
+import android.text.Editable;
+import android.text.InputType;
+import android.text.TextWatcher;
+import android.view.Gravity;
+import android.view.KeyEvent;
+import android.view.View;
+import android.view.inputmethod.EditorInfo;
+import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+
+import com.wave.xp3.data.WaveData;
+import com.wave.xp3.data.WaveData.Pkg;
+
+import java.util.List;
+
+/**
+ * Search: the field takes the bar's place, as in Cydia, and has the keys as
+ * soon as the tab opens. Results follow each key, across every source. The
+ * cursor stays at the end, so Left/Right still switch tabs; Back deletes;
+ * Down goes into the results and Up on the first comes back.
+ */
+final class SearchScreen extends Screen {
+
+    private EditText field;
+    private LinearLayout fieldBox;
+    private FrameLayout frame;
+    private Page page;
+    private List<Pkg> results;
+    private String asked = "";
+    private int generation;
+
+    SearchScreen(WaveActivity app) {
+        super(app);
+    }
+
+    @Override
+    String title() {
+        return "Search";
+    }
+
+    @Override
+    View build() {
+        fieldBox = new LinearLayout(app);
+        fieldBox.setGravity(Gravity.CENTER_VERTICAL);
+        fieldBox.setPadding(Kit.dp(app, 8), 0, Kit.dp(app, 8), 0);
+        Glyph lens = new Glyph(app, Glyph.INFO, Look.MUTED);
+        fieldBox.addView(new Lens(app));
+        field = new EditText(app);
+        field.setBackground(null);
+        field.setPadding(Kit.dp(app, 5), 0, 0, 0);
+        field.setTextSize(13.5f);
+        field.setTextColor(Look.TEXT);
+        field.setHintTextColor(Look.MUTED);
+        field.setHint("Names and descriptions");
+        field.setSingleLine(true);
+        field.setIncludeFontPadding(false);
+        field.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        field.setImeOptions(EditorInfo.IME_ACTION_SEARCH | EditorInfo.IME_FLAG_NO_EXTRACT_UI);
+        field.setContentDescription("Search");
+        fieldBox.addView(field, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
+        field.setOnFocusChangeListener((v, has) -> paintField(has));
+        paintField(false);
+        field.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                if (field.getSelectionEnd() != s.length()) field.setSelection(s.length());
+                ask(s.toString().trim());
+            }
+        });
+        lens.setVisibility(View.GONE);
+
+        frame = new FrameLayout(app);
+        page = new Page(app);
+        frame.addView(page.scroll);
+        return frame;
+    }
+
+    private void paintField(boolean focused) {
+        android.graphics.drawable.GradientDrawable bg = Look.rounded(focused ? 0xFFFFFFFF : Look.FIELD, Kit.dp(app, 8));
+        if (focused) bg.setStroke(Math.max(1, Kit.dp(app, 1.5f)), Look.BLUE);
+        fieldBox.setBackground(bg);
+    }
+
+    @Override
+    void bar(Bar bar) {
+        if (fieldBox.getParent() != null) ((android.view.ViewGroup) fieldBox.getParent()).removeView(fieldBox);
+        bar.setField(fieldBox);
+    }
+
+    @Override
+    View firstFocus() {
+        return field;
+    }
+
+    @Override
+    void shown() {
+        field.post(() -> {
+            if (app.isShowing(this) && !page.scroll.hasFocus()) field.requestFocus();
+        });
+    }
+
+    private void ask(final String query) {
+        if (query.equals(asked)) return;
+        asked = query;
+        final int mine = ++generation;
+        if (query.isEmpty()) {
+            results = null;
+            draw();
+            return;
+        }
+        app.data.search(query, new WaveData.Result<List<Pkg>>() {
+            @Override
+            public void ok(List<Pkg> found) {
+                if (mine != generation) return;
+                results = found;
+                draw();
+            }
+
+            @Override
+            public void failed(String reason) {
+                if (mine != generation) return;
+                results = null;
+                draw();
+            }
+        });
+    }
+
+    @Override
+    void update(WaveData.Snapshot s) {
+        // Installed states change under the results: ask again.
+        if (!asked.isEmpty()) {
+            String q = asked;
+            asked = "";
+            ask(q);
+        }
+    }
+
+    private View empty;
+
+    private void draw() {
+        Mark mark = page.clear();
+        if (empty != null) {
+            frame.removeView(empty);
+            empty = null;
+        }
+        if (results == null) return;
+        if (results.isEmpty()) {
+            empty = Kit.message(app, null, "No Results", null, null, null);
+            frame.addView(empty);
+            return;
+        }
+        for (int i = 0; i < results.size(); i++) {
+            final Pkg p = results.get(i);
+            Kit.Row row = Rows.browse(app, p, v -> app.details(p, null));
+            if (i == results.size() - 1) row.last();
+            page.add(row);
+        }
+        page.restore(mark, null);
+    }
+
+    @Override
+    boolean onKey(KeyEvent event) {
+        int key = event.getKeyCode();
+        View focus = app.getCurrentFocus();
+        if (focus == field && key == KeyEvent.KEYCODE_DPAD_DOWN) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                View first = firstFocusable(page.column);
+                if (first != null) first.requestFocus();
+            }
+            return true;
+        }
+        if (focus == field && (key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER)) {
+            if (event.getAction() == KeyEvent.ACTION_UP) {
+                View first = firstFocusable(page.column);
+                if (first != null) first.requestFocus();
+            }
+            return true;
+        }
+        if (focus != field && key == KeyEvent.KEYCODE_DPAD_UP && focus != null && page.column.getChildCount() > 0
+            && Screen.keyOf(focus) != null && Screen.keyOf(focus).equals(Screen.keyOf(firstFocusable(page.column)))) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN) field.requestFocus();
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    boolean onBack() {
+        View focus = app.getCurrentFocus();
+        if (focus != field) {
+            field.requestFocus();
+            return true;
+        }
+        Editable text = field.getText();
+        if (text.length() == 0) return false;
+        text.delete(text.length() - 1, text.length());
+        return true;
+    }
+
+    @Override
+    void menu(Menu menu) {
+        View focus = app.getCurrentFocus();
+        if (focus instanceof Kit.Row && ((Kit.Row) focus).about instanceof Pkg) {
+            app.packageMenu(menu, (Pkg) ((Kit.Row) focus).about, true, null);
+        }
+        if (field.length() > 0) menu.add("Clear", () -> {
+            field.setText("");
+            field.requestFocus();
+        });
+    }
+
+    /** The magnifier in the field. */
+    static final class Lens extends View {
+        private final android.graphics.Paint paint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+
+        Lens(android.content.Context c) {
+            super(c);
+            paint.setStyle(android.graphics.Paint.Style.STROKE);
+            paint.setStrokeCap(android.graphics.Paint.Cap.ROUND);
+            paint.setColor(Look.MUTED);
+            setLayoutParams(new LinearLayout.LayoutParams(Kit.dp(c, 13), Kit.dp(c, 13)));
+        }
+
+        @Override
+        protected void onDraw(android.graphics.Canvas canvas) {
+            float d = getWidth() / 14f;
+            paint.setStrokeWidth(1.7f * d);
+            canvas.drawCircle(6 * d, 6 * d, 4.6f * d, paint);
+            paint.setStrokeWidth(1.9f * d);
+            canvas.drawLine(9.4f * d, 9.4f * d, 12.8f * d, 12.8f * d, paint);
+        }
+    }
+}

@@ -21,17 +21,27 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+        <!-- The app: four tabs as Cydia's (brief 07, site/mockups). -->
         <activity
-            android:name=".MainActivity"
+            android:name=".app.WaveActivity"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize"
             android:screenOrientation="portrait"
             android:launchMode="singleTask"
+            android:windowSoftInputMode="stateHidden|adjustPan"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- The Updater's single list, kept until the tabs have replaced
+             everything it did; no longer on the launcher. -->
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize"
+            android:screenOrientation="portrait"
+            android:exported="false" />
 
         <!-- Serves a downloaded APK, read-only, to the installer through a
              one-off grant. file:// URIs are refused from targetSdk 24, and
@@ -41,6 +51,15 @@
             android:authorities="com.wave.xp3.apks"
             android:exported="false"
             android:grantUriPermissions="true" />
+
+        <!-- Invisible: starts Installer for the engine and passes back its
+             answer, on a phone without root. -->
+        <activity
+            android:name=".StockApps"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <!-- Runs an install plan through root while no screen is open. -->
         <service

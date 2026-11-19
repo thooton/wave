@@ -1,0 +1,500 @@
+package com.wave.xp3.app;
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.Intent;
+import android.os.Bundle;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
+import android.view.ContextMenu;
+import android.view.KeyEvent;
+import android.view.MenuItem;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.wave.xp3.data.WaveData;
+import com.wave.xp3.data.WaveData.Pkg;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * Wave: four tabs (Wave, Sources, Installed, Search) under a bar, as Cydia
+ * arranges them, in the Updater's look. Each tab keeps a stack of screens;
+ * the queue's screens and the no-root screen sit above the tabs.
+ *
+ * Keys, everywhere unless a screen says otherwise (site/mockups/CHECKLIST.md):
+ * Left/Right switch tabs, Up/Down move between focus stops, OK presses the
+ * focused one, Back goes back a screen (on a tab's first screen it closes
+ * Wave, or sends it to the back while the queue works), Menu opens the menu
+ * for where the focus is.
+ */
+public final class WaveActivity extends Activity {
+
+    WaveData data;
+    AppIcons icons;
+    WaveData.Snapshot snapshot;
+
+    private Bar bar;
+    private FrameLayout content;
+    private TabBar tabBar;
+    private final List<List<Screen>> stacks = new ArrayList<>();
+    /** Screens over the tabs: the queue's, the no-root screen. */
+    private final List<Screen> overlay = new ArrayList<>();
+    private int tab;
+    private Screen showing;
+    private final Runnable onChanged = this::changed;
+    private String lastActionError;
+    private final List<String> turnedOffShown = new ArrayList<>();
+    private boolean dialogOpen;
+
+    @Override
+    protected void onCreate(Bundle state) {
+        super.onCreate(state);
+        icons = new AppIcons(this);
+        data = Data.open(this);
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(0xFFFFFFFF);
+        bar = new Bar(this);
+        root.addView(bar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        content = new FrameLayout(this);
+        root.addView(content, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        tabBar = new TabBar(this);
+        root.addView(tabBar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        setContentView(root);
+        registerForContextMenu(content);
+
+        stacks.add(new ArrayList<>(Collections.<Screen>singletonList(new HomeScreen(this))));
+        stacks.add(new ArrayList<>(Collections.<Screen>singletonList(new SourcesScreen(this))));
+        stacks.add(new ArrayList<>(Collections.<Screen>singletonList(new InstalledScreen(this))));
+        stacks.add(new ArrayList<>(Collections.<Screen>singletonList(new SearchScreen(this))));
+
+        snapshot = data.snapshot();
+        data.listen(onChanged);
+        show();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        data.recheckPhone();
+    }
+
+    @Override
+    protected void onDestroy() {
+        data.unlisten(onChanged);
+        data.close();
+        icons.close();
+        super.onDestroy();
+    }
+
+    // ------------------------------------------------------------------
+    // Screens
+    // ------------------------------------------------------------------
+
+    private Screen top() {
+        if (!overlay.isEmpty()) return overlay.get(overlay.size() - 1);
+        List<Screen> stack = stacks.get(tab);
+        return stack.get(stack.size() - 1);
+    }
+
+    /** Puts the top screen up: its bar, its page, its focus. */
+    private void show() {
+        Screen next = top();
+        if (showing != null && showing != next) {
+            showing.focusKey = Screen.keyOf(getCurrentFocus());
+            showing.hidden();
+        }
+        boolean fresh = next.view == null;
+        if (fresh) next.view = next.build();
+        content.removeAllViews();
+        content.addView(next.view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        showing = next;
+        dressBar(next);
+        tabBar.setVisibility(next.modal() || next.bare() ? View.GONE : View.VISIBLE);
+        tabBar.setOpen(tab);
+        tabBar.setBadge(snapshot.updates.size());
+        next.update(snapshot);
+        next.shown();
+        View focus = next.focusKey != null ? findKey(next.view, next.focusKey) : null;
+        if (focus == null || !focus.isFocusable()) focus = next.firstFocus();
+        if (focus != null) focus.requestFocus();
+        else content.requestFocus();
+    }
+
+    private void dressBar(Screen screen) {
+        bar.clear();
+        bar.setVisibility(screen.bare() ? View.GONE : View.VISIBLE);
+        bar.setTitle(screen.title());
+        bar.setBack(screen.backLabel);
+        screen.bar(bar);
+    }
+
+    /** Redraws the bar of the screen showing (its links changed). */
+    void redressBar() {
+        if (showing != null) dressBar(showing);
+    }
+
+    private static View findKey(View root, String key) {
+        if (key.equals(root.getTag(Screen.R_KEY))) return root;
+        if (root instanceof ViewGroup) {
+            ViewGroup g = (ViewGroup) root;
+            for (int i = 0; i < g.getChildCount(); i++) {
+                View found = findKey(g.getChildAt(i), key);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    /** Opens `screen` on top of the current tab, with Back named after the screen below. */
+    void push(Screen screen) {
+        Screen below = top();
+        screen.backLabel = below.title();
+        if (!overlay.isEmpty() || screen.modal() || screen.bare()) overlay.add(screen);
+        else stacks.get(tab).add(screen);
+        show();
+    }
+
+    /** Opens `screen` on the Sources tab (Add a Source from Home). */
+    void pushOnTab(int which, Screen screen) {
+        openTab(which);
+        push(screen);
+    }
+
+    /** Closes the top screen. */
+    void pop() {
+        if (!overlay.isEmpty()) {
+            overlay.remove(overlay.size() - 1).view = null;
+        } else {
+            List<Screen> stack = stacks.get(tab);
+            if (stack.size() > 1) stack.remove(stack.size() - 1);
+        }
+        show();
+    }
+
+    /** Swaps the top overlay screen for `screen` (Confirm becomes Installing). */
+    void replaceOverlay(Screen screen) {
+        if (!overlay.isEmpty()) overlay.remove(overlay.size() - 1);
+        overlay.add(screen);
+        show();
+    }
+
+    void openTab(int which) {
+        if (!overlay.isEmpty()) return;
+        if (which == tab && showing == top()) return;
+        if (showing != null) showing.focusKey = Screen.keyOf(getCurrentFocus());
+        tab = which;
+        show();
+    }
+
+    boolean isShowing(Screen screen) {
+        return showing == screen;
+    }
+
+    // ------------------------------------------------------------------
+    // Data
+    // ------------------------------------------------------------------
+
+    private void changed() {
+        snapshot = data.snapshot();
+        tabBar.setBadge(snapshot.updates.size());
+
+        // A queue already working (Wave reopened while it runs) gets its screen back.
+        if (snapshot.queue != null && !snapshot.queue.finished && find(QueueScreen.class) == null && find(ConfirmScreen.class) == null) {
+            overlay.add(new QueueScreen(this));
+            show();
+            return;
+        }
+        if (showing != null) {
+            dressBar(showing);
+            showing.update(snapshot);
+        }
+        if (snapshot.actionError != null && !snapshot.actionError.equals(lastActionError)) {
+            toast(snapshot.actionError);
+        }
+        lastActionError = snapshot.actionError;
+        turnedOff();
+    }
+
+    private Screen find(Class<? extends Screen> kind) {
+        for (Screen s : overlay) if (kind.isInstance(s)) return s;
+        return null;
+    }
+
+    /** The watchdog's news, once per mod: it didn't start, so Wave turned it off. */
+    private void turnedOff() {
+        if (dialogOpen || snapshot.root != WaveData.Root.OK) return;
+        for (final WaveData.TurnedOff off : snapshot.turnedOff) {
+            if (turnedOffShown.contains(off.id)) continue;
+            turnedOffShown.add(off.id);
+            String body = "The phone didn't finish starting with version " + off.version
+                + ", so Wave turned it off. The phone is as it was before it.";
+            if (off.reason != null && !off.reason.isEmpty()) body = off.reason;
+            AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(off.name + " Was Turned Off")
+                .setMessage(body)
+                .setPositiveButton("OK", (d, w) -> data.ackTurnedOff(off.id))
+                .setNegativeButton(red("Remove It"), (d, w) -> {
+                    data.ackTurnedOff(off.id);
+                    plan(Collections.singletonList(off.id), WaveData.Action.REMOVE);
+                })
+                .setOnCancelListener(d -> data.ackTurnedOff(off.id))
+                .create();
+            dialogOpen = true;
+            dialog.setOnDismissListener(d -> {
+                dialogOpen = false;
+                turnedOff();
+            });
+            dialog.show();
+            return;
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // What the rows do
+    // ------------------------------------------------------------------
+
+    /** Opens `p`'s details; `sourceId` keeps the source it was browsed in (null: merged). */
+    void details(Pkg p, String sourceId) {
+        push(new DetailsScreen(this, p.id, sourceId));
+    }
+
+    /** What pressing `p`'s capsule does: GET or UPDATE go to the confirm, OPEN starts the app. */
+    void press(Pkg p) {
+        if (Rows.unfit(p) && p.state == WaveData.State.NONE) return;
+        switch (p.state) {
+            case NONE:
+                plan(Collections.singletonList(p.id), WaveData.Action.GET);
+                break;
+            case UPDATE:
+                plan(Collections.singletonList(p.id), WaveData.Action.UPDATE);
+                break;
+            case INSTALLED:
+            case NEWER:
+                if (canOpen(p)) open(p);
+                else details(p, null);
+                break;
+            default:
+                details(p, null);
+        }
+    }
+
+    boolean canOpen(Pkg p) {
+        return !p.isModule && !p.id.equals(getPackageName()) && getPackageManager().getLaunchIntentForPackage(p.id) != null;
+    }
+
+    void open(Pkg p) {
+        Intent launch = getPackageManager().getLaunchIntentForPackage(p.id);
+        if (launch == null) {
+            toast(p.name + " can't be opened.");
+            return;
+        }
+        try {
+            startActivity(launch);
+        } catch (RuntimeException e) {
+            toast(p.name + " can't be opened.");
+        }
+    }
+
+    /** Works out what doing `action` to `ids` takes, then shows the confirm (or why it can't). */
+    void plan(List<String> ids, final WaveData.Action action) {
+        if (find(ConfirmScreen.class) != null) return;
+        data.plan(ids, action, new WaveData.Result<WaveData.PlanView>() {
+            @Override
+            public void ok(WaveData.PlanView plan) {
+                if (plan.refusal != null) {
+                    alert(action == WaveData.Action.REMOVE ? "Can't Remove" : "Can't Install", plan.refusal);
+                    return;
+                }
+                if (find(ConfirmScreen.class) != null || find(QueueScreen.class) != null) return;
+                push(new ConfirmScreen(WaveActivity.this, plan));
+            }
+
+            @Override
+            public void failed(String reason) {
+                alert(action == WaveData.Action.REMOVE ? "Can't Remove" : "Can't Install", reason);
+            }
+        });
+    }
+
+    void askReboot() {
+        new AlertDialog.Builder(this)
+            .setTitle("Reboot Now?")
+            .setMessage("The phone restarts, and the changes waiting for it start.")
+            .setNegativeButton("Later", null)
+            .setPositiveButton("Reboot", (d, w) -> data.reboot())
+            .show()
+            .getButton(AlertDialog.BUTTON_POSITIVE).requestFocus();
+    }
+
+    void toast(String text) {
+        Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
+    }
+
+    void alert(String title, String message) {
+        new AlertDialog.Builder(this).setTitle(title).setMessage(message).setPositiveButton("OK", null).show();
+    }
+
+    static CharSequence red(String text) {
+        SpannableString s = new SpannableString(text);
+        s.setSpan(new ForegroundColorSpan(Look.RED), 0, text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        return s;
+    }
+
+    // ------------------------------------------------------------------
+    // Keys
+    // ------------------------------------------------------------------
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        Screen screen = top();
+        if (screen.onKey(event)) return true;
+        int key = event.getKeyCode();
+        if ((key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT)
+            && !screen.modal() && !screen.bare() && overlay.isEmpty()) {
+            View focus = getCurrentFocus();
+            boolean onBarLink = focus != null && focus.getParent() == bar;
+            if (!onBarLink && !screen.ownsLeftRight(focus)) {
+                if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                    openTab(key == KeyEvent.KEYCODE_DPAD_LEFT ? (tab + 3) % 4 : (tab + 1) % 4);
+                }
+                return true;
+            }
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    /* Menu opens on its release, as the platform's own menus do (the Updater's rule). */
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_MENU) {
+            if (event.getRepeatCount() == 0) event.startTracking();
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_MENU) {
+            if (event.isTracking() && !event.isCanceled()) openMenu();
+            return true;
+        }
+        return super.onKeyUp(keyCode, event);
+    }
+
+    @Override
+    public void onBackPressed() {
+        Screen screen = top();
+        if (screen.onBack()) return;
+        if (!overlay.isEmpty()) {
+            if (screen instanceof NoRootScreen) {
+                finish();
+                return;
+            }
+            pop();
+            return;
+        }
+        if (stacks.get(tab).size() > 1) {
+            pop();
+            return;
+        }
+        if (snapshot.queue != null && !snapshot.queue.finished) {
+            toast("Working in the background");
+            moveTaskToBack(true);
+            return;
+        }
+        finish();
+    }
+
+    // ------------------------------------------------------------------
+    // The menu: the platform's context menu, opened beside the focused row
+    // ------------------------------------------------------------------
+
+    private Screen.Menu menu;
+
+    void openMenu() {
+        Screen.Menu items = new Screen.Menu();
+        top().menu(items);
+        if (items.isEmpty()) return;
+        menu = items;
+        View focus = getCurrentFocus();
+        float x = Math.min(Look.dp(this, 32), content.getWidth() / 2f);
+        float y = content.getHeight() / 3f;
+        if (focus != null && isInside(focus, content)) {
+            int[] at = new int[2];
+            int[] base = new int[2];
+            focus.getLocationInWindow(at);
+            content.getLocationInWindow(base);
+            y = Math.max(0, Math.min(at[1] - base[1] + focus.getHeight(), content.getHeight()));
+        }
+        content.showContextMenu(x, y);
+    }
+
+    private static boolean isInside(View view, View parent) {
+        while (view != null) {
+            if (view == parent) return true;
+            view = view.getParent() instanceof View ? (View) view.getParent() : null;
+        }
+        return false;
+    }
+
+    @Override
+    public void onCreateContextMenu(ContextMenu contextMenu, View view, ContextMenu.ContextMenuInfo info) {
+        if (menu == null) return;
+        for (int i = 0; i < menu.titles.size(); i++) {
+            String title = menu.titles.get(i);
+            CharSequence shown = title.startsWith("!") ? red(title.substring(1)) : title;
+            contextMenu.add(0, i, i, shown);
+        }
+    }
+
+    @Override
+    public boolean onContextItemSelected(MenuItem item) {
+        Screen.Menu items = menu;
+        menu = null;
+        if (items != null && item.getItemId() < items.actions.size()) items.actions.get(item.getItemId()).run();
+        return true;
+    }
+
+    @Override
+    public void onContextMenuClosed(android.view.Menu closed) {
+        super.onContextMenuClosed(closed);
+    }
+
+    // ------------------------------------------------------------------
+    // Shared bits for screens
+    // ------------------------------------------------------------------
+
+    /** The common package menu: the capsule's action, details, what's new. */
+    void packageMenu(Screen.Menu menu, final Pkg p, boolean withDetails, final String sourceId) {
+        String word = Rows.capsuleWord(this, p);
+        if (word != null) {
+            String title = word.equals("GET") ? "Get" : word.equals("UPDATE") ? "Update" : "Open";
+            menu.add(title, () -> press(p));
+        }
+        if (withDetails) menu.add("Details", () -> details(p, sourceId));
+        if (p.state == WaveData.State.OFF) menu.add("Turn On", () -> data.turnOn(p.id));
+        boolean installed = p.state != WaveData.State.NONE && p.state != WaveData.State.PENDING_REMOVAL;
+        if (installed && p.state != WaveData.State.PENDING_INSTALL && !Rows.unfit(p)) {
+            menu.add("Reinstall", () -> plan(Collections.singletonList(p.id), WaveData.Action.REINSTALL));
+        }
+        if (installed && !p.id.equals(getPackageName())) {
+            menu.add("!Remove", () -> plan(Collections.singletonList(p.id), WaveData.Action.REMOVE));
+        }
+    }
+
+    TextView message(String text) {
+        TextView t = Look.text(this, text, 13, Look.MUTED, Look.REGULAR);
+        return t;
+    }
+}
