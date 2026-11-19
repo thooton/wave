@@ -31,7 +31,7 @@ work locally. The packages build. The default source is empty.
 | Landing ([10](tasks/10-site-pages.md), open) | Landing, USB platform notes, Pages build; no JavaScript, 27 kB | Strict HTML parse, link and size checks; keyboard-only and 240x320 in Chromium; `node --test` 14 pass | Not hosted: Pages must be enabled by the owner |
 | Setup generator (10) | Setup files for all six apps, made in the browser | Downloads for all six parse in the apps' `Config.parse`; `sync_setup.py --check` agrees with P's descriptors | A generated file imported on the phone. Each app was phone-tested with hand-made files of the same format (brief [14](tasks/14-app-setup-codes.md)) |
 | Guide ([09](tasks/09-site-jailbreak.md), open) | Device guide, Rescue for already-rooted phones, adb over WebUSB | adb protocol over libusb with an authorized key ([jailbreak.md](jailbreak.md#verification)) | Browser rooting, boot writes and restore were never done. The browser's device picker and first RSA prompt weren't seen live. Windows driver binding is open (decisions open item 5) |
-| Backup | Read and check the boot partition over EDL in the browser | Headless Chromium on the real phone read all of `boot`, and its SHA-256 matched two desktop EDL reads; the Restore page checks a backup | Linux and Chromium only. Writing it back has not been tried |
+| Backup | Read and check the boot partition over EDL in the browser; **left out of the public build** (`build.py --with-device-backup` adds it) | Headless Chromium on the real phone read all of `boot`, and its SHA-256 matched two desktop EDL reads; the Restore page checks a backup | Linux and Chromium only. Writing it back has not been tried |
 
 ## The tools (W `tools/`)
 
