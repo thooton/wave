@@ -43,6 +43,7 @@ final class InstallTests {
         check.run("Install: download", () -> download(check));
         check.run("Install: verify", () -> verify(check));
         check.run("Install: receipts", () -> receipts(check));
+        check.run("Install: packages", () -> packages(check));
         check.run("Install: engine end to end", () -> engine(check));
         check.run("Install: engine failures", () -> failures(check));
     }
@@ -438,6 +439,37 @@ final class InstallTests {
             for (File f : dir.listFiles()) f.delete();
             dir.delete();
         }
+    }
+
+    private static void packages(Check check) throws Exception {
+        String json = "{\"id\": \"messages_improved\", \"type\": \"module\", \"name\": \"Messages\","
+            + " \"summary\": \"s\", \"version\": \"1.2.0\", \"download\": {\"url\": \"https://e.com/m.zip\","
+            + " \"size\": 5, \"sha256\": \"" + sha("x") + "\"}, \"requires\": {\"device\": [\"XP3800\"], \"sdk\": 27},"
+            + " \"depends\": [\"base\", {\"id\": \"lib\", \"min\": \"1.0\"}], \"conflicts\": [\"c\"],"
+            + " \"replaces\": [\"messages_argon\"]}";
+        Plan.Package p = com.wave.xp3.core.install.Packages.of(
+            com.wave.xp3.core.sources.PackageManifest.parse(json.getBytes(StandardCharsets.UTF_8)));
+        check.same("kind", Plan.Kind.MODULE, p.kind);
+        check.same("url", "https://e.com/m.zip", p.url);
+        check.same("deps", 2, p.depends.size());
+        check.same("any version", null, p.depends.get(0).min);
+        check.same("min", "1.0", p.depends.get(1).min);
+        check.same("replaces", "messages_argon", p.replaces.get(0));
+        check.same("sdk", 27, p.minSdk);
+        check.same("device", "XP3800", p.devices.get(0));
+
+        com.wave.xp3.core.install.Packages.PlanFile f = com.wave.xp3.core.install.Packages.planFile(
+            "{\"source\": \"debug\", \"requests\": [{\"op\": \"install\", \"id\": \"a\"},"
+            + " {\"op\": \"remove\", \"id\": \"b\"}], \"packages\": [{\"id\": \"a\", \"type\": \"module\","
+            + " \"version\": \"1\", \"download\": {\"url\": \"http://127.0.0.1:8000/a.zip\", \"size\": 9,"
+            + " \"sha256\": \"" + sha("y") + "\"}, \"depends\": [{\"id\": \"z\"}]}]}");
+        check.same("plan source", "debug", f.source);
+        check.same("plan requests", 2, f.requests.size());
+        check.same("plan remove", Plan.Op.REMOVE, f.requests.get(1).op);
+        check.same("plan size", 9L, f.packages.get("a").size);
+        check.same("plan dep", "z", f.packages.get("a").depends.get(0).id);
+        check.fails("plan bad op", () -> com.wave.xp3.core.install.Packages.planFile(
+            "{\"requests\": [{\"op\": \"explode\", \"id\": \"a\"}]}"));
     }
 
     // ------------------------------------------------------------------

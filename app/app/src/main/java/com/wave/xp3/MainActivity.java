@@ -28,6 +28,10 @@ import com.wave.xp3.core.Notes;
 import com.wave.xp3.core.Releases;
 import com.wave.xp3.core.Status;
 import com.wave.xp3.core.Version;
+import com.wave.xp3.core.install.Engine;
+import com.wave.xp3.core.root.PmResult;
+import com.wave.xp3.core.root.Scripts;
+import com.wave.xp3.core.root.Shell;
 import com.xp3.common.ui.BaseActivity;
 import com.xp3.common.ui.Family;
 import com.xp3.common.ui.Ui;
@@ -162,6 +166,7 @@ public final class MainActivity extends BaseActivity {
         });
         render();
         check();
+        if (RootShell.known(this)) checks.execute(new AfterBoot(this)::run);
     }
 
     @Override
@@ -772,7 +777,66 @@ public final class MainActivity extends BaseActivity {
         done.activity = "Installing…";
         done.shown = -1;
         render();
+        installThroughRoot(done, apk);
+    }
 
+    /**
+     * Installs through root (design section 4): `pm install` from Wave's one
+     * `su` shell, Wave itself from a detached one. Without root (no `su`, or
+     * Magisk refused) it falls back to the Updater's way, Installer.
+     */
+    private void installThroughRoot(final Job done, final File apk) {
+        final boolean self = done.entry.packageName.equals(getPackageName());
+        downloads.execute(() -> {
+            try {
+                if (self) {
+                    final Shell.Result r = RootShell.run(this, Scripts.selfUpdate(apk.getAbsolutePath(),
+                        apk.length(), getPackageName(), ".MainActivity"), Engine.QUICK_MS);
+                    post(() -> {
+                        if (r.ok()) {
+                            toast("Wave closes to update itself");
+                        } else {
+                            done(done);
+                            alert(failure(done), "Couldn't start updating Wave.");
+                        }
+                    });
+                    return;
+                }
+                Shell.Result r = RootShell.run(this, Scripts.installApk(apk.getAbsolutePath(), apk.length()),
+                    Engine.INSTALL_MS);
+                final PmResult pm = PmResult.parse(r.output, r.exit);
+                if (pm.ok) {
+                    try {
+                        RootShell.run(this, Scripts.compile(done.entry.packageName), Engine.INSTALL_MS);
+                    } catch (IOException ignored) {
+                        // Only makes it start faster; Android compiles it later anyway.
+                    }
+                }
+                post(() -> {
+                    if (job != done) return;
+                    if (pm.ok) {
+                        succeeded(done);
+                    } else {
+                        done(done);
+                        alert(failure(done), pm.message);
+                    }
+                });
+            } catch (Shell.NoRoot e) {
+                post(() -> {
+                    if (job == done) handOver(done);
+                });
+            } catch (final IOException e) {
+                post(() -> {
+                    if (job != done) return;
+                    done(done);
+                    alert(failure(done), message(e));
+                });
+            }
+        });
+    }
+
+    /** The Updater's way, kept for a phone without root: hand the APK to Installer. */
+    private void handOver(Job done) {
         Intent intent = new Intent(Intent.ACTION_INSTALL_PACKAGE)
             .setDataAndType(ApkProvider.uri(done.entry), ApkProvider.APK)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -789,7 +853,7 @@ public final class MainActivity extends BaseActivity {
             toast("No installer on this phone");
         } catch (SecurityException e) {
             // Signature permissions are granted when an app is installed, so
-            // an Updater installed before Installer doesn't have it.
+            // a Wave installed before Installer doesn't have it.
             done(done);
             alert(failure(done), "Installer wouldn't take it. Reinstall Wave with adb.");
         }

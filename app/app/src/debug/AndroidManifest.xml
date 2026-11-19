@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- Debug builds only: the entry point for checking the install engine
+         and the boot watchdog on a rooted phone over adb (see
+         app/ROOT-TESTING.md). Only callers holding DUMP may start it, which
+         is adb's shell and no installed app. -->
+    <!-- Plain http only so a test plan can fetch from the computer through
+         `adb reverse`; Download still refuses http to anything but
+         127.0.0.1. -->
+    <application
+        android:usesCleartextTraffic="true"
+        tools:replace="android:usesCleartextTraffic">
+        <activity
+            android:name=".DebugActivity"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
+    </application>
+</manifest>
