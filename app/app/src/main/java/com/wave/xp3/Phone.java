@@ -112,7 +112,7 @@ public final class Phone implements Engine.Platform {
 
     @Override
     public String selfActivity() {
-        return ".MainActivity";
+        return ".app.WaveActivity";
     }
 
     // getLongVersionCode arrives in API 28; the XP3 is 27.

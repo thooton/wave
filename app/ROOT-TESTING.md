@@ -94,9 +94,10 @@ take a moment).
 8. **Wave updates itself.** Build a second debug APK with a higher
    versionCode, serve it, and write a plan installing `com.wave.xp3` from
    it (copy `apk-install.json`, change id, version, file, size, sha256).
-   `p` it: Wave closes, and comes back by itself within a minute; `d
-   self-result` once shows `Success` (the main screen's toast "Wave is up
-   to date" also reads it, so it may already be empty).
+   `p` it: Wave closes, and comes back by itself within a minute with the
+   toast "Wave is up to date" (which reads and clears the result, so `d
+   self-result` afterwards is empty). A failed one shows "Wave wasn't
+   updated" with pm's reason.
 9. **The Updater's screen through root.** In the app, update any listed
    app: no Installer screen appears; it installs directly.
 
@@ -122,14 +123,17 @@ Before this, the watchdog is in place from step 6 above (`d facts` shows
    Expect `disabled` with `wave_test_broken	boot-timeout`, a `disable`
    file in the module's folder, and the log lines `boot not completed after
    300s; rebooting once`, then `disabled wave_test_broken (boot-timeout)`.
-2. **Wave says so.** Open Wave: a dialog "Wave Test Broken was turned off"
-   with Remove, Try Again and Leave Off. Leave Off; `d watchdog` shows
-   nothing under `@disabled` (moved to `disabled.seen`).
-3. **Try Again and Remove.** `adb shell su -c 'echo
-   "$(date +%s)	wave_test_broken	boot-timeout" >> /data/adb/wave/disabled'`
-   and open Wave again: Try Again turns the module on again and adds it to
-   `pending` (it is disarmed, so the next boot settles and keeps it). Do the
-   same and press Remove: `modules/wave_test_broken/remove`; reboot; gone.
+2. **Wave says so.** Open Wave: an alert headed Wave Test Broken, "Turned
+   off", saying "With version 1.0: the phone didn't finish starting within
+   five minutes after it was installed. Wave turned it off, ...", focus on
+   OK, Left to Remove It. Press OK; `d watchdog` shows nothing under
+   `@disabled` (moved to `disabled.seen`). Installed lists it as turned off.
+3. **Turn On and Remove.** Installed: Menu on its row > Turn On: the
+   `disable` files go and it is back on `pending` (it is disarmed, so the
+   next boot settles and keeps it). Then add the line again
+   (`adb shell su -c 'echo "$(date +%s)	wave_test_broken	boot-timeout" >>
+   /data/adb/wave/disabled'`), reopen Wave and press Remove It: Confirm,
+   then `modules/wave_test_broken/remove`; reboot; gone.
 4. **An incomplete boot.** Install `wave_test_ok` again (`p
    module-install`), reboot, and pull power (or hold the power key until it
    restarts) at the boot animation, before the home screen. On the next
@@ -137,8 +141,9 @@ Before this, the watchdog is in place from step 6 above (`d facts` shows
 5. **Magisk's safe mode.** With `wave_test_ok` installed and settled, hold
    Volume Down for three seconds while the phone boots (find when on the
    XP3: from the Sonim logo). Every module comes up disabled. Open Wave:
-   "Every mod is off", pick one to turn it back on. Record which key timing
-   worked.
+   Installed lists each as turned off (no alert: the watchdog didn't do it);
+   Menu > Turn On brings one back after the next reboot. Record which key
+   timing worked.
 6. **A normal restart doesn't cost a good mod.** Install `wave_test_ok`,
    reboot, and as soon as the home screen appears restart from the power
    menu (within the minute). The module stays enabled.

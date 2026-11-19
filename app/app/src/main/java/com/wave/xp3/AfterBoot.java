@@ -28,7 +28,7 @@ import java.util.Map;
  *
  * Runs on a worker; dialogs go to the activity while it is still there.
  */
-final class AfterBoot {
+public final class AfterBoot {
 
     private final Activity activity;
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -37,16 +37,36 @@ final class AfterBoot {
         this.activity = activity;
     }
 
+    /**
+     * How Wave's own update through root went, said once when Wave opens
+     * again (Scripts.selfUpdate leaves pm's answer behind). Only where root
+     * has worked before, so it never brings up a prompt; on a worker.
+     */
+    public static void selfUpdate(Activity activity) {
+        final AfterBoot after = new AfterBoot(activity);
+        new Thread(() -> {
+            try {
+                // The preference is read here, off the main thread.
+                if (RootShell.known(activity)) after.selfUpdateResult();
+            } catch (IOException e) {
+                // No root now, or it didn't answer: nothing to say.
+            }
+        }, "wave-self-update").start();
+    }
+
+    private void selfUpdateResult() throws IOException {
+        String said = root(Scripts.selfUpdateResult()).output.trim();
+        if (said.isEmpty()) return;
+        final PmResult pm = PmResult.parse(said, 0);
+        post(() -> {
+            if (pm.ok) toast("Wave is up to date");
+            else alert("Wave wasn't updated", pm.message);
+        });
+    }
+
     void run() {
         try {
-            String said = root(Scripts.selfUpdateResult()).output.trim();
-            if (!said.isEmpty()) {
-                final PmResult pm = PmResult.parse(said, 0);
-                post(() -> {
-                    if (pm.ok) toast("Wave is up to date");
-                    else alert("Wave wasn't updated", pm.message);
-                });
-            }
+            selfUpdateResult();
             List<Modules.Module> modules = Modules.parse(root(Scripts.listModules()).output);
             final Map<String, String> names = new HashMap<>();
             for (Modules.Module m : modules) names.put(m.id, m.name);

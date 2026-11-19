@@ -110,6 +110,7 @@ public final class WaveActivity extends Activity {
             ((SearchScreen) top()).type(query);
         }
         turnedOff();
+        com.wave.xp3.AfterBoot.selfUpdate(this);
     }
 
     @Override
@@ -165,11 +166,19 @@ public final class WaveActivity extends Activity {
     }
 
     private void dressBar(Screen screen) {
+        // Redressing takes the links and the search field off the bar and puts
+        // them back; whichever had the focus gets it back, so news arriving
+        // while the user types or sits on Add doesn't move them.
+        View focus = getCurrentFocus();
+        boolean inBar = focus != null && isInside(focus, bar);
         bar.clear();
         bar.setVisibility(screen.bare() ? View.GONE : View.VISIBLE);
         bar.setTitle(screen.title());
         bar.setBack(screen.backLabel);
         screen.bar(bar);
+        if (inBar && focus.isAttachedToWindow() && focus.isShown() && focus.isFocusable() && isInside(focus, bar)) {
+            focus.requestFocus();
+        }
     }
 
     /** Redraws the bar of the screen showing (its links changed). */
@@ -276,9 +285,12 @@ public final class WaveActivity extends Activity {
         for (final WaveData.TurnedOff off : snapshot.turnedOff) {
             if (turnedOffShown.contains(off.id)) continue;
             turnedOffShown.add(off.id);
-            String body = "The phone didn't finish starting with version " + off.version
-                + ", so Wave turned it off. The phone is as it was before it.";
-            if (off.reason != null && !off.reason.isEmpty()) body = off.reason;
+            // Which version and why: the watchdog's reason says how the boot failed.
+            String why = off.reason != null && !off.reason.isEmpty() ? off.reason : "The phone didn't finish starting.";
+            String body = off.version != null && !off.version.isEmpty()
+                ? "With version " + off.version + ": " + Character.toLowerCase(why.charAt(0)) + why.substring(1)
+                : why;
+            body += " Wave turned it off, so the phone is as it was before it.";
             WaveData.Detail known = snapshot.detail(off.id);
             AppIcons.Ref icon = known != null ? Rows.icon(this, known.pkg) : AppIcons.Ref.tile(off.id, off.name);
             AlertDialog dialog = new AlertDialog.Builder(this)
@@ -320,6 +332,12 @@ public final class WaveActivity extends Activity {
                 plan(Collections.singletonList(p.id), WaveData.Action.GET);
                 break;
             case UPDATE:
+                if (Rows.unfit(p)) {
+                    // A newer version this phone can't take: as if up to date.
+                    if (canOpen(p)) open(p);
+                    else details(p, null);
+                    break;
+                }
                 plan(Collections.singletonList(p.id), WaveData.Action.UPDATE);
                 break;
             case INSTALLED:
@@ -470,10 +488,6 @@ public final class WaveActivity extends Activity {
         Screen screen = top();
         if (screen.onBack()) return;
         if (!overlay.isEmpty()) {
-            if (screen instanceof NoRootScreen) {
-                finish();
-                return;
-            }
             pop();
             return;
         }
@@ -552,8 +566,8 @@ public final class WaveActivity extends Activity {
     void packageMenu(Screen.Menu menu, final Pkg p, boolean withDetails, final String sourceId) {
         String word = Rows.capsuleWord(this, p);
         if (word != null) {
-            String title = word.equals("GET") ? "Get" : word.equals("UPDATE") ? "Update" : "Open";
-            menu.add(title, () -> press(p));
+            if (word.equals("OPEN")) menu.add("Open", () -> open(p));
+            else if (!Rows.unfit(p)) menu.add(word.equals("GET") ? "Get" : "Update", () -> press(p));
         }
         if (withDetails) menu.add("Details", () -> details(p, sourceId));
         if (p.state == WaveData.State.OFF) menu.add("Turn On", () -> data.turnOn(p.id));
