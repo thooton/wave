@@ -121,24 +121,27 @@ host-testable), speaking **protocol v2 over smart HTTP**, fetch only:
 
 1. `GET <url>/info/refs?service=git-upload-pack` with `Git-Protocol: version=2`.
 2. `ls-refs` for `HEAD`. If the commit is the one already stored, the source
-   hasn't changed and the refresh is done after one small request.
+   hasn't changed and the refresh skips the pack request.
 3. `fetch` with `want <commit>`, `deepen 1`, and `filter blob:limit=262144`
    when the server offers `filter`. That is "clone the top level": one
    commit, its trees, and only small blobs.
 4. Parse the packfile (zlib via `java.util.zip.Inflater`, offset and ref
    deltas, SHA-1 check of every object), walk the tree, and write
    `wave.json`, `icon.png`, and each `<section>/<package>/{package.json,icon.png}`
-   to `files/sources/<source>/tree/`. Everything else in the pack is dropped.
-5. The new tree replaces the old one atomically (write beside, rename), so a
-   refresh that dies half way leaves the old copy.
+   to `files/sources/<source>/tree/<HEAD>/`. Everything else in the pack is dropped.
+5. Write the new tree beside the old one, rename it into its own generation,
+   then atomically replace `sources.json` to activate the new HEAD. A refresh
+   interrupted before that switch leaves the old copy active.
 
-Limits: a pack over 8 MB is refused; a blob over the filter limit never
-arrives, so manifests and icons must be small (the format says how small).
+Limits: an HTTP reply or pack over 8 MiB is refused. When the server can
+filter, blobs over the filter limit are omitted. Wave reads only manifests
+and icons within the format's individual size limits and also bounds total
+pack expansion.
 Works with GitHub, GitLab, Codeberg/Forgejo and sourcehut. Protocol v0/v1 and
 dumb HTTP are not supported. A private source uses `https://user:token@host/...`,
 sent as Basic auth.
 
-Every refresh refetches the whole tree (no `have` negotiation), which is fine
+A changed HEAD refetches the whole tree (no `have` negotiation), which is fine
 at this size and keeps the client small.
 
 ## 4. The Wave app
@@ -243,7 +246,7 @@ has to answer a superuser prompt with a d-pad.
 
 ```
 files/sources.json                 the list of sources (url, name, HEAD commit, last refresh)
-files/sources/<source>/tree/       the fetched manifests and icons
+files/sources/<source>/tree/<HEAD>/ the fetched manifests and icons for one generation
 files/receipts.json                what Wave installed
 cache/downloads/                   binaries in flight, deleted after install
 /data/adb/wave/                    root-owned state for the boot watchdog

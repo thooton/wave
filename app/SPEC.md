@@ -180,6 +180,31 @@ access.
 a silent installer. Nothing runs in the background except a download the
 user started.
 
+## Source core (briefs 03 and 05)
+
+The source screens can use `com.wave.xp3.core.sources` without Android calls:
+
+- Keep one `SourceStore(filesDir)`. `preview(url)` fetches without persisting;
+  show its manifest name, maintainer and valid package count in the root-trust
+  dialog, then call `add(preview)` only on approval. `refresh(id)` and
+  `refreshAll()` keep the last good tree on failure. The built-in Wave source
+  is first and cannot be removed. Run fetches, mutations and `index()` on a
+  worker, not the UI thread.
+- `Index.sources()` / `source(id)` expose per-source metadata, validation
+  issues, package rows, sections and counts. `all()`, `get(packageId)`,
+  `sections()` and `search(query)` use merged candidates: highest version,
+  then earliest source, including the winner's type. Search ranks name
+  matches before summary or description. A blank query has no results.
+- `Compat.of(entry, phone)` separates a blocking reason from an advisory
+  firmware note. `Status.of(entry.manifest, phoneState)` reads actual APK or
+  Magisk state through `Status.Phone`, including pending changes.
+- `sources.json` is the atomic pointer to each immutable cached generation in
+  `sources/<source-id>/tree/<HEAD>/`. Rebuild the index after refresh or removal;
+  old icon paths may no longer exist. A missing or invalid icon means use the
+  initial tile. Decode icons at display size, not at the source's pixel size.
+  The catalog's URL is safe to display; `sources.json` can contain Basic-auth
+  credentials and must be excluded from backup.
+
 ## Look
 
 `wave_packages` DESIGN.md's "Updater: as the App Store shows it" governs, and sets aside

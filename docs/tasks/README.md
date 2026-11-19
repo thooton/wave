@@ -27,7 +27,7 @@ rules.
 | 02 | [wavesrc: lint and publish](02-wavesrc.md) | W | | [x] |
 | 03 | [The git client](03-git-client.md) | W | 04 | [x] |
 | 04 | [App foundation from the Updater](04-app-foundation.md) | W | | [x] |
-| 05 | [Sources, index and search](05-sources-index.md) | W | 03, 04 | [ ] |
+| 05 | [Sources, index and search](05-sources-index.md) | W | 03, 04 | [x] |
 | 06 | [Root and the install engine](06-root-install.md) | W | 04 | [ ] |
 | 07 | [The app's screens](07-app-screens.md) | W | 00, 05, 06 | [ ] |
 | 08 | [The boot watchdog](08-boot-watchdog.md) | W | 06 | [ ] |
@@ -82,3 +82,5 @@ Four agents can work without touching the same files: one on the app's core
 - **03 done:** Git v2 self-tests replay a binary `git http-backend` exchange and use real plain, OFS/REF delta, and filtered packs. Live depth-1 fetch and unchanged refresh passed on GitHub (`octocat/Hello-World`), GitLab (`gitlab-org/gitlab-test`), Codeberg (`Codeberg/pages-server`), sourcehut (`~sircmpwn/aerc`), and the local example source (6 files). A 1,000-package local CGI source fetched and parsed in 1.03 s with a 32 MiB heap cap (5 MiB in use after the last young GC). Regenerate fixtures or start the loopback source with `app/core/test-tools/git_fixture.py`.
 
 - **00 done:** `site/mockups/app.html` draws all 46 screens at 240x320 with each frame's Left/Right, Up/Down, OK, Back and Menu; `site/mockups/shoot.sh` screenshots them to `site/mockups/shots/<id>.png` (headless Chromium) and every shot was checked at full size. Sizes were measured on 8516067e from the Updater (density 160, 24px status bar, 34px bar, hairline at y=58) and the text uses the phone's own Roboto files. Results, the d-pad path to every action, and notes for 07 are in `site/mockups/CHECKLIST.md`; the design choices are in `../design.md` section 4 ("The look and the keys") and `../decisions.md` working default 14.
+
+- **05 done:** Source preview and trust approval, transactional refresh, manifest validation, merged candidates, section views, search, compatibility and phone status live in `core.sources`. Standalone Git/source Java 8 tests passed (121); wired into `:app:core:selfTest`. `source_parity.py` agreed with `wavesrc lint` for all v1 fixtures, with the expected reader-only exception for unknown types. Search over 3,000 synthetic packages averaged 3.7 ms per query on the host. UI consumes the APIs in `app/SPEC.md`.

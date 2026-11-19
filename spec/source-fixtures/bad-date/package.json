@@ -1,0 +1,25 @@
+{
+  "id": "com.list.xp3",
+  "type": "apk",
+  "name": "List",
+  "summary": "A small checklist for a small screen",
+  "description": "Lists and the things on them, checked off with the OK key.\n\nNothing to sign in to and nothing leaves the phone.",
+  "author": "thooton",
+  "homepage": "https://github.com/thooton/wave_packages/tree/master/list",
+  "version": "1.0.0",
+  "download": {
+    "url": "https://example.invalid/releases/list-1.0.0/list-1.0.0.apk",
+    "size": 48213,
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "requires": {
+    "sdk": 27
+  },
+  "changes": [
+    {
+      "version": "1.0.0",
+      "text": "Not a real date.",
+      "date": "2025-02-29"
+    }
+  ]
+}
