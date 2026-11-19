@@ -13,7 +13,8 @@ python3 -m unittest discover -s tools/qa -v   # no device needed
 `--dry-run` really installs the current release APK (`app/app/build/outputs/apk/release/app-release.apk`),
 launches it, opens the foundation build's Updates menu, closes it, and removes
 only that temporary install. No in-app installs are confirmed. This mode
-expects the 0.1.x foundation screen; use `--scenario` for other milestones.
+expects the older Updates screen (verified with 0.1.0 and 0.3.0); use
+`--scenario` for other milestones.
 The harness reserves `.oak/phone.lock` for the device session, uses only this
 serial, and refuses to replace an installed Wave. Wake/unlock the handset
 before running; the harness neither changes Wi-Fi nor sends keys outside Wave.

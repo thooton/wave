@@ -130,9 +130,14 @@ def phone_lock():
     token = f'wave-qa pid={os.getpid()} {uuid.uuid4().hex}'
     try:
         owner.write_text(token + '\n', encoding='utf-8')
+    except (OSError, KeyboardInterrupt):
+        owner.unlink(missing_ok=True)
+        LOCK.rmdir()
+        raise
+    try:
         yield
     finally:
-        if owner.exists() and owner.read_text(encoding='utf-8').strip() == token:
+        if owner.is_file() and owner.read_text(encoding='utf-8').strip() == token:
             owner.unlink()
             LOCK.rmdir()
 
@@ -313,9 +318,11 @@ def run_steps(device, scenario, output, frames):
                     raise
         if 'before_text' in step and not text_matches(before, step['before_text']):
             raise CheckFailed('Key guard failed; expected: ' + ', '.join(step['before_text']))
-        if action == 'ENTER' and any(normalize(node.get('text', '')) in {'confirm', 'reboot now'}
-                                     for node in wave_nodes(before)):
+        if action == 'ENTER' and any(normalize(node.get(key, '')) in {'confirm', 'reboot now'}
+                                     for node in wave_nodes(before) for key in ('text', 'content-desc')):
             raise CheckFailed('Test stopped before a visible Confirm or Reboot Now action.')
+        if before is not None and not device.foreground():
+            raise CheckFailed('Wave lost foreground while reading the hierarchy; no key sent.')
         if action == 'launch':
             reply = device.text('shell', 'am', 'start', '-W', '-n', ACTIVITY, timeout=20)
             if not re.search(r'^Status: ok$', reply, re.M):

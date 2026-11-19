@@ -1,5 +1,5 @@
 {
-  "name": "Wave foundation focus (0.1.x, connected)",
+  "name": "Wave foundation focus (connected)",
   "steps": [
     {"name": "Load installed and available apps", "action": "launch", "wait_ms": 8000, "text_all": ["Updates", "Installed"]},
     {"name": "Next app", "key": "DPAD_DOWN", "text_all": ["Updates"], "focus_moved": true},
