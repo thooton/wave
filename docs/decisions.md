@@ -28,8 +28,12 @@ moving; resolve open questions when the relevant brief has evidence.
    with `build.py --with-device-backup`. The site build owner declined to stage
    an EDL transport by default; the owner enables it deliberately. Patch and
    flash are not implemented. See `jailbreak.md`.
-6. **Root is required.** No unrooted mode. Wave installs through `su`;
-   Installer and Updater are retired.
+6. **Root is required for system mods**, and Wave installs through `su`
+   when it has root. Amended by working default 16: root is opt-in, and
+   without it Wave still installs apps, through Installer where a phone
+   has it or Android's own installer otherwise. Installer and Updater are
+   retired as packages (no new releases, `gradle/retired-apps.txt`), not
+   removed from phones that have them.
 7. **Mods ship as full patched APKs in a Magisk module zip**, one binary for
    all firmware builds. Firmware differences are not to be designed around.
    The stock APKs are committed to `wave_packages` so CI can build.

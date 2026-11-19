@@ -1,6 +1,6 @@
 # Status: what works today
 
-As of 2026-11-19. Wave is at 0.7.5 (code 12). Nothing has been pushed or
+As of 2026-11-19. Wave is at 0.7.6 (code 13). Nothing has been pushed or
 published: every GitHub step (repo renames, CI runs, Pages, releases, the
 hosted default source) waits on the [owner cutover](tasks/01-owner-checklist.md).
 So "verified" below means on this machine, and on the one reserved phone
@@ -19,7 +19,7 @@ work locally. The packages build. The default source is empty.
 | :--- | :--- | :--- | :--- |
 | Git client ([03](tasks/03-git-client.md)) | Git v2 smart HTTP, depth-1 fetch, packs and deltas | Host tests; live fetches from GitHub, GitLab, Codeberg and sourcehut; 1,000 packages in 1 s at a 32 MiB heap | Nothing outstanding |
 | Sources, index, search ([05](tasks/05-sources-index.md)) | Preview and trust, transactional refresh, sections, merged candidates, search | Host tests; on the phone: adding a source over HTTPS, browsing it, search ([first phone](first-phone.md)) | Only against a local fixture source; the public source has never been fetched, because it isn't hosted |
-| Tabs and screens ([07](tasks/07-app-screens.md), open) | Wave, Sources, Installed, Search; details, queue, no-root screen; `app/SPEC.md` | Phone QA (`tools/qa`) on 0.7.2: tabs, browse and preview, search, Home and root info all pass | 0.7.3 to 0.7.5 have no phone QA report. Not every mockup frame has a phone screenshot yet, which is 07's done-when. Installing over the Updater-derived build isn't rechecked |
+| Tabs and screens ([07](tasks/07-app-screens.md), open) | Wave, Sources, Installed, Search; details, queue, no-root screen; `app/SPEC.md` | Phone QA (`tools/qa`) on 0.7.2: tabs, browse and preview, search, Home and root info all pass | 0.7.3 onward have no phone QA report. Not every mockup frame has a phone screenshot yet, which is 07's done-when. Installing over the Updater-derived build isn't rechecked |
 | Install engine ([06](tasks/06-root-install.md)) | Plans with deps and conflicts, resumable download with size and SHA-256, receipts; apps without root go through Installer (`StockApps`) | 505 self-tests pass today (`:app:core:selfTest`), including whole plans run through a fake `su` | No real package has been installed by Wave on a phone: the local fixture had no download assets, and there's no published one |
 | Root (06) | Opt-in: `su` opens only on a user action | Host tests; on the phone, the no-root path: mods refused before download, guide shown | Everything rooted. The phone isn't rooted; [ROOT-TESTING.md](../app/ROOT-TESTING.md) section 06 is the procedure |
 | Watchdog ([08](tasks/08-boot-watchdog.md)) | Boot watchdog v2, safe-mode handling, launch dialogs | Pretend boots in host tests (good, hung, restarted, framework restarts, no reboot loop) | No real boot; safe-mode key timing on the XP3 unknown. ROOT-TESTING.md section 08 |

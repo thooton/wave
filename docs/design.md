@@ -16,8 +16,8 @@ and `tasks/` (the work, one brief per piece).
 
 | Repo | Local folder | Holds |
 | :--- | :--- | :--- |
-| `thooton/wave` | this one (`sonim_wave` today) | The Wave app, the website (device guide, setup-file generator), the source format spec, and the tools sources are checked and published with |
-| `thooton/wave_packages` | `../sonim` today, renamed | The source code of every package we ship: the Gradle apps, `common/`, and the three system mods under `mods/`. CI builds them and attaches the binaries to GitHub releases |
+| `thooton/wave` | this one (`wave`) | The Wave app, the website (device guide, setup-file generator), the source format spec, and the tools sources are checked and published with |
+| `thooton/wave_packages` | `../sonim` (kept on this machine; decisions open 6) | The source code of every package we ship: the Gradle apps, `common/`, and the three system mods under `mods/`. CI builds them and attaches the binaries to GitHub releases |
 | `thooton/wave_repository` | new | The default source. Only manifests and icons. Each manifest points at a release asset in `wave_packages`. Written by `wave_packages` CI |
 
 Anyone else's source is the same shape as `wave_repository`: a git repo with
@@ -245,7 +245,8 @@ user does something that needs it, and Magisk's own prompt or Superuser
 screen decides; nothing grants Wave root silently. (An earlier draft had the
 jailbreak pre-grant Wave in Magisk's policy database; that was dropped, see
 decisions.) On a phone without root, Wave installs apps through the
-Updater's Installer as before and can't do modules.
+Updater's Installer as before (Android's own installer where Installer
+isn't on the phone) and can't do modules.
 
 The code: `core/root` (`Scripts`, `Frame`, `ProcessShell`, `PmResult`,
 `Modules`, `Watchdog`) and `core/install` (`Plan`, `Download`, `Verify`,
@@ -389,14 +390,16 @@ is not part of this yet; see `decisions.md` for SQLite.
 
 ### Apps that needed Delta
 
-Today eight apps are built with a Delta login baked in. In Wave they ship
-with none and the user brings their own credentials: Tesla tokens for Charge,
-a Gmail token for Mail, a Maps key for Places, and so on. Typing those on a
-T9 keypad is not an option, so:
+Eight apps were built with a Delta login baked in. Six of them (Canvas,
+Charge, Mail, Places, Authenticator, Flashcards) now ship with none and the
+user brings their own credentials (task 14, done): Tesla tokens for Charge,
+a Gmail token for Mail, a Maps key for Places, and so on. Source and Tablet
+keep Delta, set up the same way, in their private source (task 16). Typing
+credentials on a T9 keypad is not an option, so:
 
 - A shared setup flow in `common/` imports a small, versioned JSON payload
-  naming the app and its settings. Task 14 tests camera scanning; use
-  setup-file import if scanning can't be validated.
+  naming the app and its settings. Version 1 imports it as a setup file;
+  camera scanning stays unproven (decisions open 1).
 - The Wave site's generator builds a setup file from the user's entries,
   without sending credentials to a server. QR transport is reserved, not
   implemented in v1 (see `../spec/setup-payload.md`).

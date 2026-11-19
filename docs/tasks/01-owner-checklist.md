@@ -168,7 +168,7 @@ takes a token, not a deploy key.
    Variables → New repository variable: `WAVE_PUBLISH_ENABLED` = `true`.
 2. In Actions, choose **Build**, then Run workflow on `master`.
 3. **Check:**
-   - The release `wave-0.7.5` exists in `thooton/wave` with one APK.
+   - The release `wave-<versionName>` (from `app/app/build.gradle`) exists in `thooton/wave` with one APK.
    - R has a new commit adding `applications/wave/package.json`.
    - A full lint downloads and checks the APK:
      ```sh
