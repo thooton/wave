@@ -57,6 +57,23 @@ moving; resolve open questions when the relevant brief has evidence.
     signer and unchanged requested payload before building a Magisk ZIP.
     Privileged mods stay unpublished unless authorized signing is available.
 
+11. **The apps' logins stay in Android backup** (the owner, 2026-11-19).
+    Every app in `wave_packages` keeps `allowBackup="true"`, so `adb backup`
+    of a phone carries each app's setup file (`files/wave-setup.json`):
+    the Tesla tokens (Charge), the Authenticator accounts and its command
+    center sign-in, Mail's login, the Canvas and Flashcards tokens, and the
+    rest. **The trade-off, plainly:** anyone who holds an `adb backup` of the
+    phone, or the phone unlocked with USB debugging on, can read those
+    secrets, and Android's backup password is the only protection. The owner
+    judged that moving a phone with its logins intact is worth more than that
+    risk on their own device. It is not a recommendation for anyone else's
+    phone; the setup screen's Sign out and the apps' own revocation (the
+    command center, Tesla, Canvas) are the remedy after a backup is lost.
+    Wave itself is the exception for its own data: `sources.json` can hold a
+    private source's sign-in and is excluded from backup
+    (`app/app/src/main/res/xml/backup.xml`). Written in `wave_packages`
+    `common/SETUP.md` ("Where it is kept").
+
 ## Working defaults
 
 1. **Wave's package name is `com.wave.xp3`**, signed with the shared key from
