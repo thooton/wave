@@ -33,7 +33,7 @@ rules.
 | 08 | [The boot watchdog](08-boot-watchdog.md) | W | 06 | [ ] |
 | 09 | [The jailbreak page](09-site-jailbreak.md) | W | | [ ] |
 | 10 | [Landing page and setup-code generator](10-site-pages.md) | W | 14 for the generator | [ ] |
-| 11 | [Import the mods into wave_packages](11-mods-import.md) | P | 01 | [ ] |
+| 11 | [Import the mods into wave_packages](11-mods-import.md) | P | 01 | [x] |
 | 12 | [Rename Argon to Wave in the mods](12-mods-rename.md) | P | 11 | [ ] |
 | 13 | [Releases and publishing from wave_packages CI](13-packages-ci.md) | P | 01, 02 | [ ] |
 | 14 | [Setup codes: apps without a baked login](14-app-setup-codes.md) | P | | [ ] |
@@ -72,3 +72,5 @@ Four agents can work without touching the same files: one on the app's core
   once Wi-Fi was on, then uninstalled and Wi-Fi turned back off. `common/` copied by
   `tools/sync-common.sh` from `../sonim` at ab210e6 (`common/UPSTREAM`). CI green is **pending**:
   `.github/workflows/build.yml` is written but nothing can be pushed from here.
+
+- **11 (local complete):** See [import record](11-import-record.md). All ten dex SHA-256 digests match committed upstream baselines; five unsigned requests preserve stock resources and manifest. Verified launcher/Music link checks. Installable zips require genuine OEM signatures; no signing material is available.

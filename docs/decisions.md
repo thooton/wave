@@ -35,6 +35,13 @@ moving; resolve open questions when the relevant brief has evidence.
    `Argon` becomes `Wave` inside the code; module ids `messages_improved`,
    `launcher_improved`, `music_improved`.
 
+10. **Privileged mod release signing.** The old build substituted DEX while
+    keeping stale OEM signing records; it was not a valid OEM signature on
+    the resulting APK. The imported histories omit that helper. New builds
+    produce unsigned requests and the release gate verifies the actual OEM
+    signer and unchanged requested payload before building a Magisk ZIP.
+    Privileged mods stay unpublished unless authorized signing is available.
+
 ## Working defaults
 
 1. **Wave's package name is `com.wave.xp3`**, signed with the shared key from
