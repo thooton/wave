@@ -137,3 +137,9 @@ It does not prove:
   is not seen.
 - That the build in the report is the one that ships. The report records the
   APK's version and SHA-256; compare it with the release you mean.
+
+Timing: the accessibility tree can lag the drawn frame by a moment (a list's selection
+after a key, a window handover). Foreground ownership is polled for up to 3 seconds,
+and an accessibility-based check (focus, text, absent text) is retried twice, half a
+second apart, against the same screenshot before the step fails. Pixel and reference
+checks are never retried.

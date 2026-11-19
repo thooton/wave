@@ -431,7 +431,12 @@ def run_steps(device, scenario, output, frames):
             count = step.get('repeat', 1)
             device.call('shell', 'input', 'keyevent', *(['KEYCODE_' + action] * count), timeout=8 + count // 4)
         time.sleep(step.get('wait_ms', 350) / 1000)
-        if not device.foreground():
+        for _ in range(8):
+            # A window handover (a dialog closing, a list relayout) can leave no focused window for a moment.
+            if device.foreground():
+                break
+            time.sleep(.4)
+        else:
             raise CheckFailed('Wave lost foreground. No screenshot of the owner’s other apps was taken.')
         try:
             png = device.call('exec-out', 'screencap', '-p').stdout
@@ -440,7 +445,18 @@ def run_steps(device, scenario, output, frames):
             raise HarnessError(str(e)) from e
         frame['image'] = f'{i:02d}.png'
         (output / frame['image']).write_bytes(png)
-        inspect_step(device, step, frame, previous, current, focus(before) if before is not None else ())
+        for attempt in range(3):
+            frame['checks'].clear()
+            try:
+                inspect_step(device, step, frame, previous, current, focus(before) if before is not None else ())
+                break
+            except CheckFailed as e:
+                # Only accessibility reads are retried: selection and text can lag the drawn frame.
+                lag = str(e).startswith(('Expected focus on', 'Expected accessible text', 'No accessible or visible focus',
+                                         'Unexpected text'))
+                if attempt == 2 or not lag:
+                    raise
+                time.sleep(.5)
         frame['status'] = 'pass'
         previous = current
 
