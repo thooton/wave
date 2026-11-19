@@ -92,7 +92,7 @@ query; this harness deliberately exposes only the listed d-pad/menu keys. No pac
 in these UI scenarios.
 
 Scenario files may also carry `"fixture"` (one of `browse`, `reboot`, `errors`,
-`offline`, `uptodate`, `big`, `noroot`) and, with a fixture, `"query"` (letters and digits
+`offline`, `uptodate`, `big`, `noroot`, `newer`, `kept`) and, with a fixture, `"query"` (letters and digits
 only, seeds the Search field). `--fixture` and `--fixture-query` override them.
 `suite.py` runs every `07-*.json` that names a fixture, one report each, plus an
 index. Add `--wait-lock SECONDS` to `run.py` to queue for the phone lock instead of
