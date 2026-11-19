@@ -15,6 +15,24 @@ final class Glyph extends View {
 
     static final int CHEVRON = 0, TICK = 1, WARN = 2, INFO = 3, REBOOT = 4, PLUS = 5;
 
+    /*
+     * The shapes, in the 14-unit box onDraw scales to the screen. One Path
+     * each, made once: hwui caches a path's drawing by the Path, so a new one
+     * per draw would be drawn and uploaded again for every row shown.
+     */
+    private static final Path CHEVRON_PATH = path(false, 3, 2.5f, 7.5f, 7, 3, 11.5f);
+    private static final Path TICK_PATH = path(false, 2.8f, 7.3f, 5.6f, 10.1f, 11.3f, 4.0f);
+    private static final Path WARN_PATH = path(true, 7, 1.2f, 13.2f, 12.2f, 0.8f, 12.2f);
+    private static final Path REBOOT_PATH = path(false, 8.2f, 1.6f, 10.8f, 3.3f, 9.1f, 5.9f);
+
+    private static Path path(boolean closed, float... xy) {
+        Path p = new Path();
+        p.moveTo(xy[0], xy[1]);
+        for (int i = 2; i < xy.length; i += 2) p.lineTo(xy[i], xy[i + 1]);
+        if (closed) p.close();
+        return p;
+    }
+
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final float d;
     private int kind;
@@ -51,32 +69,19 @@ final class Glyph extends View {
                 paint.setStrokeWidth(2);
                 paint.setStrokeCap(Paint.Cap.SQUARE);
                 paint.setStrokeJoin(Paint.Join.MITER);
-                Path p = new Path();
-                p.moveTo(3, 2.5f);
-                p.lineTo(7.5f, 7);
-                p.lineTo(3, 11.5f);
-                c.drawPath(p, paint);
+                c.drawPath(CHEVRON_PATH, paint);
                 break;
             }
             case TICK: {
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setStrokeWidth(1.8f);
-                Path p = new Path();
-                p.moveTo(2.8f, 7.3f);
-                p.lineTo(5.6f, 10.1f);
-                p.lineTo(11.3f, 4.0f);
-                c.drawPath(p, paint);
+                c.drawPath(TICK_PATH, paint);
                 break;
             }
             case WARN: {
                 paint.setStyle(Paint.Style.FILL_AND_STROKE);
                 paint.setStrokeWidth(1);
-                Path p = new Path();
-                p.moveTo(7, 1.2f);
-                p.lineTo(13.2f, 12.2f);
-                p.lineTo(0.8f, 12.2f);
-                p.close();
-                c.drawPath(p, paint);
+                c.drawPath(WARN_PATH, paint);
                 paint.setStyle(Paint.Style.FILL);
                 paint.setColor(0xFFFFFFFF);
                 c.drawRoundRect(6.25f, 5, 7.75f, 9, .7f, .7f, paint);
@@ -95,11 +100,7 @@ final class Glyph extends View {
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setStrokeWidth(1.6f);
                 c.drawArc(2.6f, 2.6f, 11.4f, 11.4f, -50, 300, false, paint);
-                Path p = new Path();
-                p.moveTo(8.2f, 1.6f);
-                p.lineTo(10.8f, 3.3f);
-                p.lineTo(9.1f, 5.9f);
-                c.drawPath(p, paint);
+                c.drawPath(REBOOT_PATH, paint);
                 break;
             }
             default: {

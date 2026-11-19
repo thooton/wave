@@ -48,6 +48,15 @@ final class Feed {
 
         /** The view for this line, `recycled` being a view of the same type that showed another line, or null. */
         abstract View view(View recycled);
+
+        /**
+         * What this line shows, as a value: two lines with equal looks give the
+         * same row, so news that changes nothing they show doesn't rebind it.
+         * Null when unknown (the line is then always rebound).
+         */
+        Object look() {
+            return null;
+        }
     }
 
     /** A view that is the line itself, kept whole (in a cell that keeps its margins). */
@@ -75,6 +84,8 @@ final class Feed {
     /** The focus and its row's top, kept while the screen is away. */
     private String awayKey;
     private int awayTop;
+    /** Each recycled type's row height when its rows are all one height (from their layout params), else 0. */
+    private final int[] typeHeight = new int[TYPES];
 
     Feed(WaveActivity app) {
         this.app = app;
@@ -122,12 +133,17 @@ final class Feed {
 
     /** Shows the staged lines, the focus back on the row with the mark's key (or `fallbackKey`, or the first). */
     void restore(Screen.Mark mark, String fallbackKey) {
+        if (sameLines()) {
+            updateRows();
+            return;
+        }
         hideMessage();
         int first = list.getFirstVisiblePosition();
         View firstChild = list.getChildAt(0);
         int firstTop = firstChild != null ? firstChild.getTop() : 0;
         shown = staged;
         staged = new ArrayList<>();
+        list.forgetFollow();
         adapter.notifyDataSetChanged();
         if (mark.hadFocus) {
             int at = indexOf(mark.key);
@@ -149,6 +165,47 @@ final class Feed {
     }
 
     /**
+     * Whether the staged lines are the shown ones again, line for line (same
+     * keys and kinds, rows only): background news (a download's progress, a
+     * refresh that changed nothing here) is then a row update, not a new list.
+     */
+    private boolean sameLines() {
+        if (message != null || list.getVisibility() != View.VISIBLE || staged.size() != shown.size() || shown.isEmpty()) return false;
+        if (list.isLayoutRequested() || list.getChildCount() == 0) return false;
+        for (int i = 0; i < staged.size(); i++) {
+            Entry was = shown.get(i), now = staged.get(i);
+            if (was instanceof Fixed || now instanceof Fixed || was.type != now.type || !was.key.equals(now.key)) return false;
+            if (was.type == AdapterView.ITEM_VIEW_TYPE_IGNORE) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Takes the staged lines, rebinding in place only the rows on screen whose
+     * look changed; the rest, and the focus and scroll, stay as they are. Rows
+     * off screen are bound from the new lines when they scroll in.
+     */
+    private void updateRows() {
+        List<Entry> was = shown;
+        shown = staged;
+        staged = new ArrayList<>();
+        int first = list.getFirstVisiblePosition();
+        for (int i = 0; i < list.getChildCount(); i++) {
+            int at = first + i;
+            if (at < 0 || at >= shown.size()) continue;
+            Entry now = shown.get(at);
+            Object look = now.look();
+            if (look != null && look.equals(was.get(at).look())) continue;
+            View child = list.getChildAt(i);
+            if (now.view(child) != child) {
+                // The line wanted a different view after all: lay the list out again.
+                adapter.notifyDataSetChanged();
+                return;
+            }
+        }
+    }
+
+    /**
      * Scrolls so line `pos` starts at `top`. ListView's setSelectionFromTop
      * puts the next selectable line there instead, so for a heading (or any
      * fixed line) the first stop after it goes lower by their heights.
@@ -160,6 +217,13 @@ final class Feed {
             at++;
         }
         list.setSelectionFromTop(at < shown.size() ? at : pos, top);
+    }
+
+    /** How tall line `at` will be before it is laid out, or 0 when that isn't known without binding it. */
+    private int expectedHeight(int at) {
+        Entry entry = shown.get(at);
+        if (entry instanceof Fixed) return heightOf(entry);
+        return entry.type >= 0 && entry.type < TYPES ? typeHeight[entry.type] : 0;
     }
 
     private int heightOf(Entry entry) {
@@ -177,6 +241,7 @@ final class Feed {
         boolean hadFocus = root.hasFocus();
         shown = Collections.emptyList();
         staged = new ArrayList<>();
+        list.forgetFollow();
         adapter.notifyDataSetChanged();
         hideMessage();
         message = view;
@@ -324,7 +389,12 @@ final class Feed {
             if (entry instanceof Fixed && ((Fixed) entry).cell.getParent() != null && ((Fixed) entry).cell.getParent() != parent) {
                 ((ViewGroup) ((Fixed) entry).cell.getParent()).removeView(((Fixed) entry).cell);
             }
-            return entry.view(entry.type == AdapterView.ITEM_VIEW_TYPE_IGNORE ? null : recycled);
+            View view = entry.view(entry.type == AdapterView.ITEM_VIEW_TYPE_IGNORE ? null : recycled);
+            if (entry.type >= 0 && entry.type < TYPES) {
+                ViewGroup.LayoutParams lp = view.getLayoutParams();
+                typeHeight[entry.type] = lp != null && lp.height > 0 ? lp.height : 0;
+            }
+            return view;
         }
     }
 
@@ -372,6 +442,7 @@ final class Feed {
         protected void layoutChildren() {
             // A layout detaches every row; the focused one can lose the focus to the
             // window's first stop (the bar's link) on the way. It comes back here.
+            applyFollow();
             View had = findFocus();
             int hadAt = had != null ? positionOf(had) : -1;
             laying = true;
@@ -390,18 +461,78 @@ final class Feed {
         }
 
         private boolean laying;
+        /** The focused row's position, for the selection to follow at the next layout; -1 for none. */
+        private int follow = -1;
 
         /*
          * ListView keeps a selected position of its own, and each layout
          * anchors on it and gives it the focus: left behind on a row scrolled
-         * away, it would pull the list back there. So it follows the focus.
+         * away, it would pull the list back there. So it follows the focus,
+         * at the start of the next layout rather than now: setting it asks for
+         * a layout of every row, which on each d-pad press was a third of the
+         * frame. Only a layout reads it (Left and Right never reach the list).
          */
         @Override
         public void requestChildFocus(View child, View focused) {
             super.requestChildFocus(child, focused);
             if (laying || child == null || child.getParent() != this) return;
             int at = getFirstVisiblePosition() + indexOfChild(child);
-            if (at >= 0 && at < getCount() && at != getSelectedItemPosition()) setSelectionFromTop(at, child.getTop());
+            follow = at >= 0 && at < getCount() ? at : -1;
+        }
+
+        /** A placement asked for outright wins over the pending follow. */
+        @Override
+        public void setSelectionFromTop(int position, int y) {
+            follow = -1;
+            super.setSelectionFromTop(position, y);
+        }
+
+        void forgetFollow() {
+            follow = -1;
+        }
+
+        /** Brings the selection to the focused row, where it is now; called at the start of a layout. */
+        private void applyFollow() {
+            int at = follow;
+            follow = -1;
+            View row = at >= 0 ? childFor(at) : null;
+            if (row != null && at != getSelectedItemPosition()) super.setSelectionFromTop(at, row.getTop());
+        }
+
+        /** The key whose press the list took before the input method saw it; its release goes the same way. */
+        private int preIme;
+
+        /*
+         * Up and Down between rows are taken before the input method. The
+         * window can show a text field, so every key otherwise goes to the
+         * input method's process first (T9 on the XP3) and comes back, and the
+         * input method then calls into Wave several times per press: about
+         * half the main thread's time while scrolling. A row isn't text, so
+         * there is nothing for the input method to do. A text field's keys,
+         * and Up from the first stop (the screen's and the bar's), go the
+         * usual way.
+         */
+        @Override
+        public boolean dispatchKeyEventPreIme(KeyEvent event) {
+            int key = event.getKeyCode();
+            if (key == KeyEvent.KEYCODE_DPAD_DOWN || key == KeyEvent.KEYCODE_DPAD_UP) {
+                if (event.getAction() == KeyEvent.ACTION_UP && preIme == key) {
+                    preIme = 0;
+                    return true;
+                }
+                if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                    int dir = key == KeyEvent.KEYCODE_DPAD_DOWN ? 1 : -1;
+                    View focus = findFocus();
+                    int from = focus != null && !focus.onCheckIsTextEditor() ? positionOf(focus) : -1;
+                    if (from >= 0 && nextStop(from, dir) >= 0) {
+                        preIme = key;
+                        move(dir);
+                        return true;
+                    }
+                    preIme = 0;
+                }
+            }
+            return super.dispatchKeyEventPreIme(event);
         }
 
         @Override
@@ -436,6 +567,23 @@ final class Feed {
                 return;
             }
             View row = childFor(to);
+            // The next stop right past the edge, of a height known ahead: one scroll shows it whole.
+            // The row leaving at the other edge is then rebound as this one in the same pass, so it
+            // stays attached; two steps (show a pixel, then the rest) detached a row from the window,
+            // attached one and measured it again on every press.
+            if (row == null) {
+                int need = to == getLastVisiblePosition() + 1 || to == getFirstVisiblePosition() - 1 ? expectedHeight(to) : 0;
+                if (need > 0 && need < h) {
+                    if (dir > 0) {
+                        View last = getChildAt(getChildCount() - 1);
+                        if (last != null) scrollListBy(Math.max(1, last.getBottom() - h + need));
+                    } else {
+                        View first = getChildAt(0);
+                        if (first != null) scrollListBy(Math.min(-1, first.getTop() - need));
+                    }
+                    row = childFor(to);
+                }
+            }
             // The next stop just past the edge: scroll it into being now (scrollListBy fills the gap
             // at once), so the focus moves before the next key; a deferred layout would drop keys.
             for (int tries = 0; row == null && tries < 8; tries++) {

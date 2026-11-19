@@ -55,12 +55,13 @@ final class Kit {
         }
 
         Row last() {
-            hairline = false;
-            invalidate();
+            setHairline(false);
             return this;
         }
 
+        /** Redraws only on a change: a recycled row is rebound on every scroll step. */
         void setHairline(boolean on) {
+            if (hairline == on) return;
             hairline = on;
             invalidate();
         }
@@ -349,7 +350,13 @@ final class Kit {
             setLayoutParams(new LinearLayout.LayoutParams(dp(c, sizeDp), dp(c, sizeDp)));
         }
 
+        /** The badge's mark, kept while the kind and size stay (a new Path would be drawn and uploaded again). */
+        private android.graphics.Path mark;
+        private int markKind, markW, markH;
+
         void setBadge(int kind) {
+            // Always redrawn: the ring's colour follows the row's focus, and a
+            // rebind is what brings it up to date.
             this.kind = kind;
             invalidate();
         }
@@ -371,6 +378,16 @@ final class Kit {
             paint.setStrokeWidth(1.6f * d);
             paint.setStrokeCap(Paint.Cap.ROUND);
             paint.setStrokeJoin(Paint.Join.ROUND);
+            if (mark == null || markKind != kind || markW != getWidth() || markH != getHeight()) {
+                mark = mark(kind, cx, cy, d);
+                markKind = kind;
+                markW = getWidth();
+                markH = getHeight();
+            }
+            canvas.drawPath(mark, paint);
+        }
+
+        private static android.graphics.Path mark(int kind, float cx, float cy, float d) {
             android.graphics.Path p = new android.graphics.Path();
             if (kind == 2) {
                 p.moveTo(cx, cy + 3 * d);
@@ -383,7 +400,7 @@ final class Kit {
                 p.lineTo(cx - 1.1f * d, cy + 2.4f * d);
                 p.lineTo(cx + 3.2f * d, cy - 2.2f * d);
             }
-            canvas.drawPath(p, paint);
+            return p;
         }
     }
 

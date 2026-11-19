@@ -49,7 +49,54 @@ final class Rows {
                 BrowseRow row = recycled instanceof BrowseRow ? (BrowseRow) recycled : new BrowseRow(app);
                 return row.bind(p, open, last);
             }
+
+            @Override
+            Object look() {
+                return new PkgLook(p, last);
+            }
         };
+    }
+
+    /**
+     * A browse line's look: everything a Pkg holds, and whether it is the last
+     * line. A row kept because its look is equal still holds the old Pkg (and
+     * the open action made with it); with every field equal, that Pkg is as
+     * good as the new one.
+     */
+    static final class PkgLook {
+        private final Pkg p;
+        private final boolean last;
+
+        PkgLook(Pkg p, boolean last) {
+            this.p = p;
+            this.last = last;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (!(o instanceof PkgLook)) return false;
+            PkgLook l = (PkgLook) o;
+            Pkg q = l.p;
+            return last == l.last && p.state == q.state && p.needsNewerWave == q.needsNewerWave && p.isModule == q.isModule
+                && eq(p.id, q.id) && eq(p.name, q.name) && eq(p.summary, q.summary) && eq(p.version, q.version)
+                && eq(p.installedVersion, q.installedVersion) && eq(p.unfitReason, q.unfitReason)
+                && eq(p.sourceId, q.sourceId) && eq(p.sourceName, q.sourceName) && eq(p.sectionName, q.sectionName)
+                && eq(p.iconFile, q.iconFile) && sameChange(p.newestChange, q.newestChange);
+        }
+
+        @Override
+        public int hashCode() {
+            return p.id.hashCode();
+        }
+
+        private static boolean sameChange(WaveData.Change a, WaveData.Change b) {
+            if (a == null || b == null) return a == b;
+            return eq(a.version, b.version) && eq(a.date, b.date) && eq(a.text, b.text);
+        }
+
+        private static boolean eq(Object a, Object b) {
+            return a == null ? b == null : a.equals(b);
+        }
     }
 
     static final class BrowseRow extends Kit.Row {
@@ -62,6 +109,9 @@ final class Rows {
             super(app);
             this.app = app;
             setLayoutParams(Kit.fill(Kit.dp(app, 47)));
+            // Centred at a fixed height, so baselines place nothing; with them
+            // on, LinearLayout measures the texts an extra time per bind.
+            setBaselineAligned(false);
             icon = new Kit.BadgedIcon(app, 32);
             addView(icon);
             LinearLayout texts = Kit.texts(app, "", "-", Look.MUTED, 8);
@@ -157,6 +207,7 @@ final class Rows {
             setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             LinearLayout top = new LinearLayout(app);
             top.setGravity(Gravity.CENTER_VERTICAL);
+            top.setBaselineAligned(false); // only the capsule has a baseline: it places nothing
             top.setDuplicateParentStateEnabled(true);
             icon = Kit.iconView(app, 40);
             top.addView(icon);
@@ -227,6 +278,7 @@ final class Rows {
             super(app);
             this.app = app;
             setLayoutParams(Kit.fill(Kit.dp(app, 47)));
+            setBaselineAligned(false); // centred at a fixed height (see BrowseRow)
             icon = Kit.iconView(app, 32);
             addView(icon);
             LinearLayout texts = Kit.texts(app, "", "-", Look.MUTED, 8);

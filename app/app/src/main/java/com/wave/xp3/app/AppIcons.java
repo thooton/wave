@@ -30,6 +30,12 @@ import java.util.concurrent.Executors;
  *
  * Decoding happens off the main thread; an ImageView shows the tile until the
  * real icon arrives, and a recycled row never gets another row's icon.
+ *
+ * A long list binds a row per d-pad press, so binding does no I/O and draws
+ * little: a lettered tile depends only on its colour and letter, so packages
+ * share one (drawn once, uploaded to the GPU once), and a placeholder has the
+ * real icon's size, so the icon arriving redraws the row instead of laying
+ * out the whole list again.
  */
 final class AppIcons {
 
@@ -53,8 +59,13 @@ final class AppIcons {
             return new Ref(id, label, null, null, null);
         }
 
+        /**
+         * What the cache knows the art by. A file's path is enough: icons live
+         * in a source's tree under its commit, which is never rewritten, so
+         * there is no need to stat the file on the main thread.
+         */
         String key() {
-            return id + "|" + (file != null ? file.getPath() + "@" + file.lastModified() : "")
+            return id + "|" + (file != null ? file.getPath() : "")
                 + (bytes != null ? "#" + bytes.length : "") + (installedPackage != null ? "!" + installedPackage : "");
         }
     }
@@ -71,10 +82,24 @@ final class AppIcons {
         t.setPriority(Thread.MIN_PRIORITY);
         return t;
     });
-    private final LruCache<String, Bitmap> cache = new LruCache<String, Bitmap>(4 * 1024 * 1024) {
+    /*
+     * Icons are kept as drawables, and a view gets a new one on their shared
+     * state (as Resources does): the bitmap and its paint aren't set up again
+     * for every row bound. Nothing tints or fades an icon's drawable (rows
+     * fade the view), so the shared state never changes.
+     */
+    private final LruCache<String, BitmapDrawable> cache = new LruCache<String, BitmapDrawable>(4 * 1024 * 1024) {
         @Override
-        protected int sizeOf(String key, Bitmap value) {
-            return value.getByteCount();
+        protected int sizeOf(String key, BitmapDrawable value) {
+            return value.getBitmap().getByteCount();
+        }
+    };
+
+    /** Lettered tiles by colour, letter and size: few, shared by every package that has them. */
+    private final LruCache<String, BitmapDrawable> tiles = new LruCache<String, BitmapDrawable>(2 * 1024 * 1024) {
+        @Override
+        protected int sizeOf(String key, BitmapDrawable value) {
+            return value.getBitmap().getByteCount();
         }
     };
 
@@ -91,37 +116,57 @@ final class AppIcons {
         final int px = Look.dp(context, sizeDp) * 2;
         final String key = ref.key() + "@" + px;
         view.setTag(key);
-        Bitmap hit = cache.get(key);
+        BitmapDrawable hit = cache.get(key);
         if (hit != null) {
-            view.setImageDrawable(new BitmapDrawable(context.getResources(), hit));
+            show(view, hit);
             return;
         }
-        final String tileKey = "tile|" + ref.id + "|" + ref.label + "@" + px;
-        Bitmap tile = cache.get(tileKey);
+        final String tileKey = tileKey(ref, px);
+        BitmapDrawable tile = tiles.get(tileKey);
         boolean hasArt = ref.file != null || ref.bytes != null || ref.installedPackage != null;
         if (tile != null) {
-            view.setImageDrawable(new BitmapDrawable(context.getResources(), tile));
+            show(view, tile);
         } else if (!hasArt) {
             // The lettered tile is this icon: drawn now, so it never pops in.
-            tile = round(tile(ref, px), px);
-            cache.put(tileKey, tile);
-            view.setImageDrawable(new BitmapDrawable(context.getResources(), tile));
+            tile = new BitmapDrawable(context.getResources(), round(tile(ref, px), px));
+            tiles.put(tileKey, tile);
+            show(view, tile);
         } else {
             // The art is on its way: a plain tile of the same colour holds the
             // place, and the drawing (lettered tile if the art fails) is the
-            // worker's, off the main thread.
-            view.setImageDrawable(Look.rounded(tileColor(ref.id), px / 2 * 0.225f));
+            // worker's, off the main thread. It has the icon's size, so the
+            // swap doesn't lay out the list again.
+            android.graphics.drawable.GradientDrawable hold = Look.rounded(tileColor(ref.id), px / 2 * 0.225f);
+            hold.setSize(px, px);
+            view.setImageDrawable(hold);
         }
         if (!hasArt) return;
         worker.execute(() -> {
             Bitmap art = load(ref, px);
             final boolean real = art != null;
-            final Bitmap done = real ? round(art, px) : round(tile(ref, px), px);
+            final BitmapDrawable done = new BitmapDrawable(context.getResources(), real ? round(art, px) : round(tile(ref, px), px));
             main.post(() -> {
-                cache.put(real ? key : tileKey, done);
-                if (key.equals(view.getTag())) view.setImageDrawable(new BitmapDrawable(context.getResources(), done));
+                if (real) cache.put(key, done);
+                else tiles.put(tileKey, done);
+                if (key.equals(view.getTag())) show(view, done);
             });
         });
+    }
+
+    /** Shows `icon` in `view`, keeping the drawable it has when that already shows it (a rebind). */
+    private void show(ImageView view, BitmapDrawable icon) {
+        Drawable now = view.getDrawable();
+        if (now instanceof BitmapDrawable && ((BitmapDrawable) now).getBitmap() == icon.getBitmap()) return;
+        view.setImageDrawable(icon.getConstantState().newDrawable(context.getResources()));
+    }
+
+    /** What a lettered tile depends on: its colour, its letter and its size (see {@link #tile}). */
+    private static String tileKey(Ref ref, int px) {
+        return tileColor(ref.id) + "|" + letter(ref) + "@" + px;
+    }
+
+    private static String letter(Ref ref) {
+        return ref.label.isEmpty() ? "?" : ref.label.substring(0, 1).toUpperCase();
     }
 
     /** The icon's art, or null when none of its places has one. On the worker. */
@@ -181,7 +226,7 @@ final class AppIcons {
         Bitmap out = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(out);
         canvas.drawColor(tileColor(ref.id));
-        String text = ref.label.isEmpty() ? "?" : ref.label.substring(0, 1).toUpperCase();
+        String text = letter(ref);
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         paint.setColor(0xFFFFFFFF);
         paint.setTypeface(Look.BOLD);
