@@ -37,7 +37,7 @@ rules.
 | 12 | [Rename Argon to Wave in the mods](12-mods-rename.md) | P | 11 | [ ] |
 | 13 | [Releases and publishing from wave_packages CI](13-packages-ci.md) | P | 01, 02 | [ ] |
 | 14 | [Setup codes: apps without a baked login](14-app-setup-codes.md) | P | | [ ] |
-| 15 | [The default source](15-default-source.md) | R | 01, 02 | [ ] |
+| 15 | [The default source](15-default-source.md) | R | 01, 02 | [x] |
 | 16 | [Source and Tablet in their own repo and source](16-private-source.md) | new | 13's CI pattern, 14's shared setup | [ ] |
 | 17 | [First phone, end to end](17-first-phone.md) | all | 07, 08, 09, 12, 13, 15; 14 and 16 for migration | [ ] |
 
@@ -58,6 +58,8 @@ Four agents can work without touching the same files: one on the app's core
 ## Work notes
 
 (Record completion evidence, decisions, and blocked checks here.)
+
+- **15 (local complete, GitHub pending):** Default source committed locally in `../wave_repository` (`a3c0049`); lint and download-mode lint pass on the intentionally empty source. Published the real Wave 0.1.0 APK into a disposable copy at `applications/wave` and linted the result. The only public legacy release is mutable `latest`, so no package points at it and nothing with an unavailable immutable binary is advertised. Hosted branch protection, the first real W/P publications and `lint --download` against populated remote assets need the [owner cutover](01-owner-checklist.md); none were attempted.
 
 - **02 done:** Standard-library `wavesrc`, both composite Actions, and the [publishing guide](../publishing.md). Example lint passes with the expected retired-module warning. All 18 tests pass, including publishing the real List APK (`com.list.xp3` 1.2.6) and retrying a concurrent update against a disposable local Git repository. Hosted Actions were not run.
 

@@ -4,6 +4,11 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      retry-publish:
+        description: Republish the manifest using the original versioned APK if its release exists
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -43,3 +48,52 @@ jobs:
           name: wave-apk
           path: wave.apk
           if-no-files-found: error
+
+  publish-wave:
+    name: Publish Wave to the default source
+    needs: app
+    if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request' && vars.WAVE_PUBLISH_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: wave-apk
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: build-tools;${{ env.ANDROID_BUILD_TOOLS }}
+
+      - name: Prepare immutable Wave release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RETRY_PUBLISH: ${{ inputs.retry-publish }}
+          SOURCE_TOKEN: ${{ secrets.WAVE_REPOSITORY_TOKEN }}
+        run: |
+          if [[ -z "$SOURCE_TOKEN" ]]; then
+            echo 'WAVE_REPOSITORY_TOKEN: required when WAVE_PUBLISH_ENABLED is true' >&2
+            exit 1
+          fi
+          export AAPT2="$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/aapt2"
+          options=()
+          if [[ "$RETRY_PUBLISH" == true ]]; then options+=(--retry-publish); fi
+          python3 tools/wavesrc/release_wave.py wave.apk "${options[@]}"
+
+      - uses: ./publish
+        if: steps.release.outputs.binary != ''
+        with:
+          source-repository: thooton/wave_repository
+          source-token: ${{ secrets.WAVE_REPOSITORY_TOKEN }}
+          section: applications
+          folder: wave
+          meta: app/wave/package.json
+          icon: app/wave/icon.png
+          binary: ${{ steps.release.outputs.binary }}
+          url: ${{ steps.release.outputs.url }}
+          changes-path: app

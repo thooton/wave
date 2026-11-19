@@ -23,6 +23,11 @@ shared. W is already named `wave`.
    read/write. In P Settings → Secrets and variables → Actions add the
    repository secret `WAVE_REPOSITORY_TOKEN`. Do not embed it in Git URLs,
    source metadata or logs. Configure W likewise for publishing Wave itself.
+   Once R is on GitHub and the publishing identity can push to its `master`,
+   set the W Actions variable `WAVE_PUBLISH_ENABLED` to `true`. Run W's Build
+   workflow on `master`; use `retry-publish` if the release already exists.
+   R validates manifests on every push and downloads releases on its nightly
+   run.
 5. Review commits and artifact redistribution rights first. From W:
    `git -C ../sonim push -u origin master`; then
    `git -C ../sonim push origin stock-messages stock-launcher stock-music`.
