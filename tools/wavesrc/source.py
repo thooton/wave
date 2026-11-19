@@ -197,6 +197,9 @@ def validate(value, document, path, report):
     return before == report.errors
 
 
+ICON_MAX = 1024  # a 64 KB PNG can declare 65535x65535; the app refuses to decode more
+
+
 def check_icon(data):
     if len(data) > LIMIT:
         raise Invalid(f"larger than 64 KB ({LIMIT} bytes)")
@@ -219,6 +222,8 @@ def check_icon(data):
             if (not 0 < width < 2**31 or depth not in depths.get(color, ()) or
                     compression or filters or interlace not in (0, 1)):
                 raise Invalid("invalid PNG IHDR")
+            if width > ICON_MAX:
+                raise Invalid(f"PNG must be at most {ICON_MAX} pixels square (got {width}x{height})")
         elif kind == b"IDAT" and length:
             has_pixels = True
         elif kind == b"IEND":

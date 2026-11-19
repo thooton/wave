@@ -13,7 +13,7 @@ and put `aapt2` on `PATH`, set `ANDROID_HOME`, or pass `--aapt2 /path/to/aapt2`.
 Module ZIPs only need Python and Git; `module.prop` must be at the ZIP root.
 
 Beside your package's code, create `wave/package.json` containing the metadata
-that stays the same across releases, and add a square PNG at `wave/icon.png`
+that stays the same across releases, and add a square PNG (at most 1024 pixels, 96 recommended) at `wave/icon.png`
 (96×96 recommended, up to 64 KiB). For example:
 
 ```json

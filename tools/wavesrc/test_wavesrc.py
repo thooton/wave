@@ -29,9 +29,11 @@ def chunk(kind, payload):
     return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload))
 
 
-def png(width, height):
+def png(width, height, pixels=True):
+    # pixels=False declares the size without allocating the rows (the lint never inflates them)
+    rows = bytes((width * 3 + 1) * height) if pixels else b"\0"
     return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
-            + chunk(b"IDAT", zlib.compress(bytes((width * 3 + 1) * height))) + chunk(b"IEND", b""))
+            + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
 
 
 def write_json(path, data):
@@ -180,6 +182,8 @@ class LintTest(Fixtures):
         path = self.source / "icon.png"
         square = png(3, 3)
         for data, issue in [(png(2, 3), "PNG must be square (got 2x3)"),
+                            (png(1025, 1025), "PNG must be at most 1024 pixels square (got 1025x1025)"),
+                            (png(65535, 65535, pixels=False), "PNG must be at most 1024 pixels square"),
                             (b"GIF89a", "expected a PNG"),
                             (square[:-12], "incomplete PNG"),
                             (square[:-1] + b"\x00", "truncated or corrupt PNG"),
@@ -188,6 +192,8 @@ class LintTest(Fixtures):
                 path.write_bytes(data)
                 self.assertLintError("icon.png", issue)
         path.write_bytes(square)
+        self.assertEqual(0, self.lint()[0])
+        path.write_bytes(png(1024, 1024))
         self.assertEqual(0, self.lint()[0])
 
     def test_https_urls(self):
