@@ -35,6 +35,7 @@ scopes are the steps to take slowly.
    python3 -m unittest discover -s tools/wavesrc -p 'test*.py'
    node --test site/tests/*.test.mjs site/src/protocols/tests/*.test.mjs
    python3 site/scripts/sync_setup.py ../sonim --check
+   python3 -m unittest discover -s site/scripts
    ```
    **Check:** no stray changes you didn't mean to publish (P has the old
    `.claude/worktrees` deletions and `places/wave/`; leave those
@@ -163,6 +164,12 @@ takes a token, not a deploy key.
    - look through R's recent commits for anything you didn't publish.
 
 ## 7. First publication: Wave itself
+
+Also in `thooton/wave`, once `thooton/wave_packages` is pushed, add the variable
+`WAVE_PACKAGES_CHECK` = `true` (and the secret `WAVE_PACKAGES_READ_TOKEN`, a
+read-only token, if that repository is private). The Pages workflow then
+verifies the setup-form snapshot against the commit recorded in
+`site/setup/UPSTREAM`. Without it, only the offline record check runs.
 
 1. In `thooton/wave`, open Settings → Secrets and variables → Actions →
    Variables → New repository variable: `WAVE_PUBLISH_ENABLED` = `true`.

@@ -13,7 +13,21 @@ an npm install or sibling checkout.
 node --test site/tests/*.test.mjs site/src/protocols/tests/*.test.mjs
 python3 site/scripts/build.py /path/to/new/preview/wave
 python3 site/scripts/check_pages.py /path/to/new/preview/wave
+python3 -m unittest discover -s site/scripts
 ```
+
+The setup form's descriptors are a snapshot of the six apps' `wave-setup.json`
+files in wave_packages. `site/setup/UPSTREAM` records the commit they came
+from (like `common/UPSTREAM`), and the snapshot's first line repeats it.
+When those files change, run `python3 site/scripts/sync_setup.py ../sonim`
+(reads that checkout's committed HEAD), review the diff and commit both
+files. To verify, run `python3 site/scripts/sync_setup.py ../sonim --check`:
+it regenerates from the recorded commit and fails on any difference, and
+only notes when wave_packages has newer descriptor changes. Without a path,
+`--check` verifies offline that the record and snapshot agree. The Pages
+workflow runs the offline check always, and the full one once the
+repository variable `WAVE_PACKAGES_CHECK` is `true` (secret
+`WAVE_PACKAGES_READ_TOKEN` if the repository is private).
 
 The checker covers relative URLs and fragments, HTML landmarks and label
 references, static module imports, and reachability of all staged assets.

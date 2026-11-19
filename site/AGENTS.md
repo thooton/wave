@@ -15,7 +15,8 @@ from shipped/tested behavior.
 - `setup/`: local setup-file generator. Use `spec/setup-payload.md` and the
   canonical per-app descriptors from wave_packages. Regenerate the reviewed,
   checked-in snapshot with `python3 site/scripts/sync_setup.py ../sonim` when
-  those descriptors change; use `--check` to detect drift. Production builds
+  those descriptors change (it also updates `setup/UPSTREAM`, the recorded
+  commit); use `--check` to detect drift. Production builds
   use the local snapshot and do not contact that repository. Never put credentials
   in URLs, logs, browser storage, network requests, sample files or tests.
 - `mockups/`: app screen designer's area, not owned by the public site.

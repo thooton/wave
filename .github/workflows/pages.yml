@@ -26,6 +26,27 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Read the recorded wave_packages commit
+        id: packages
+        run: echo "commit=$(sed -n 2p site/setup/UPSTREAM)" >> "$GITHUB_OUTPUT"
+      - name: Check out wave_packages at that commit
+        # Set the repository variable WAVE_PACKAGES_CHECK to true once the
+        # repository is readable (add the secret WAVE_PACKAGES_READ_TOKEN if private).
+        if: vars.WAVE_PACKAGES_CHECK == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: thooton/wave_packages
+          ref: ${{ steps.packages.outputs.commit }}
+          path: wave_packages
+          token: ${{ secrets.WAVE_PACKAGES_READ_TOKEN || github.token }}
+      - name: Setup snapshot matches wave_packages
+        run: |
+          python3 -m unittest discover -s site/scripts
+          if [ -d wave_packages ]; then
+            python3 site/scripts/sync_setup.py wave_packages --check
+          else
+            python3 site/scripts/sync_setup.py --check
+          fi
       - name: Test and stage public files
         run: |
           node --test site/tests/*.test.mjs site/src/protocols/tests/*.test.mjs
