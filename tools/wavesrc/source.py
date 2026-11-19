@@ -2,12 +2,12 @@
 
 import datetime
 import json
-import math
 import re
 import stat
 import struct
 import zlib
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -57,13 +57,6 @@ def json_object(pairs):
     return obj
 
 
-def decimal(text):
-    value = float(text)
-    if not math.isfinite(value):
-        raise Invalid("JSON number out of range")
-    return value
-
-
 def non_json(token):
     raise Invalid(f"invalid JSON value {token!r}")
 
@@ -71,11 +64,11 @@ def non_json(token):
 def read_json(data):
     try:
         value = json.loads(data.decode("utf-8"), object_pairs_hook=json_object,
-                           parse_float=decimal, parse_constant=non_json)
+                           parse_float=Decimal, parse_constant=non_json)
         # Reject lone escaped surrogates, which are not Unicode code points.
-        json.dumps(value, ensure_ascii=False).encode("utf-8")
+        json.dumps(value, ensure_ascii=False, default=str).encode("utf-8")
         return value
-    except (ValueError, RecursionError) as exc:
+    except (InvalidOperation, ValueError, RecursionError) as exc:
         raise Invalid(f"invalid UTF-8 JSON: {exc}") from exc
 
 
@@ -117,7 +110,7 @@ def schema_issues(value, rule, document, field=""):
         "object": isinstance(value, dict),
         "array": isinstance(value, list),
         "string": isinstance(value, str),
-        "integer": type(value) is int or (type(value) is float and value.is_integer()),
+        "integer": type(value) is int or (isinstance(value, Decimal) and value == value.to_integral_value()),
     }
     kind = rule.get("type")
     if kind and not match[kind]:
@@ -162,8 +155,11 @@ def schema_issues(value, rule, document, field=""):
                 if not where.endswith(".min"):
                     expected = "a package id (letters, digits, '.', '_' or '-', starting with a letter or digit)"
             yield f"{where} must match {expected}"
-    elif "minimum" in rule and value < rule["minimum"]:
-        yield f"{where} must be at least {rule['minimum']}"
+    else:
+        if "minimum" in rule and value < rule["minimum"]:
+            yield f"{where} must be at least {rule['minimum']}"
+        if "maximum" in rule and value > rule["maximum"]:
+            yield f"{where} must be at most {rule['maximum']}"
 
 
 def https_url(url):

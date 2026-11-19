@@ -57,8 +57,10 @@ moving; resolve open questions when the relevant brief has evidence.
    live beside its code in `wave_packages/<pkg>/wave/`; CI writes the source.
    `wavesrc` uses the v1 schemas and checks HTTPS URLs and square PNGs.
    The schemas now enforce one-line summaries and exact end anchors; the
-   format text specifies folder starts and optional calendar dates. The
-   existing example source already meets these rules. When publishing, CI
+   format text specifies folder starts and optional calendar dates. Integer
+   fields are capped at the app parser's signed 64-bit range, with exact
+   whole-number parsing. The existing example source already meets these
+   rules. When publishing, CI
    restarts from the current branch tip on a concurrent push; an older or
    different same-version binary cannot replace the current release.
 5. **Wave keeps a copy of `common/`** (`common/core`, `common/ui`), synced
@@ -93,6 +95,13 @@ moving; resolve open questions when the relevant brief has evidence.
     source; Search keeps its cursor at the end so Left/Right still switch
     tabs; the queue screens are modal (no tab bar). Mockup text uses the
     phone's own Roboto files, pulled from `/system/fonts` (read only).
+15. **Source refresh commits by replacing `sources.json`** (brief 05). The
+    list points at immutable cached generations under each source's `tree/`;
+    switching the catalog pointer avoids a two-rename gap. Parse or fetch
+    failure keeps the previous generation. Malformed package manifests are
+    hidden individually. Between sources the winning version's type is used,
+    even if that type cannot be installed by this version of Wave.
+
 ## Open
 
 1. **The QR scanner.** Reading a QR code without a library means writing a

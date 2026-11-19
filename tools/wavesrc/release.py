@@ -157,7 +157,15 @@ def publish(args, report):
         icon = small_file(path)
         path = args.changes_from
         manifest["changes"] = changes(path, args.changes_path, meta["name"], target.parent.name, version)
-        data = (json.dumps(manifest, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+        requires = manifest.get("requires", {})
+        for field in ("sdk", "wave"):
+            if field in requires:
+                requires[field] = int(requires[field])
+        try:
+            data = (json.dumps(manifest, indent=2, ensure_ascii=False, default=float, allow_nan=False)
+                    + "\n").encode("utf-8")
+        except ValueError as exc:
+            raise Invalid(f"cannot encode static metadata: {exc}") from exc
         lint(root, report, candidate=(target, data, icon))
         if not report.errors:
             path = target

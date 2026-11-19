@@ -108,6 +108,8 @@ icon.png                     optional
 
 Rules for readers and writers:
 
+- Integer fields accept whole numbers within the positive signed 64-bit
+  range, up to 9,223,372,036,854,775,807.
 - Unknown fields are ignored, so fields can be added without a new version.
 - `wavesrc lint` validates the version 1 package types. Wave's reader can
   still list an unknown type or a package from a newer source as unavailable.

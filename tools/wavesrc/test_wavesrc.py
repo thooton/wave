@@ -126,6 +126,19 @@ class LintTest(Fixtures):
                 self.assertLintError(path, issue)
                 shutil.copyfile(EXAMPLE / path, self.source / path)
 
+    def test_exact_bounded_integers(self):
+        path = self.source / "wave.json"
+        for good in ("1e0", "9223372036854775807.0"):
+            path.write_text('{"wave": ' + good + ', "name": "Source"}', encoding="utf-8")
+            self.assertEqual(0, self.lint()[0])
+        for bad, issue in [("9223372036854775808.0", "wave must be at most 9223372036854775807"),
+                           ("1.00000000000000000001", "wave must be an integer")]:
+            path.write_text('{"wave": ' + bad + ', "name": "Source"}', encoding="utf-8")
+            self.assertLintError("wave.json", issue)
+        shutil.copyfile(EXAMPLE / "wave.json", path)
+        self.mutate(LIST, lambda p: p["download"].update(size=9223372036854775808))
+        self.assertLintError(LIST, "download.size must be at most 9223372036854775807")
+
     def test_strict_json_and_limit(self):
         path = self.source / LIST
         for data, issue in [(b"{" * (LIMIT + 1), "larger than 64 KB"),
