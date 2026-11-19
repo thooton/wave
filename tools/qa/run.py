@@ -26,7 +26,7 @@ ROOT = HERE.parents[1]
 SERIAL = '8516067e'
 PACKAGE = 'com.wave.xp3'
 ACTIVITIES = {'com.wave.xp3.MainActivity', 'com.wave.xp3.app.WaveActivity'}
-FIXTURES = ('browse', 'reboot', 'errors', 'offline', 'noroot', 'search')
+FIXTURES = ('browse', 'reboot', 'errors', 'offline', 'noroot')
 FIXTURE_DESCRIPTOR = b'Lcom/wave/xp3/app/FakeWaveData;'
 LOCK = ROOT / '.oak' / 'phone.lock'
 KEYS = {'DPAD_UP', 'DPAD_DOWN', 'DPAD_LEFT', 'DPAD_RIGHT', 'ENTER', 'BACK', 'MENU'}
@@ -163,9 +163,10 @@ def phone_lock():
 
 
 class Device:
-    def __init__(self, adb, activity, fixture):
+    def __init__(self, adb, activity, fixture, query):
         self.activity = activity
         self.fixture = fixture
+        self.query = query
         self.prefix = [adb, '-s', SERIAL]
         self.marker = 'qa_' + uuid.uuid4().hex
         self.dump_path = '/data/local/tmp/wave-' + self.marker + '.xml'
@@ -347,6 +348,8 @@ def run_steps(device, scenario, output, frames):
             raise CheckFailed('Wave lost foreground while reading the hierarchy; no key sent.')
         if action == 'launch':
             extras = ('--es', 'fixture', device.fixture) if device.fixture else ()
+            if device.query:
+                extras += ('--es', 'query', device.query)
             reply = device.text('shell', 'am', 'start', '-W', '-n', device.activity, *extras, timeout=20)
             if not re.search(r'^Status: ok$', reply, re.M):
                 raise CheckFailed('Activity did not report a successful launch.')
@@ -434,10 +437,13 @@ def main():
     choice.add_argument('--dry-run', action='store_true', help='run the non-installing in-app smoke path on the real handset')
     choice.add_argument('--scenario', type=Path, help='run a reviewed local JSON scenario')
     parser.add_argument('--fixture', choices=FIXTURES, help='use mock data in a debug-only WaveActivity build')
+    parser.add_argument('--fixture-query', help='preload a synthetic Search query (debug fixture only)')
     parser.add_argument('--out', type=Path, help='new report folder (default .oak/tmp/wave-qa/<UTC>_<id>)')
     args = parser.parse_args()
     if args.fixture and not args.scenario:
         parser.error('--fixture requires an explicit --scenario')
+    if args.fixture_query and (not args.fixture or not re.fullmatch('[a-zA-Z0-9]{1,24}', args.fixture_query)):
+        parser.error('--fixture-query requires --fixture and at most 24 letters/digits')
     path = args.scenario.resolve() if args.scenario else None
     run_id = f'{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}_{uuid.uuid4().hex[:8]}'
     output = (args.out or ROOT / '.oak/tmp/wave-qa' / run_id).resolve()
@@ -462,7 +468,9 @@ def main():
             title = scenario['name']
             if args.fixture:
                 metadata += f', debug fixture {args.fixture}'
-            device_run(Device(adb, activity, args.fixture), apk, scenario, output, frames, notes)
+            if args.fixture_query:
+                metadata += ', seeded search query ' + args.fixture_query
+            device_run(Device(adb, activity, args.fixture, args.fixture_query), apk, scenario, output, frames, notes)
     except CheckFailed as e:
         status = 'FAIL'
         notes.append(str(e))
