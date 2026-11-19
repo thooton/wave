@@ -42,13 +42,13 @@ public final class Pack {
     }
 
     public static Pack parse(byte[] bytes) throws IOException {
-        if (bytes.length > MAX_PACK) throw new IOException("Git pack exceeds 8 MiB");
+        if (bytes.length > MAX_PACK) throw new SourceFailure(SourceFailure.Kind.TOO_BIG, "Git pack exceeds 8 MiB");
         return parse(bytes.clone(), bytes.length);
     }
 
     // Ownership of bytes moves from the sideband reader to the pack.
     static Pack parse(byte[] bytes, int length) throws IOException {
-        if (length > MAX_PACK) throw new IOException("Git pack exceeds 8 MiB");
+        if (length > MAX_PACK) throw new SourceFailure(SourceFailure.Kind.TOO_BIG, "Git pack exceeds 8 MiB");
         if (length < 32) throw new IOException("Truncated Git pack");
         Pack pack = new Pack(bytes, length);
         pack.read();
@@ -95,7 +95,7 @@ public final class Pack {
                 }
                 e.start = in.pos;
                 boolean delta = encoding == OFS_DELTA || encoding == REF_DELTA;
-                if (delta && e.size > MAX_DELTA_OBJECT) throw new IOException("Git delta is too large");
+                if (delta && e.size > MAX_DELTA_OBJECT) throw new SourceFailure(SourceFailure.Kind.TOO_BIG, "Git delta is too large");
                 if (!delta) header(digest, e.type, e.size);
                 in.pos += inflate(e, inflater, scratch, null, delta ? null : digest);
                 byOffset.put(offset, e);
@@ -171,7 +171,7 @@ public final class Pack {
         ArrayDeque<Entry> chain = new ArrayDeque<>();
         byte[] data;
         while ((data = cache.get(e)) == null) {
-            if (e.size > MAX_DELTA_OBJECT) throw new IOException("Git delta base is too large");
+            if (e.size > MAX_DELTA_OBJECT) throw new SourceFailure(SourceFailure.Kind.TOO_BIG, "Git delta base is too large");
             if (e.base == null) {
                 charge(e.size);
                 data = new byte[e.size];
@@ -229,7 +229,7 @@ public final class Pack {
         Cursor in = new Cursor(instructions, 0, instructions.length);
         if (in.number(in.next(), 7) != base.length) throw new IOException("Git delta base size mismatch");
         int size = in.number(in.next(), 7);
-        if (size > MAX_DELTA_OBJECT) throw new IOException("Git delta result is too large");
+        if (size > MAX_DELTA_OBJECT) throw new SourceFailure(SourceFailure.Kind.TOO_BIG, "Git delta result is too large");
         charge(size);
         byte[] result = new byte[size];
         int out = 0;
@@ -258,8 +258,8 @@ public final class Pack {
     }
 
     private void charge(int n) throws IOException {
-        if (n > MAX_WORK - work) throw new IOException("Git pack expands to too much data");
-        if (Thread.currentThread().isInterrupted()) throw new IOException("Git fetch cancelled");
+        if (n > MAX_WORK - work) throw new SourceFailure(SourceFailure.Kind.TOO_BIG, "Git pack expands to too much data");
+        if (Thread.currentThread().isInterrupted()) throw new SourceFailure(SourceFailure.Kind.STOPPED, "Git fetch cancelled");
         work += n;
     }
 

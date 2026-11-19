@@ -59,7 +59,7 @@ public final class Tree {
                     byte[] blob = pack.blob(child, MAX_FILE);
                     if (blob != null) {
                         if (blob.length > MAX_FILES_BYTES - size || files.size() >= 12_000) {
-                            throw new IOException("Git source contains too much manifest and icon data");
+                            throw new SourceFailure(SourceFailure.Kind.TOO_BIG, "Git source contains too much manifest and icon data");
                         }
                         size += blob.length;
                         files.put(path + name, blob.clone());

@@ -20,6 +20,7 @@ public final class GitSelfTest {
         check.run("Git packet lines", () -> packets(check));
         check.run("Git packs", () -> packs(check));
         check.run("Git HTTP", () -> http(check));
+        check.run("Source failures in plain words", () -> plainFailures(check));
     }
 
     private static void packets(Check check) throws Exception {
@@ -69,7 +70,7 @@ public final class GitSelfTest {
         check.fails("corrupt compressed object", "zlib", () -> Pack.parse(corrupt));
         check.fails("truncated data", () -> Pack.parse(Arrays.copyOf(good, good.length - 1)));
         check.fails("truncated header", () -> Pack.parse(Arrays.copyOf(good, 10)));
-        check.fails("size cap", "8 MiB", () -> Pack.parse(new byte[Pack.MAX_PACK + 1]));
+        check.fails("size cap", "too big", () -> Pack.parse(new byte[Pack.MAX_PACK + 1]));
     }
 
     private static void http(Check check) throws Exception {
@@ -130,9 +131,83 @@ public final class GitSelfTest {
             check.same("only one advertisement", 1, ads.get());
             check.same("only one pack", 1, packs.get());
             check.same("one HEAD request per refresh", 2, refs.get());
-            check.fails("do not follow redirects", "redirects are refused", () -> new SmartHttp("https://fixture.invalid/redirect", connection).lsRefs());
-            check.fails("reject plain HTTP", "HTTPS", () -> new SmartHttp("http://fixture.invalid/fixture", connection));
+            check.fails("do not follow redirects", "sends Wave elsewhere", () -> new SmartHttp("https://fixture.invalid/redirect", connection).lsRefs());
+            check.fails("reject plain HTTP", "https://", () -> new SmartHttp("http://fixture.invalid/fixture", connection));
             check.same("display never shows credentials", "https://fixture.invalid/fixture", SmartHttp.publicUrl("https://user:tok%2Ben@fixture.invalid/fixture/"));
+        } finally { server.stop(0); }
+    }
+
+    /**
+     * Every way a fetch can fail reaches the app as a SourceFailure whose
+     * message is shown as it is: this fails when a failure escapes untyped
+     * or its words are Git's.
+     */
+    private static void plainFailures(Check check) throws Exception {
+        for (SourceFailure.Kind kind : SourceFailure.Kind.values()) {
+            check.ok(kind + " is plain: " + kind.says, !com.wave.xp3.core.sources.SourcesSelfTest.JARGON.matcher(kind.says).find()
+                && kind.says.length() <= 70 && kind.says.endsWith("."));
+        }
+        byte[] advertisement = fixture("advertisement.pkt");
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", exchange -> {
+            try {
+                String path = exchange.getRequestURI().getPath();
+                boolean advertise = "GET".equals(exchange.getRequestMethod());
+                if (path.startsWith("/missing/")) exchange.sendResponseHeaders(404, -1);
+                else if (path.startsWith("/locked/")) exchange.sendResponseHeaders(401, -1);
+                else if (path.startsWith("/forbidden/")) exchange.sendResponseHeaders(403, -1);
+                else if (path.startsWith("/broken/")) exchange.sendResponseHeaders(503, -1);
+                else if (path.startsWith("/moved/")) {
+                    exchange.getResponseHeaders().set("Location", "https://elsewhere.invalid/");
+                    exchange.sendResponseHeaders(301, -1);
+                } else if (path.startsWith("/page/")) {
+                    byte[] page = "<html>hello</html>".getBytes(StandardCharsets.US_ASCII);
+                    exchange.getResponseHeaders().set("Content-Type", "text/html");
+                    exchange.sendResponseHeaders(200, page.length);
+                    exchange.getResponseBody().write(page);
+                } else {
+                    byte[] reply = advertise ? advertisement : "0011not a packet!".getBytes(StandardCharsets.US_ASCII);
+                    exchange.getResponseHeaders().set("Content-Type", "application/x-git-upload-pack-" + (advertise ? "advertisement" : "result"));
+                    if (path.startsWith("/huge/") && !advertise) {
+                        exchange.sendResponseHeaders(200, Pack.MAX_PACK + 1L);
+                        return;
+                    }
+                    exchange.sendResponseHeaders(200, reply.length);
+                    exchange.getResponseBody().write(reply);
+                }
+            } catch (IOException ignored) {
+            } finally { exchange.close(); }
+        });
+        server.start();
+        int closed;
+        try (java.net.ServerSocket free = new java.net.ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1"))) { closed = free.getLocalPort(); }
+        try {
+            int port = server.getAddress().getPort();
+            Object[][] cases = {
+                {"missing", SourceFailure.Kind.NOT_FOUND, port}, {"locked", SourceFailure.Kind.SIGN_IN, port},
+                {"forbidden", SourceFailure.Kind.SIGN_IN, port}, {"broken", SourceFailure.Kind.SERVER, port},
+                {"moved", SourceFailure.Kind.REDIRECT, port}, {"page", SourceFailure.Kind.NOT_FOUND, port},
+                {"garbage", SourceFailure.Kind.UNREADABLE, port}, {"huge", SourceFailure.Kind.TOO_BIG, port},
+                {"nobody", SourceFailure.Kind.OFFLINE, closed},
+            };
+            for (Object[] c : cases) {
+                final int to = (Integer) c[2];
+                SmartHttp.Connections connection = uri -> (HttpURLConnection) URI.create("http://127.0.0.1:" + to + uri.getRawPath() +
+                    (uri.getRawQuery() == null ? "" : "?" + uri.getRawQuery())).toURL().openConnection();
+                try {
+                    new SmartHttp("https://source.invalid/" + c[0] + "/", connection).fetchTree(null);
+                    check.ok(c[0] + " is refused", false);
+                } catch (SourceFailure e) {
+                    check.same(c[0] + " (" + e.detail() + ")", c[1], e.kind);
+                    check.same(c[0] + " says it plainly", e.kind.says, e.getMessage());
+                }
+            }
+            try {
+                SmartHttp.fetchTree("http://source.invalid/plain", null);
+                check.ok("plain HTTP is refused", false);
+            } catch (SourceFailure e) {
+                check.same("plain HTTP", SourceFailure.Kind.ADDRESS, e.kind);
+            }
         } finally { server.stop(0); }
     }
 

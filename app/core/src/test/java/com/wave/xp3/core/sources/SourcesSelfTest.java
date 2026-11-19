@@ -35,6 +35,67 @@ public final class SourcesSelfTest {
         check.run("Damaged source list and trees", () -> damage(check));
         check.run("Tree generations under readers and a removal", () -> generations(check));
         check.run("Empty, maximal and very large sources", () -> extremes(check));
+        check.run("Store failures in plain words", () -> plainFailures(check));
+    }
+
+    /** Refused with a SourceFailure whose detail (not shown on screen) mentions `detail`, and whose message is plain. */
+    static void failsBecause(Check check, String name, String detail, Check.Body body) {
+        try {
+            body.run();
+            check.ok(name + ": refused", false);
+        } catch (com.wave.xp3.core.git.SourceFailure e) {
+            check.ok(name + ": " + e.detail(), e.detail().contains(detail));
+            check.same(name + ": the screen's words", e.kind.says, e.getMessage());
+        } catch (Exception e) {
+            check.ok(name + ": not a SourceFailure: " + e, false);
+        }
+    }
+
+    /** Words a person holding the phone shouldn't meet in an error. */
+    public static final java.util.regex.Pattern JARGON = java.util.regex.Pattern.compile(
+        "Git|HTTP\\b|\\bpack|PNG|HEAD|SHA|[KM]iB|JSON|\\bURL|wave\\.json|manifest|repository|null|Exception|/data/");
+
+    private static void plainFailures(Check check) throws Exception {
+        Path root = Files.createTempDirectory("wave-plain-test");
+        try {
+            AtomicReference<Exception> next = new AtomicReference<>();
+            SourceStore store = new SourceStore(root.toFile(), (url, commit) -> {
+                Exception e = next.get();
+                if (e instanceof IOException) throw (IOException) e;
+                throw (RuntimeException) e;
+            });
+            Exception[] fetchFailures = {new IOException("Git pack checksum mismatch"), new IllegalStateException("broken"),
+                new IOException((String) null)};
+            for (Exception e : fetchFailures) {
+                next.set(e);
+                try {
+                    store.preview("https://sample.test/plain");
+                    check.ok("a failed fetch is refused", false);
+                } catch (com.wave.xp3.core.git.SourceFailure f) {
+                    check.same("a fetcher's own words become the detail: " + e, com.wave.xp3.core.git.SourceFailure.Kind.UNREADABLE, f.kind);
+                    check.ok("and stay off the screen: " + f.getMessage(), !JARGON.matcher(f.getMessage()).find());
+                }
+            }
+            next.set(new com.wave.xp3.core.git.SourceFailure(com.wave.xp3.core.git.SourceFailure.Kind.SIGN_IN, "HTTP 401"));
+            check.fails("a typed failure passes through", "needs a sign-in", () -> store.preview("https://sample.test/plain"));
+            String defaultId = store.sources().get(0).id;
+            Check.Body[] refusals = {
+                () -> store.remove(defaultId),
+                () -> store.add(SourceStore.DEFAULT_URL),
+                () -> store.add("http://example.org/source"),
+                () -> store.add("https://example.org/" + new String(new char[5000]).replace('\0', 'x')),
+                () -> store.refresh("no-such-source"),
+            };
+            for (Check.Body refusal : refusals) {
+                try {
+                    refusal.run();
+                    check.ok("refused", false);
+                } catch (Exception e) {
+                    String said = String.valueOf(e.getMessage());
+                    check.ok("the store's own refusal is plain: " + said, !JARGON.matcher(said).find() && said.length() <= 70);
+                }
+            }
+        } finally { erase(root); }
     }
 
     private static void manifests(Check check) throws Exception {
@@ -70,7 +131,7 @@ public final class SourcesSelfTest {
             SourceStore store = new SourceStore(root.toFile(), fetcher);
             check.same("default present", 1, store.sources().size());
             check.ok("default is protected", store.sources().get(0).builtIn);
-            check.fails("cannot remove default", "cannot be removed", () -> store.remove(store.sources().get(0).id));
+            check.fails("cannot remove default", "can't be removed", () -> store.remove(store.sources().get(0).id));
             check.fails("default alias is protected", "already added", () -> store.add(SourceStore.DEFAULT_URL.substring(0, SourceStore.DEFAULT_URL.length() - 4)));
             SourceStore.Preview preview = store.preview("https://sample.test/preview");
             check.same("preview identifies source", "Example Source", preview.manifest.name);
@@ -81,7 +142,7 @@ public final class SourcesSelfTest {
             check.same("approval uses fetched tree", HEAD_A, store.index().source(approved.id).info.commit);
             check.fails("preview cannot be approved twice", "already added", () -> store.add(preview));
             store.remove(approved.id);
-            check.fails("HTTPS only", "HTTPS", () -> store.add("http://example.org/source"));
+            check.fails("HTTPS only", "https://", () -> store.add("http://example.org/source"));
             String privateUrl = "https://user:token@Example.org:443/source/";
             SourceStore.Source added = store.add(privateUrl);
             check.same("private URL redacted", "https://example.org/source", added.url);
@@ -100,11 +161,11 @@ public final class SourcesSelfTest {
             Map<String, byte[]> invalid = new LinkedHashMap<>(valid);
             invalid.put("wave.json", variant("bad-header/wave.json"));
             payload.set(new SourceStore.Update(HEAD_B, invalid));
-            check.fails("failed validation leaves active tree", "wave.json", () -> store.refresh(added.id));
+            failsBecause(check, "failed validation leaves active tree", "wave.json", () -> store.refresh(added.id));
             check.same("old HEAD survives validation failure", HEAD_A, store.index().source(added.id).info.commit);
             invalid.put("wave.json", valid.get("wave.json"));
             invalid.put("../../escape.png", new byte[0]);
-            check.fails("failed staging leaves active tree", "Invalid cached source path", () -> store.refresh(added.id));
+            failsBecause(check, "failed staging leaves active tree", "Invalid source path", () -> store.refresh(added.id));
             check.same("previous package still readable", APP_ID, store.index().get(APP_ID).manifest.id);
             invalid.remove("../../escape.png");
             invalid.put(LIST, variant("bad-package/package.json"));
@@ -131,14 +192,14 @@ public final class SourcesSelfTest {
                 if (SourceStore.DEFAULT_URL.equals(url)) {
                     try { if (!otherStarted.await(3, TimeUnit.SECONDS)) throw new IOException("blocked other source"); }
                     catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IOException("interrupted"); }
-                    throw new IOException("default unavailable");
+                    throw new com.wave.xp3.core.git.SourceFailure(com.wave.xp3.core.git.SourceFailure.Kind.SERVER, "default unavailable");
                 }
                 otherStarted.countDown();
                 return new SourceStore.Update(HEAD_A, tree);
             });
             SourceStore.Source second = store.add("https://sample.org/source");
             List<SourceStore.Refresh> results = store.refreshAll();
-            check.same("failure reported independently", "default unavailable", results.get(0).error);
+            check.same("failure reported independently", com.wave.xp3.core.git.SourceFailure.Kind.SERVER.says, results.get(0).error);
             check.same("other source did not wait", null, results.get(1).error);
             check.same("other source last-good committed", HEAD_A, store.index().source(second.id).info.commit);
         } finally { erase(root); }
@@ -423,7 +484,7 @@ public final class SourcesSelfTest {
             store.remove(id);
             release.countDown();
             refreshing.join();
-            check.ok("late refresh is refused", failure.get() instanceof IOException && failure.get().getMessage().contains("changed during refresh"));
+            check.ok("late refresh is refused", failure.get() instanceof IOException && failure.get().getMessage().contains("changed while refreshing"));
             check.same("source stays removed", 1, store.sources().size());
             check.ok("and left no files", !Files.exists(root.resolve("sources").resolve(id)));
             check.ok("the list on disk agrees", new SourceStore(root.toFile(), (u, k) -> null).sources().size() == 1);
@@ -463,7 +524,7 @@ public final class SourcesSelfTest {
             check.fails("over the limit", "64 KiB", () -> PackageManifest.parse(over));
             Map<String, byte[]> limit = new LinkedHashMap<>(empty);
             limit.put(LIST, exact);
-            check.fails("the store refuses an oversize file outright", "file size", () -> {
+            failsBecause(check, "the store refuses an oversize file outright", "file size limit", () -> {
                 Map<String, byte[]> refused = new LinkedHashMap<>(limit);
                 refused.put("applications/oversized/package.json", over);
                 tree.set(refused);

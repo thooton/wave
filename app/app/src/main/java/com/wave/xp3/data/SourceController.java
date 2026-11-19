@@ -98,7 +98,8 @@ public final class SourceController implements WaveData {
         List<Src> rows = new ArrayList<>();
         if (shown != null) for (Index.Source s : shown.sources()) {
             String error = sourceErrors.get(s.info.id);
-            if (error == null) error = s.issues.get("wave.json");
+            // The issue itself is a diagnosis in the format's terms; the screen only needs to know there is one.
+            if (error == null && s.issues.containsKey("wave.json")) error = com.wave.xp3.core.git.SourceFailure.Kind.UNREADABLE.says;
             rows.add(new Src(s.info.id, s.info.name, s.info.url, s.icon, s.info.builtIn,
                 s.manifest == null ? "" : s.manifest.maintainer, s.info.lastRefresh, s.packages.size(),
                 refreshing.contains(s.info.id), error, s.manifest != null && s.manifest.needsNewerWave()));
@@ -215,7 +216,7 @@ public final class SourceController implements WaveData {
 
     @Override public void refreshAll() {
         if (closed) return;
-        if (store == null) { firstLoadError = "Couldn't read Wave's sources"; render(); return; }
+        if (store == null) { firstLoadError = "Couldn't read Wave's sources."; render(); return; }
         if (shown != null) for (Index.Source source : shown.sources()) refresh(source.info.id);
     }
 
@@ -283,6 +284,8 @@ public final class SourceController implements WaveData {
         CatalogModel model = catalog;
         Inventory here = inventory;
         List<String> wanted = new ArrayList<>(ids);
+        // A finished run's result belongs to that run: a new plan starts from no queue, so its screen can't show the old outcome.
+        if (queue != null && queue.finished) { queue = null; render(); }
         if (source == null || model == null) { callback.failed("Still loading. Try again in a moment."); return; }
         boolean rootGranted = root == Root.OK;
         request(worker, () -> makePlan(wanted, action, source, model, here, rootGranted), new Result<PlanView>() {
@@ -405,7 +408,7 @@ public final class SourceController implements WaveData {
     }
 
     private SourceStore sources() throws IOException {
-        if (store == null) throw new IOException("Couldn't read Wave's sources");
+        if (store == null) throw new IOException("Couldn't read Wave's sources.");
         return store;
     }
 
@@ -415,7 +418,7 @@ public final class SourceController implements WaveData {
         submit(executor, () -> {
             try { T value = work.run(); post(() -> callback.ok(value)); }
             catch (IOException | Plan.Refused e) { post(() -> callback.failed(message(e))); }
-            catch (RuntimeException e) { post(() -> callback.failed("Wave could not finish the request")); }
+            catch (RuntimeException e) { post(() -> callback.failed("That didn't work.")); }
         });
     }
     private void submit(ExecutorService executor, Runnable task) {
@@ -423,45 +426,9 @@ public final class SourceController implements WaveData {
         try { executor.execute(task); }
         catch (RejectedExecutionException e) { if (!closed) throw e; }
     }
+    /** Core's source failures are written for the screen (SourceFailure, Plan.Refused): shown as they are. */
     private static String message(Exception e) {
-        return e.getMessage() == null || e.getMessage().isEmpty() ? "That didn't work." : plain(e.getMessage());
-    }
-
-    /**
-     * The Git client and source reader speak in their own terms ("Git pack
-     * checksum mismatch", "Expected a PNG image"); the screens say what it
-     * means for the person holding the phone. Messages already written for
-     * them pass through.
-     */
-    static String plain(String said) {
-        if (said.startsWith("Git HTTP ")) {
-            String code = said.substring(9).split("\\D", 2)[0];
-            if (code.equals("404")) return "No Wave source at that address.";
-            if (code.equals("401") || code.equals("403")) return "That source needs a sign-in.";
-            if (code.startsWith("3")) return "That address sends Wave elsewhere. Use the address it ends at.";
-            return "The source's server had a problem. Try again later.";
-        }
-        if (said.equals("URL is not a smart Git repository")) return "No Wave source at that address.";
-        if (said.equals("Git request timed out")) return "The connection timed out.";
-        if (said.equals("Could not connect to the Git host")) return "Couldn't reach the source. Check the connection.";
-        if (said.equals("The Git host's secure connection failed")) return "The secure connection failed.";
-        if (said.equals("Git fetch cancelled")) return "Stopped.";
-        if (said.startsWith("Use an HTTPS repository URL")) return "Use an https:// address without ? or #.";
-        if (said.equals("Source URL is too long")) return "That address is too long.";
-        if (said.equals("The repository has no default branch commit")) return "That source is empty.";
-        if (said.equals("The default Wave source cannot be removed")) return "Wave's own source can't be removed.";
-        if (said.equals("Could not read Wave's source list")) return "Couldn't read Wave's sources";
-        if (said.contains("exceeds") || said.contains("too much") || said.contains("too large")) {
-            return "That source is too big for Wave.";
-        }
-        if (said.contains("Git") || said.contains("PNG") || said.startsWith("Missing ") || said.startsWith("Invalid ")
-            || said.startsWith("Unknown ") || said.startsWith("Expected ") || said.startsWith("Truncated ")
-            || said.startsWith("Unexpected ") || said.startsWith("Duplicate ") || said.startsWith("Source ")
-            || said.startsWith("Corrupt ") || said.startsWith("Incomplete ") || said.startsWith("Unsupported ")
-            || said.contains("protocol") || said.contains("SHA-1") || said.contains("HEAD")) {
-            return "That source sent something Wave can't read.";
-        }
-        return said;
+        return e.getMessage() == null || e.getMessage().isEmpty() ? "That didn't work." : e.getMessage();
     }
     private void post(Runnable update) { main.post(() -> { if (!closed) update.run(); }); }
 

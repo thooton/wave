@@ -6,7 +6,6 @@ import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.ConnectException;
 import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;
 import java.net.URI;
@@ -53,7 +52,7 @@ public final class SmartHttp {
                 uri.getRawQuery() != null || uri.getRawFragment() != null) throw new URISyntaxException("", "Bad source URL");
             return uri;
         } catch (URISyntaxException e) {
-            throw new IOException("Use an HTTPS repository URL without a query or fragment");
+            throw new SourceFailure(SourceFailure.Kind.ADDRESS, "Not an HTTPS repository URL without a query or fragment");
         }
     }
 
@@ -79,13 +78,21 @@ public final class SmartHttp {
         }
     }
 
-    public static Result fetchTree(String url, String knownCommit) throws IOException {
-        return new SmartHttp(url).fetchTree(knownCommit);
+    public static Result fetchTree(String url, String knownCommit) throws SourceFailure {
+        SmartHttp git;
+        try { git = new SmartHttp(url); }
+        catch (IOException e) { throw SourceFailure.of(e); }
+        return git.fetchTree(knownCommit);
     }
 
-    public Result fetchTree(String knownCommit) throws IOException {
-        String id = lsRefs();
-        return new Result(id, id.equals(knownCommit) ? null : Tree.files(fetch(id), id));
+    /** Every failure is a {@link SourceFailure}: its message is for the screen as it is. */
+    public Result fetchTree(String knownCommit) throws SourceFailure {
+        try {
+            String id = lsRefs();
+            return new Result(id, id.equals(knownCommit) ? null : Tree.files(fetch(id), id));
+        } catch (IOException | RuntimeException e) {
+            throw SourceFailure.of(e);
+        }
     }
 
     public String lsRefs() throws IOException {
@@ -96,7 +103,7 @@ public final class SmartHttp {
                 PktLine line = packet(in);
                 if (line.kind == PktLine.FLUSH) {
                     finish(in);
-                    if (head == null) throw new IOException("The repository has no default branch commit");
+                    if (head == null) throw new SourceFailure(SourceFailure.Kind.EMPTY, "No default branch commit");
                     return head;
                 }
                 String[] parts = text(line).split(" ", 3);
@@ -111,7 +118,7 @@ public final class SmartHttp {
     public Pack fetch(String commit) throws IOException {
         if (commit == null || !Pack.isId(commit)) throw new IOException("Invalid Git commit id");
         advertise();
-        if (!offers("shallow")) throw new IOException("The Git server does not support shallow fetches");
+        if (!offers("shallow")) throw new SourceFailure(SourceFailure.Kind.UNSUPPORTED, "No shallow fetches");
         return request("/" + SERVICE, command("fetch", "want " + commit + '\n', "deepen 1\n",
             offers("filter") ? "filter blob:limit=262144\n" : null, "no-progress\n", "ofs-delta\n", "done\n"),
             MIME + "-result", SmartHttp::sideband).verify();
@@ -131,7 +138,7 @@ public final class SmartHttp {
                 if (packet(in).kind != PktLine.FLUSH) throw new IOException("Invalid Git service advertisement");
                 first = text(packet(in));
             }
-            if (!"version 2".equals(first)) throw new IOException("This source does not speak Git protocol v2");
+            if (!"version 2".equals(first)) throw new SourceFailure(SourceFailure.Kind.UNSUPPORTED, "Not Git protocol v2");
             Map<String, String> caps = new HashMap<>();
             for (;;) {
                 PktLine line = packet(in);
@@ -145,10 +152,10 @@ public final class SmartHttp {
             }
             finish(in);
             if (caps.containsKey("object-format") && !"sha1".equals(caps.get("object-format"))) {
-                throw new IOException("The repository does not use SHA-1 Git objects");
+                throw new SourceFailure(SourceFailure.Kind.UNSUPPORTED, "Not SHA-1 objects");
             }
             if (!caps.containsKey("fetch") || !caps.containsKey("ls-refs")) {
-                throw new IOException("Git server does not advertise fetch and ls-refs");
+                throw new SourceFailure(SourceFailure.Kind.UNSUPPORTED, "No fetch and ls-refs");
             }
             return caps;
         });
@@ -183,7 +190,7 @@ public final class SmartHttp {
             if (line.kind != PktLine.DATA || line.bytes.length == 0) throw new IOException("Invalid Git sideband packet");
             int band = line.bytes[0];
             if (band == 1) {
-                if (line.bytes.length - 1 > Pack.MAX_PACK - pack.size()) throw new IOException("Git pack exceeds 8 MiB");
+                if (line.bytes.length - 1 > Pack.MAX_PACK - pack.size()) throw new SourceFailure(SourceFailure.Kind.TOO_BIG, "Git pack exceeds 8 MiB");
                 pack.write(line.bytes, 1, line.bytes.length - 1);
             } else if (band != 2) {
                 // Never surface server-controlled text; it can include private repository information.
@@ -241,33 +248,32 @@ public final class SmartHttp {
             }
             int status = connection.getResponseCode();
             if (status != 200) {
-                throw new IOException("Git HTTP " + status + (status >= 300 && status < 400 ? ": redirects are refused" :
-                    status == 401 || status == 403 ? ": check source access or credentials" : ""));
+                throw SourceFailure.status(status);
             }
             String type = connection.getContentType();
             if (type == null || !expected.equalsIgnoreCase(type.split(";", 2)[0].trim())) {
-                throw new IOException("URL is not a smart Git repository");
+                throw new SourceFailure(SourceFailure.Kind.NOT_FOUND, "Not a smart Git repository (" + type + ")");
             }
             String encoding = connection.getContentEncoding();
             if (encoding != null && !"identity".equalsIgnoreCase(encoding)) throw new IOException("Unsupported Git HTTP encoding");
-            if (connection.getContentLengthLong() > Pack.MAX_PACK) throw new IOException("Git reply exceeds 8 MiB");
+            if (connection.getContentLengthLong() > Pack.MAX_PACK) throw new SourceFailure(SourceFailure.Kind.TOO_BIG, "Git reply exceeds 8 MiB");
             try (InputStream in = new Bounded(new BufferedInputStream(connection.getInputStream()), deadline)) {
                 return read.from(in);
             }
         } catch (SocketTimeoutException e) {
-            throw new IOException("Git request timed out");
-        } catch (UnknownHostException | ConnectException e) {
-            throw new IOException("Could not connect to the Git host");
+            throw new SourceFailure(SourceFailure.Kind.TIMEOUT, "Git request timed out", e);
+        } catch (UnknownHostException | java.net.SocketException e) {
+            throw new SourceFailure(SourceFailure.Kind.OFFLINE, String.valueOf(e), e);
         } catch (SSLException e) {
-            throw new IOException("The Git host's secure connection failed");
+            throw new SourceFailure(SourceFailure.Kind.INSECURE, String.valueOf(e), e);
         } finally {
             connection.disconnect();
         }
     }
 
     private static void checkDeadline(long deadline) throws IOException {
-        if (Thread.currentThread().isInterrupted()) throw new IOException("Git fetch cancelled");
-        if (System.nanoTime() - deadline >= 0) throw new IOException("Git request timed out");
+        if (Thread.currentThread().isInterrupted()) throw new SourceFailure(SourceFailure.Kind.STOPPED, "Git fetch cancelled");
+        if (System.nanoTime() - deadline >= 0) throw new SourceFailure(SourceFailure.Kind.TIMEOUT, "Git request timed out");
     }
 
     private static final class Bounded extends FilterInputStream {
@@ -291,7 +297,7 @@ public final class SmartHttp {
         }
 
         private void spent(int n) throws IOException {
-            if ((left -= n) < 0) throw new IOException("Git reply exceeds 8 MiB");
+            if ((left -= n) < 0) throw new SourceFailure(SourceFailure.Kind.TOO_BIG, "Git reply exceeds 8 MiB");
             checkDeadline(deadline);
         }
     }

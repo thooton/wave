@@ -1,6 +1,7 @@
 package com.wave.xp3.core.sources;
 
 import com.wave.xp3.core.git.SmartHttp;
+import com.wave.xp3.core.git.SourceFailure;
 import com.wave.xp3.core.git.Tree;
 import com.xp3.common.Json;
 import java.io.File;
@@ -59,7 +60,7 @@ public final class SourceStore {
         private final String fetchUrl;
 
         private Source(String fetchUrl, String name, String commit, long lastRefresh) throws IOException {
-            if (fetchUrl.length() > MAX_URL) throw new IOException("Source URL is too long");
+            if (fetchUrl.length() > MAX_URL) throw new IOException("That address is too long.");
             this.fetchUrl = fetchUrl;
             url = identity(fetchUrl);
             id = sourceId(url);
@@ -124,8 +125,12 @@ public final class SourceStore {
         list = filesDir.toPath().resolve("sources.json");
         root = filesDir.toPath().resolve("sources");
         this.fetcher = fetcher;
-        sources = load();
-        sweep();
+        try {
+            sources = load();
+            sweep();
+        } catch (IOException e) {
+            throw new IOException("Couldn't read Wave's sources.", e);
+        }
     }
 
     /** Set when the saved source list could not be read as a whole and part or all of it was set aside, else null. */
@@ -139,8 +144,10 @@ public final class SourceStore {
     public Preview preview(String url) throws IOException {
         Source prospective = new Source(url, "", "", 0);
         synchronized (this) { checkNew(prospective); }
-        Update update = fetcher.fetch(prospective.fetchUrl, null);
-        if (update.files == null || !COMMIT.matcher(update.commit).matches()) throw new IOException("Source preview did not return a tree");
+        Update update = fetch(prospective.fetchUrl, null);
+        if (update.files == null || !COMMIT.matcher(update.commit).matches()) {
+            throw new SourceFailure(SourceFailure.Kind.UNREADABLE, "Source preview did not return a tree");
+        }
         SourceManifest header = header(update);
         return new Preview(new Source(url, header.name, update.commit, System.currentTimeMillis()), header, update.files);
     }
@@ -149,7 +156,7 @@ public final class SourceStore {
     public synchronized Source add(Preview preview) throws IOException {
         Source source = preview.source;
         checkNew(source);
-        publish(null, source, preview.files);
+        saving(() -> publish(null, source, preview.files));
         return source;
     }
 
@@ -157,21 +164,21 @@ public final class SourceStore {
     public synchronized Source add(String url) throws IOException {
         Source source = new Source(url, "", "", 0);
         checkNew(source);
-        replace(source);
+        saving(() -> replace(source));
         return source;
     }
 
     private void checkNew(Source source) throws IOException {
         if (sources.containsKey(source.id)) throw new IOException("That source is already added");
-        if (sources.size() >= MAX_SOURCES) throw new IOException("Too many Wave sources");
+        if (sources.size() >= MAX_SOURCES) throw new IOException("Wave can't hold more sources. Remove one first.");
     }
 
     public synchronized void remove(String id) throws IOException {
         Source source = require(id);
-        if (source.builtIn) throw new IOException("The default Wave source cannot be removed");
+        if (source.builtIn) throw new IOException("Wave's own source can't be removed.");
         Map<String, Source> next = new LinkedHashMap<>(sources);
         next.remove(id);
-        save(next);
+        saving(() -> save(next));
         eraseQuietly(root.resolve(id));
     }
 
@@ -184,26 +191,41 @@ public final class SourceStore {
             Path tree = active(before);
             known = tree != null && intact(tree) ? before.commit : null;
         }
-        Update update = fetcher.fetch(before.fetchUrl, known);
-        if (!COMMIT.matcher(update.commit).matches()) throw new IOException("Invalid source HEAD");
+        Update update = fetch(before.fetchUrl, known);
+        if (!COMMIT.matcher(update.commit).matches()) throw new SourceFailure(SourceFailure.Kind.UNREADABLE, "Invalid source HEAD");
         synchronized (this) {
-            if (sources.get(id) != before) throw new IOException("The source changed during refresh");
+            if (sources.get(id) != before) throw new IOException("The source changed while refreshing. Try again.");
             if (update.files == null) {
-                if (!update.commit.equals(known)) throw new IOException("Source refresh did not return a tree");
+                if (!update.commit.equals(known)) throw new SourceFailure(SourceFailure.Kind.UNREADABLE, "Source refresh did not return a tree");
                 Source next = new Source(before.fetchUrl, before.name, before.commit, System.currentTimeMillis());
-                replace(next);
+                saving(() -> replace(next));
                 return new Refresh(next, false, null);
             }
             SourceManifest header = header(update);
             Source next = new Source(before.fetchUrl, header.name, update.commit, System.currentTimeMillis());
-            publish(before, next, update.files);
+            saving(() -> publish(before, next, update.files));
             return new Refresh(next, true, null);
         }
     }
 
     private static SourceManifest header(Update update) throws IOException {
         try { return SourceManifest.parse(update.files.get("wave.json")); }
-        catch (IllegalArgumentException e) { throw new IOException(e.getMessage()); }
+        catch (IllegalArgumentException e) { throw new SourceFailure(SourceFailure.Kind.UNREADABLE, "wave.json: " + e.getMessage(), e); }
+    }
+
+    /** The fetch's failures as the screen should say them; a fetcher's own words become the detail. */
+    private Update fetch(String url, String known) throws SourceFailure {
+        try { return fetcher.fetch(url, known); }
+        catch (IOException | RuntimeException e) { throw SourceFailure.of(e); }
+    }
+
+    private interface Disk { void run() throws IOException; }
+
+    /** The phone's own storage failing says so, not the file path and errno Java reports. */
+    private static void saving(Disk work) throws IOException {
+        try { work.run(); }
+        catch (SourceFailure e) { throw e; }
+        catch (IOException e) { throw new IOException("Couldn't save the source on this phone.", e); }
     }
 
     /** Refreshes sources independently with two bounded workers; results remain in source order. */
@@ -254,7 +276,8 @@ public final class SourceStore {
                 boolean allowed = parts.length == 1 && ("wave.json".equals(relative) || "icon.png".equals(relative)) ||
                     parts.length == 3 && Fields.FOLDER.matcher(parts[0]).matches() && Fields.FOLDER.matcher(parts[1]).matches() &&
                     ("package.json".equals(parts[2]) || "icon.png".equals(parts[2]));
-                if (!allowed || entry.getValue().length > Tree.MAX_FILE) throw new IOException("Invalid cached source path or file size");
+                if (!allowed) throw new SourceFailure(SourceFailure.Kind.UNREADABLE, "Invalid source path " + relative);
+                if (entry.getValue().length > Tree.MAX_FILE) throw new SourceFailure(SourceFailure.Kind.TOO_BIG, "Over the file size limit: " + relative);
                 Path path = staging.resolve(relative);
                 Files.createDirectories(path.getParent());
                 // No per-file sync: a thousand fsyncs take minutes on flash. The digest below makes a torn write detectable.
