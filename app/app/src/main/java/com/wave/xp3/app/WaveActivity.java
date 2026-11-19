@@ -290,7 +290,7 @@ public final class WaveActivity extends Activity {
             String body = off.version != null && !off.version.isEmpty()
                 ? "With version " + off.version + ": " + Character.toLowerCase(why.charAt(0)) + why.substring(1)
                 : why;
-            body += " Wave turned it off, so the phone is as it was before it.";
+            body += " Wave turned it off, so the phone starts without it.";
             WaveData.Detail known = snapshot.detail(off.id);
             AppIcons.Ref icon = known != null ? Rows.icon(this, known.pkg) : AppIcons.Ref.tile(off.id, off.name);
             AlertDialog dialog = new AlertDialog.Builder(this)

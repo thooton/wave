@@ -28,7 +28,7 @@ final class NoRootScreen extends Screen {
         ImageView icon = Kit.iconView(app, 56);
         app.icons.into(icon, new AppIcons.Ref(app.getPackageName(), "Wave", null, null, app.getPackageName()), 56);
         page = Kit.message(app, icon, "Wave Needs Root for Mods",
-            "Apps install without it. For system mods, jailbreak the phone from a computer at", "thooton.github.io/wave", "Check Again");
+            "Apps install without it. System mods need a phone rooted with Magisk; see", "thooton.github.io/wave", "Check Again");
         Kit.messageButton(page).setOnClickListener(v -> app.data.checkRoot());
         return page;
     }

@@ -124,8 +124,10 @@ public final class SourceController implements WaveData {
         Inventory state = new Inventory();
         state.free = Formatter.formatFileSize(context, new StatFs(context.getFilesDir().getPath()).getAvailableBytes());
         boolean granted = false;
-        String label = "Not available";
+        // Before Wave has asked, it can't say whether the phone has root.
+        String label = "Not checked";
         if (explicit || RootShell.known(context)) {
+            label = "Not granted";
             try {
                 // This only checks permission. Obtaining root remains the user's choice in their root manager.
                 Shell.Result result = root(Scripts.whoami());
@@ -190,7 +192,7 @@ public final class SourceController implements WaveData {
 
     @Override public void refreshAll() {
         if (closed) return;
-        if (store == null) { firstLoadError = "Could not open the Wave sources"; render(); return; }
+        if (store == null) { firstLoadError = "Couldn't read Wave's sources"; render(); return; }
         if (shown != null) for (Index.Source source : shown.sources()) refresh(source.info.id);
     }
 
@@ -258,7 +260,7 @@ public final class SourceController implements WaveData {
         CatalogModel model = catalog;
         Inventory here = inventory;
         List<String> wanted = new ArrayList<>(ids);
-        if (source == null || model == null) { callback.failed("The Wave package list isn't ready yet"); return; }
+        if (source == null || model == null) { callback.failed("Still loading. Try again in a moment."); return; }
         boolean rootGranted = root == Root.OK;
         request(worker, () -> makePlan(wanted, action, source, model, here, rootGranted), new Result<PlanView>() {
             @Override public void ok(PlanView value) { proposed = (Pending) value.token; callback.ok(value); }
@@ -380,7 +382,7 @@ public final class SourceController implements WaveData {
     }
 
     private SourceStore sources() throws IOException {
-        if (store == null) throw new IOException("Could not open the Wave sources");
+        if (store == null) throw new IOException("Couldn't read Wave's sources");
         return store;
     }
 
@@ -398,7 +400,44 @@ public final class SourceController implements WaveData {
         catch (RejectedExecutionException e) { if (!closed) throw e; }
     }
     private static String message(Exception e) {
-        return e.getMessage() == null || e.getMessage().isEmpty() ? "Wave could not finish the request" : e.getMessage();
+        return e.getMessage() == null || e.getMessage().isEmpty() ? "That didn't work." : plain(e.getMessage());
+    }
+
+    /**
+     * The Git client and source reader speak in their own terms ("Git pack
+     * checksum mismatch", "Expected a PNG image"); the screens say what it
+     * means for the person holding the phone. Messages already written for
+     * them pass through.
+     */
+    static String plain(String said) {
+        if (said.startsWith("Git HTTP ")) {
+            String code = said.substring(9).split("\\D", 2)[0];
+            if (code.equals("404")) return "No Wave source at that address.";
+            if (code.equals("401") || code.equals("403")) return "That source needs a sign-in.";
+            if (code.startsWith("3")) return "That address sends Wave elsewhere. Use the address it ends at.";
+            return "The source's server had a problem. Try again later.";
+        }
+        if (said.equals("URL is not a smart Git repository")) return "No Wave source at that address.";
+        if (said.equals("Git request timed out")) return "The connection timed out.";
+        if (said.equals("Could not connect to the Git host")) return "Couldn't reach the source. Check the connection.";
+        if (said.equals("The Git host's secure connection failed")) return "The secure connection failed.";
+        if (said.equals("Git fetch cancelled")) return "Stopped.";
+        if (said.startsWith("Use an HTTPS repository URL")) return "Use an https:// address without ? or #.";
+        if (said.equals("Source URL is too long")) return "That address is too long.";
+        if (said.equals("The repository has no default branch commit")) return "That source is empty.";
+        if (said.equals("The default Wave source cannot be removed")) return "Wave's own source can't be removed.";
+        if (said.equals("Could not read Wave's source list")) return "Couldn't read Wave's sources";
+        if (said.contains("exceeds") || said.contains("too much") || said.contains("too large")) {
+            return "That source is too big for Wave.";
+        }
+        if (said.contains("Git") || said.contains("PNG") || said.startsWith("Missing ") || said.startsWith("Invalid ")
+            || said.startsWith("Unknown ") || said.startsWith("Expected ") || said.startsWith("Truncated ")
+            || said.startsWith("Unexpected ") || said.startsWith("Duplicate ") || said.startsWith("Source ")
+            || said.startsWith("Corrupt ") || said.startsWith("Incomplete ") || said.startsWith("Unsupported ")
+            || said.contains("protocol") || said.contains("SHA-1") || said.contains("HEAD")) {
+            return "That source sent something Wave can't read.";
+        }
+        return said;
     }
     private void post(Runnable update) { main.post(() -> { if (!closed) update.run(); }); }
 

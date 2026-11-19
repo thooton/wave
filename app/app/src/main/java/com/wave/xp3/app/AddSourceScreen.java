@@ -122,7 +122,7 @@ final class AddSourceScreen extends Screen {
     }
 
     private void setNote(String error, boolean red) {
-        note.setText(error != null ? error : "GitHub, GitLab, Codeberg or sourcehut");
+        note.setText(error != null ? error : "The https:// address of a Git source");
         note.setTextColor(red ? Look.RED : Look.MUTED);
         paintField();
     }
@@ -201,7 +201,7 @@ final class AddSourceScreen extends Screen {
         String whom = preview.maintainer != null ? preview.maintainer : "its maintainer";
         AlertDialog dialog = new AlertDialog.Builder(app)
             .setCustomTitle(head)
-            .setMessage("Its packages install with root and can change anything on the phone. Add it only if you trust " + whom + ".")
+            .setMessage("Its packages can change anything on this phone. Add it only if you trust " + whom + ".")
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Add Source", (d, w) -> app.data.add(preview, new WaveData.Result<Void>() {
                 @Override

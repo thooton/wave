@@ -12,8 +12,8 @@ android {
 
     defaultConfig {
         applicationId "com.wave.xp3"
-        versionCode 13
-        versionName "0.7.6"
+        versionCode 14
+        versionName "0.7.7"
     }
 }
 

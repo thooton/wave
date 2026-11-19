@@ -54,7 +54,7 @@ final class ConfirmScreen extends Screen {
         Kit.Foot foot = new Kit.Foot(app);
         String size = Rows.Format.size(plan.downloadBytes);
         String summary = size != null ? size + " to download" : null;
-        if (plan.needsReboot) summary = summary != null ? summary + ", then a reboot" : "Needs a reboot after";
+        if (plan.needsReboot) summary = summary != null ? summary + ", then a reboot" : "Needs a reboot";
         foot.setSummary(summary);
         buttons = foot.setButtons("Cancel", "Confirm");
         buttons[0].setOnClickListener(v -> app.pop());
