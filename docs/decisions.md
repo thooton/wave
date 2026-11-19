@@ -107,6 +107,22 @@ moving; resolve open questions when the relevant brief has evidence.
     failure keeps the previous generation. Malformed package manifests are
     hidden individually. Between sources the winning version's type is used,
     even if that type cannot be installed by this version of Wave.
+16. **Root is opt-in; nothing pre-grants Wave** (briefs 06 and 08, by the
+    owner's instruction). Wave opens `su` only when the user asks for
+    something that needs it; Magisk's prompt or Superuser screen decides.
+    Replaces the design draft's "the jailbreak pre-grants Wave". Without
+    root, apps still install through the Updater's Installer.
+17. **APKs are checked by the platform's parser** (brief 06):
+    `PackageManager.getPackageArchiveInfo`, the parser `pm` uses, rather
+    than a binary-manifest reader in `:core`. `:core` decides from what it
+    read (`Verify.apk`).
+18. **The boot watchdog judges only the boot** (brief 08). A module is kept
+    once boot completed and `system_server` stayed up for a minute; one
+    forced reboot after five minutes at most, never two in a row; a
+    launcher crashing after boot isn't watched, to have no false positives.
+    Tested by running the real scripts through pretend boots on the desktop
+    (bash and busybox ash); on the phone it is unverified until a rooted
+    test phone exists (`app/ROOT-TESTING.md`).
 
 ## Open
 
