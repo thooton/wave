@@ -335,12 +335,14 @@ and the platform caveats are in `jailbreak.md`.
 
 **Implementation status (brief 09):** The site provides a guided device check
 and recovery, adb over WebUSB, module Rescue on already-rooted phones, and
-local stock backup/readback verification. A read-only EDL backup was verified
-using a separate desktop tool; the browser package does not include an EDL
-programmer. Automated boot patching, partition writes, and installation of
-Magisk and Wave are not implemented; authorization stays with the owner. Owners use their own service procedure for any
-boot-image changes and review Magisk prompts on the phone. See `jailbreak.md`
-for hardware and browser validation limits.
+local stock backup/readback verification. **Backup from the browser is
+implemented and verified on the XP3800, read-only, and off by default:** built
+with `--with-device-backup`, a page reads the GPT and `boot` over EDL twice,
+checks the copies match, and hands the owner the image and a manifest. It
+accepts only the hash-pinned Sonim programmer, selected locally. Automated boot
+patching, flashing and installation of Magisk and Wave are not implemented;
+they remain the owner's own documented steps, and authorization stays with
+the owner. See `jailbreak.md` for hardware and browser validation limits.
 
 The same site hosts the landing page and the setup-file generator (section 8).
 

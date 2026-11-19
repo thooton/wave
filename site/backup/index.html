@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<title>Read an XP3800 boot backup | Wave</title><link rel="icon" href="../assets/wave.svg"><link rel="stylesheet" href="../assets/site.css"><script type="module" src="../src/jailbreak/backup.mjs"></script></head>
+<body><a class="skip" href="#main">Skip to content</a>
+<header><div class="wrap top"><a class="brand" href="../" aria-label="Wave home"><img src="../assets/wave.svg" width="32" height="32" alt="">Wave</a><nav aria-label="Main"><a href="../jailbreak/">Jailbreak guide</a><a href="../backup/" aria-current="page">Backup</a><a href="../restore/#verify">Verify</a></nav></div></header>
+<main id="main" tabindex="-1" class="wrap guide">
+<a href="../jailbreak/" class="crumb">Wave / Device guide</a><p class="kicker">04 <span>/</span> READ-ONLY BACKUP</p>
+<h1>Back up your XP3800’s boot partition.</h1><p class="lead">This optional tool reads the partition table and boot twice, checks that both reads match, then requests a return to Android. No partition is written. Files and device details stay on this computer.</p>
+<section class="box" aria-labelledby="device-title"><h2 id="device-title">1. Record this phone’s identity</h2>
+<p>With Android running and USB debugging enabled, connect only this phone. Use the USB check, or enter the Android USB serial and full build fingerprint from your existing device records. EDL itself cannot verify the Android identity. Neither method proves that an image is stock.</p>
+<button type="button" id="identify" disabled>Read Android identity</button><p class="status" role="status" id="identity-status"></p>
+<label for="serial">Android USB serial</label><input id="serial" type="text" autocomplete="off" spellcheck="false" maxlength="64">
+<label for="fingerprint">Full Android build fingerprint</label><input id="fingerprint" type="text" autocomplete="off" spellcheck="false" maxlength="256">
+</section>
+<section class="box setup-box" aria-labelledby="backup-title"><h2 id="backup-title">2. Connect the same phone in EDL</h2>
+<p>Charge it to at least 40%, then enter EDL using your normal service procedure. The correct USB ID is <code>05c6:9008</code>; <code>05c6:900e</code> is crash-dump mode. See <a href="../restore/#service-mode">EDL entry and cold-start checks</a> and the <a href="../platforms/">USB and driver guide</a>.</p>
+<label for="programmer">Sonim-signed MSM8909 service programmer</label><input id="programmer" type="file" aria-describedby="programmer-note"><small id="programmer-note">Use your own verified copy. The page accepts only the pinned XP3800 programmer and does not supply or upload this file.</small>
+<label class="toggle"><input id="same-phone" type="checkbox"> This is the same XP3800 whose serial and build I entered; no other Qualcomm device is connected.</label>
+<button type="button" id="read-backup" disabled>Connect and read boot backup</button>
+<p class="status" id="backup-status" role="status">Use Chromium or Chrome on Linux over HTTPS or a loopback connection. This workflow has not been tested on other platforms.</p>
+<label for="backup-progress" id="progress-label" hidden>Boot read progress</label><progress id="backup-progress" value="0" max="100" hidden></progress>
+<pre id="backup-result" hidden></pre>
+<div class="actions" id="downloads" hidden><a class="button" id="boot-download" download>Save boot image</a><a class="plain" id="manifest-download" download>Save manifest JSON</a></div>
+</section>
+<p>Keep both downloaded files together and save a second offline copy. They do not contain contacts, messages or photos. To verify them later, open <a href="../restore/#verify">Verify a boot backup</a>.</p>
+</main><footer><div class="wrap foot"><span>Wave for the Sonim XP3800</span><a href="https://github.com/thooton/wave/issues">Report a problem ↗</a></div></footer></body></html>

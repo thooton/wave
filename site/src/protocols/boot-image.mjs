@@ -11,3 +11,7 @@ export function checkBootImage(bytes) {
     throw new Error('XP3800 boot header has invalid component sizes.');
   }
 }
+
+export async function sha256(bytes) {
+  return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), b => b.toString(16).padStart(2, '0')).join('');
+}

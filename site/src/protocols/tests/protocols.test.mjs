@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { constants, createHash, generateKeyPairSync, publicDecrypt } from 'node:crypto';
-import test from 'node:test';
+import test, { mock } from 'node:test';
 import { adbHeader, Adb } from '../adb.mjs';
 import { install, pull, push } from '../adb-sync.mjs';
 import { adbCredential } from '../adb-credential.mjs';
-import { checkProgrammer, saharaExchange } from '../sahara.mjs';
+import { checkProgrammer, startReadOnlyProgrammer } from '../sahara.mjs';
 import { FirehoseBootReader } from '../firehose.mjs';
 import { bootBytes, checkBootImage } from '../boot-image.mjs';
 import { parseXp3800Gpt, readGptHeader } from '../gpt.mjs';
@@ -106,10 +106,16 @@ test('XP3800 capture: Sahara hello, requested loader ranges and done hand-off', 
     },
   };
   await assert.rejects(checkProgrammer(image), /recognized Sonim-signed/);
-  await saharaExchange(link, image);
-  assert.equal(packets.length, 0);
-  const bad = read('./xp3800-sahara.json').slice(0, 2).map(b);
-  await assert.rejects(saharaExchange({ read: async () => bad.shift(), write: async () => {} }, new Uint8Array(1)), /outside/);
+  // Replay with synthetic data after separately proving the real pin rejects it.
+  const pin = b('e6f2dbcfbed3ca72f23b4e1f0a53c510a620108eee2ac6b18a7835f1440e2767');
+  const digestStub = mock.method(crypto.subtle, 'digest', async () => pin.buffer);
+  try {
+    await startReadOnlyProgrammer(link, image);
+    assert.equal(packets.length, 0);
+    const invalid = read('./xp3800-sahara.json').slice(0, 2).map(b);
+    new DataView(invalid[1].buffer).setUint32(12, image.length, true);
+    await assert.rejects(startReadOnlyProgrammer({ read: async () => invalid.shift(), write: async () => {} }, image), /outside/);
+  } finally { digestStub.mock.restore(); }
 });
 
 function image() {

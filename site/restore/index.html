@@ -11,6 +11,7 @@
 <section id="verify" class="box" aria-labelledby="verify-title"><h2 id="verify-title">Local backup check</h2>
 <p>These files stay in your browser. Use the original untouched 32 MiB image from this phone. A valid header or matching hash cannot prove the file came from the right phone: check the serial and firmware in your original backup notes.</p>
 <label for="stock">Original stock boot backup</label><input type="file" id="stock" aria-describedby="stock-note"><small id="stock-note">Full XP3800 boot partition read before any changes.</small>
+<label for="manifest">Wave backup manifest JSON (optional)</label><input id="manifest" type="file" accept=".json,application/json">
 <label for="expected">Original SHA-256 (from your backup notes)</label><input id="expected" type="text" spellcheck="false" autocomplete="off" maxlength="64" placeholder="64 hexadecimal characters">
 <label for="second">Second independent read or post-restore readback (optional)</label><input type="file" id="second">
 <button id="verify-backup" type="button" disabled>Verify boot image</button><p id="verify-status" class="status" role="status">JavaScript and a secure context are required to check SHA-256.</p><pre id="verification" hidden></pre>

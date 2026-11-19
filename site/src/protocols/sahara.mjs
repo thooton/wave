@@ -1,11 +1,9 @@
+import { sha256 } from './boot-image.mjs';
+
 // The only programmer accepted by this diagnostic client is the known
 // Sonim-signed MSM8909 image; no arbitrary image upload or command mode.
 const programmerSha256 = 'e6f2dbcfbed3ca72f23b4e1f0a53c510a620108eee2ac6b18a7835f1440e2767';
 const programmerSize = 285524;
-const digest = bytes => crypto.subtle.digest('SHA-256', bytes);
-export async function sha256(bytes) {
-  return Array.from(new Uint8Array(await digest(bytes)), b => b.toString(16).padStart(2, '0')).join('');
-}
 
 export async function checkProgrammer(bytes) {
   if (bytes.length !== programmerSize || await sha256(bytes) !== programmerSha256) {
@@ -33,9 +31,7 @@ async function receive(link) {
   throw new Error('Sahara did not send a packet.');
 }
 
-// Exported separately for replay with a harmless stand-in for the ELF bytes.
-// Browser entry points must call startReadOnlyProgrammer, not this primitive.
-export async function saharaExchange(link, image) {
+async function saharaExchange(link, image) {
   const hello = await receive(link);
   if (hello.command !== 1 || hello.length !== 48 || hello.word(2) !== 2 || hello.word(3) > 1 || hello.word(5) !== 0) {
     throw new Error('Expected the XP3800 Sahara v2 startup hello. Disconnect and check the USB mode.');

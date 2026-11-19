@@ -98,7 +98,7 @@ export async function claimBulk(device, { filter, timeoutMs = 15000, blockSize =
 
 // exact() is for length-delimited binary phases. For the last USB request,
 // ask for exactly the remaining bytes so it cannot consume the next frame.
-export async function exact(link, size, max = 16384, timeoutMs) {
+export async function exact(link, size, max = 16384, timeoutMs, onProgress) {
   const result = new Uint8Array(size);
   let blanks = 0;
   for (let pos = 0; pos < size;) {
@@ -107,7 +107,10 @@ export async function exact(link, size, max = 16384, timeoutMs) {
     if (chunk.length > size - pos) throw new Error('USB returned excess data.');
     result.set(chunk, pos);
     pos += chunk.length;
-    if (chunk.length) blanks = 0;
+    if (chunk.length) {
+      blanks = 0;
+      onProgress?.(pos, size);
+    }
   }
   return result;
 }

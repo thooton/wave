@@ -22,7 +22,7 @@ export async function connectAndroid(status) {
     const battery = Number(/^level:\s*(\d+)$/.exec(batteryLine)?.[1]);
     if (model !== 'XP3800' || sdk !== '27' || abi !== 'armeabi-v7a' || !fingerprint?.startsWith('Sonim/') || booted !== '1'
         || !Number.isInteger(battery) || battery < 0 || battery > 100) throw new Error('Expected a fully booted Sonim XP3800 with Android 8.1 and 32-bit ARM.');
-    return { adb, battery, fingerprint };
+    return { adb, battery, fingerprint, serial: device.serialNumber ?? '' };
   } catch (error) {
     await adb.close();
     throw error;

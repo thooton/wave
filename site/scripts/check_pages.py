@@ -7,6 +7,7 @@ from urllib.parse import unquote, urlsplit
 import sys
 
 BUNDLE_BUDGET = 110 * 1024
+OPTIONAL_BACKUP_BUDGET = 140 * 1024
 LANDING_BUDGET = 32 * 1024
 IMPORT = re.compile(r'^\s*(?:import|export)\s+(?:[^;\'"\n]*?\bfrom\s+)?([\'"])([^\'"\n]+)\1', re.M)
 
@@ -97,8 +98,9 @@ def check(root):
         if landing > LANDING_BUDGET:
             errors.append(f'landing payload {landing} B exceeds {LANDING_BUDGET} B')
     total = sum(p.stat().st_size for p in files)
-    if total > BUNDLE_BUDGET:
-        errors.append(f'bundle {total} B exceeds {BUNDLE_BUDGET} B')
+    budget = OPTIONAL_BACKUP_BUDGET if root / 'backup/index.html' in pages else BUNDLE_BUDGET
+    if total > budget:
+        errors.append(f'bundle {total} B exceeds {budget} B')
     return errors
 
 

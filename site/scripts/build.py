@@ -11,14 +11,22 @@ FILES = (
     'setup/descriptors.mjs', 'setup/payload.mjs',
     'jailbreak/index.html', 'rescue/index.html', 'restore/index.html',
     'src/jailbreak/common.mjs', 'src/jailbreak/probe.mjs',
-    'src/jailbreak/rescue.mjs', 'src/jailbreak/restore.mjs',
+    'src/jailbreak/rescue.mjs', 'src/jailbreak/restore.mjs', 'src/jailbreak/backup-manifest.mjs',
     'src/protocols/adb.mjs', 'src/protocols/adb-credential.mjs',
     'src/protocols/webusb.mjs', 'src/protocols/boot-image.mjs',
 )
 
+BACKUP_FILES = (
+    'backup/index.html', 'src/jailbreak/backup.mjs',
+    'src/protocols/sahara.mjs', 'src/protocols/firehose.mjs', 'src/protocols/gpt.mjs',
+)
+BACKUP_MARKER = '<!-- OPTIONAL_DEVICE_BACKUP -->'
+BACKUP_LINK = '<p class="actions"><a href="../backup/">Read an XP3800 boot backup over USB</a></p>'
 
-def build(destination):
-    sources = [(path, SITE / path) for path in FILES]
+
+def build(destination, with_device_backup=False):
+    paths = FILES + (BACKUP_FILES if with_device_backup else ())
+    sources = [(path, SITE / path) for path in paths]
     for path, source in sources:
         if not source.is_file() or source.resolve() != source:
             raise ValueError(f'Missing or indirect site asset: {path}')
@@ -26,11 +34,19 @@ def build(destination):
     for path, source in sources:
         target = destination / path
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source, target)
+        if path == 'jailbreak/index.html':
+            page = source.read_text(encoding='utf-8')
+            if page.count(BACKUP_MARKER) != 1:
+                raise ValueError('Expected one optional device backup navigation marker')
+            target.write_text(page.replace(BACKUP_MARKER, BACKUP_LINK if with_device_backup else ''), encoding='utf-8')
+        else:
+            shutil.copyfile(source, target)
     (destination / '.nojekyll').touch()
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('destination', type=Path)
-    build(parser.parse_args().destination)
+    parser.add_argument('--with-device-backup', action='store_true', help='Include the read-only EDL backup page; no programmer binary')
+    args = parser.parse_args()
+    build(args.destination, args.with_device_backup)

@@ -21,9 +21,13 @@ moving; resolve open questions when the relevant brief has evidence.
 5. **Jailbreak**: a WebUSB page in Chrome, Magisk 24.0 over EDL.
    This is the target, not the current implementation. Brief 09 delivers a
    read-only diagnostic guide, adb over WebUSB, root-consent-gated module
-   Rescue, and local stock backup/readback verification. EDL reads were
-   verified outside the deployed site; the public build does not include
-   automated patch, flash, or authorization changes. See `jailbreak.md`.
+   Rescue, and local stock backup/readback verification. A read-only browser
+   backup over EDL (Sahara and Firehose, hash-pinned programmer chosen locally,
+   two reads compared, image plus manifest download) is implemented and verified
+   on the XP3800 but excluded from the default Pages bundle: it is built only
+   with `build.py --with-device-backup`. The site build owner declined to stage
+   an EDL transport by default; the owner enables it deliberately. Patch and
+   flash are not implemented. See `jailbreak.md`.
 6. **Root is required.** No unrooted mode. Wave installs through `su`;
    Installer and Updater are retired.
 7. **Mods ship as full patched APKs in a Magisk module zip**, one binary for

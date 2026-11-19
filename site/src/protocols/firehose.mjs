@@ -100,11 +100,11 @@ export class FirehoseBootReader {
     });
   }
 
-  async #readSectors(start, count) {
+  async #readSectors(start, count, onProgress) {
     await this.#link.write(encoder.encode(`<?xml version="1.0" ?><data><read SECTOR_SIZE_IN_BYTES="512" num_partition_sectors="${count}" physical_partition_number="0" start_sector="${start}"/>\n</data>`));
     await this.#response('true');
     if (this.#xml.trim()) throw new Error('Unexpected XML before raw Firehose data.');
-    const data = await exact(this.#link, count * sectorBytes, this.#limit);
+    const data = await exact(this.#link, count * sectorBytes, this.#limit, undefined, onProgress);
     await this.#response('false');
     return data;
   }
@@ -120,12 +120,12 @@ export class FirehoseBootReader {
     return this.#exclusive(() => this.#diskLayout());
   }
 
-  async readBoot() {
+  async readBoot(onProgress) {
     if (!this.#configured) throw new Error('Firehose eMMC has not been configured.');
     return this.#exclusive(async () => {
       // The only storage reads exposed by this tool are the GPT and boot.
       const { boot: { start, sectors } } = await this.#diskLayout();
-      const image = await this.#readSectors(start, sectors);
+      const image = await this.#readSectors(start, sectors, onProgress);
       checkBootImage(image);
       return image;
     });

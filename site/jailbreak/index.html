@@ -8,7 +8,7 @@
 <main id="main" tabindex="-1" class="wrap guide">
 <a href="../platforms/" class="crumb">Wave / USB guide</a><p class="kicker">01 <span>/</span> DEVICE GUIDE</p>
 <h1>Prepare your XP3800.</h1><p class="lead">Start here if Wave sent you to the device guide. You can check compatibility over USB, verify a saved backup and use Rescue to disable modules on a phone that already has root.</p>
-<p class="notice"><strong>This page does not root your phone.</strong> Make the backup and perform any patching or flashing outside the browser using your own trusted XP3800 service procedure. This site can check a backup file, not create one from your phone.</p>
+<p class="notice"><strong>This page does not root your phone.</strong> Make the backup and perform any patching or flashing outside the browser using your own trusted XP3800 service procedure. The standard site can check an existing backup file. A read-only backup page is available in explicitly enabled builds.</p>
 <section class="box" aria-labelledby="check-title">
 <h2 id="check-title">Check this phone</h2>
 <ol><li>Open <strong>Settings → About phone</strong> and select <strong>Build number</strong> seven times with the center key.</li><li>In <strong>Settings → Developer options</strong>, turn on <strong>USB debugging</strong>.</li><li>Connect only this phone with a USB data cable. Close desktop adb and other tools that may already hold its USB interface.</li></ol>
@@ -20,6 +20,7 @@
 <h2>1. Back up before making changes</h2>
 <p>Back up contacts, messages and other personal data separately. A boot image is not a copy of your files. Charge the phone to at least 40% and record its serial and full firmware build with your backup.</p>
 <p>Use a trusted service tool to <em>read</em> the GPT and locate the single <code>boot</code> partition by name. Read that partition twice and compare the full 32 MiB copies. A stock XP3800 image starts with <code>ANDROID!</code>. Save both copies offline with their original SHA-256. Never use another phone’s image, even for the same model and carrier.</p>
+<!-- OPTIONAL_DEVICE_BACKUP -->
 <p class="actions"><a href="../restore/#verify">Verify your boot backup</a></p>
 <h2>2. Know what service mode looks like</h2>
 <p>Qualcomm emergency download mode (EDL) identifies itself as <code>05c6:9008</code>. <code>05c6:900e</code> is crash-dump mode and cannot be used as EDL. If Android is unavailable, <a href="../restore/#service-mode">follow the cold-start checks</a>. See the <a href="../platforms/">USB guide</a> if permissions or drivers prevent connection.</p>
