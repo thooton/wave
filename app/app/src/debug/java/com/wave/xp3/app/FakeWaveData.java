@@ -27,6 +27,10 @@ import java.util.Map;
  * - uptodate: as browse, with no updates.
  * - big: as browse, plus Big Source with 500 packages (long lists) and 3 that can't be read.
  * - noroot: as browse, without root.
+ * - newer: as browse, with Wave 0.8.0 offered by the Wave source (Night Theme needs it).
+ * - kept: as browse, after a source was removed: Weather and Clock Seconds stay on
+ *   Installed (Weather by its receipt, Clock Seconds with none), and Wave itself is
+ *   in no source; none of them has a source id or a section.
  * Getting Mail always fails its check, to show the queue's alert.
  *
  * Plans come back as the mockups' (a dependency, a replaced package); Confirm
@@ -80,13 +84,23 @@ public final class FakeWaveData implements WaveData {
         put(new Pkg("com.mkline.tetrim", "Tetrim", "Falling blocks for the d-pad", null, "0.4.0", null, State.NONE,
             "Needs Android 9; this phone has 8.1.", false, false, null, "games", "XP3 Games", "Games"));
         put(new Pkg("night_theme", "Night Theme", "Dark system colours", null, "0.2.0", null, State.NONE,
-            null, true, true, null, "tweaks", "Sonim Tweaks", "Themes"));
+            "Needs a newer Wave", true, true, null, "tweaks", "Sonim Tweaks", "Themes"));
         descriptions.put("com.mail.xp3", "Gmail on the keypad: threads, search, replies and attachments you can open. Bring your own Gmail token with a setup code.");
         descriptions.put("messages_improved", "The stock Messages app and its provider, fixed: group MMS land in the right thread.");
         if (reboot) rebootPending.add("Messages Improved");
         if (errors) turnedOff.add(new TurnedOff("launcher_improved", "Launcher Improved", "2.0.1", null));
         if ("noroot".equals(fixture)) root = Root.NONE;
         if ("big".equals(fixture)) bulk();
+        if ("newer".equals(fixture)) {
+            put(new Pkg("com.wave.xp3", "Wave", "Apps and system mods for this phone", null, "0.8.0", "0.5.0", State.UPDATE, null, false, false,
+                new Change("0.8.0", today, "Reads format 2 sources, so Night Theme installs."), "wave", "Wave", "Applications"));
+        }
+        if ("kept".equals(fixture)) {
+            // As CatalogModel.addOrphan builds them: no source id, the receipt's source name (or ""), no section.
+            put(new Pkg("com.wave.xp3", "Wave", "", null, "0.5.0", "0.5.0", State.INSTALLED, null, false, false, null, null, "", ""));
+            put(new Pkg("com.weather.xp3", "Weather", "", null, "1.0.3", "1.0.3", State.INSTALLED, null, false, false, null, null, "Old Source", ""));
+            put(new Pkg("clock_seconds", "Clock Seconds", "", null, "0.3", "0.3", State.INSTALLED, null, false, true, null, null, "", ""));
+        }
     }
 
     /** The big fixture: a source of 500 packages in five sections, 40 of them installed and 10 with updates. */
@@ -127,6 +141,7 @@ public final class FakeWaveData implements WaveData {
         Map<String, List<Pkg>> bySection = new LinkedHashMap<>();
         List<Section> sections = new ArrayList<>();
         for (Pkg p : where(sourceId, null)) {
+            if (p.sourceId == null) continue;
             String folder = p.sectionName.toLowerCase(Locale.US);
             if (!bySection.containsKey(folder)) bySection.put(folder, new ArrayList<>());
             bySection.get(folder).add(p);
@@ -138,11 +153,20 @@ public final class FakeWaveData implements WaveData {
             sections.add(new Section(f, list.get(0).sectionName, list.size()));
         }
         Map<String, Detail> details = new HashMap<>();
-        for (Pkg p : where(sourceId, null)) details.put(p.id, detail(p));
-        return new Shelf(featured, where(sourceId, null), sections, bySection, details);
+        List<Pkg> rows = new ArrayList<>();
+        for (Pkg p : where(sourceId, null)) {
+            details.put(p.id, detail(p));
+            if (p.sourceId != null) rows.add(p);
+        }
+        return new Shelf(featured, rows, sections, bySection, details);
     }
 
     private Detail detail(Pkg p) {
+        if (p.sourceId == null) {
+            // Kept with no source: what CatalogModel.addOrphan gives, nothing but the package itself.
+            return new Detail(p, "", "", 0, Collections.<Change>emptyList(), Collections.<String>emptyList(),
+                Collections.<String>emptyList(), Collections.<String>emptyList(), false);
+        }
         List<Change> changes = new ArrayList<>();
         if (p.newestChange != null) changes.add(p.newestChange);
         changes.add(new Change(p.installedVersion != null ? p.installedVersion : "1.0.0", "2026-11-02", "Keep the token after a reboot."));
@@ -249,6 +273,7 @@ public final class FakeWaveData implements WaveData {
         List<Pkg> found = new ArrayList<>();
         String q = query.toLowerCase(Locale.US);
         for (Pkg p : where(null, null)) {
+            if (p.sourceId == null) continue; // search reads the sources' index only
             if (p.name.toLowerCase(Locale.US).contains(q) || p.summary.toLowerCase(Locale.US).contains(q)) found.add(p);
         }
         main.post(() -> callback.ok(found));

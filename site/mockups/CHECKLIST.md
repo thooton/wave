@@ -35,6 +35,12 @@ mod, so the fixture's dependency and replaced-mod rows are only in the 0.7.12
 shots (git history, `2ac1a56`). The turned-off alert and rows come from a
 real watchdog turn-off.
 
+From Wave 0.7.23 (fixtures `browse`, `newer`, `kept`): details-newer (the newer-format
+reason said once, as the grey note), `x-details-update-wave` and `x-menu-update-wave`
+(a source offers Wave's update: "Update Wave to install this", and Update Wave in
+the menu), `x-details-kept` and `x-details-kept-mod` (kept by a receipt after the
+source went: no empty Source, Section or Author rows, no blank description).
+
 Budget: 24 status + 34 bar + 1 hairline + 36 tab bar leaves **225px** of
 page on a tab. A browsed package row and an Installed row are 47px (name,
 a line of detail, a capsule or chevron): 4.8 rows show. The Updater's row

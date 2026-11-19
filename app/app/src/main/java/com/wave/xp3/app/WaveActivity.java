@@ -611,7 +611,8 @@ public final class WaveActivity extends Activity {
         if (withDetails) menu.add("Details", () -> details(p, sourceId));
         if (p.state == WaveData.State.OFF) menu.add("Turn On", () -> data.turnOn(p.id));
         boolean installed = p.state != WaveData.State.NONE && p.state != WaveData.State.PENDING_REMOVAL;
-        if (installed && p.state != WaveData.State.PENDING_INSTALL && p.state != WaveData.State.UPDATE && !Rows.unfit(p)) {
+        // Reinstalling downloads from a source; one kept only by its receipt has none.
+        if (installed && p.sourceId != null && p.state != WaveData.State.PENDING_INSTALL && p.state != WaveData.State.UPDATE && !Rows.unfit(p)) {
             menu.add("Reinstall", () -> plan(Collections.singletonList(p.id), WaveData.Action.REINSTALL));
         }
         if (installed && !p.id.equals(getPackageName())) {

@@ -90,10 +90,14 @@ final class DetailsScreen extends Screen {
         TextView name = Kit.line(app, p.name, 16, Look.TEXT);
         name.setTypeface(Look.MEDIUM);
         texts.addView(name);
-        TextView by = Kit.line(app, d.author != null ? d.author : p.sourceName != null ? p.sourceName : "", 12, Look.MUTED);
-        LinearLayout.LayoutParams bl = Kit.wrap();
-        bl.topMargin = Kit.dp(app, 1);
-        texts.addView(by, bl);
+        // Kept by a receipt, a package has no author and maybe no source name: then no line at all.
+        String byline = !empty(d.author) ? d.author : !empty(p.sourceName) ? p.sourceName : null;
+        if (byline != null) {
+            TextView by = Kit.line(app, byline, 12, Look.MUTED);
+            LinearLayout.LayoutParams bl = Kit.wrap();
+            bl.topMargin = Kit.dp(app, 1);
+            texts.addView(by, bl);
+        }
         LinearLayout capLine = new LinearLayout(app);
         capLine.setGravity(android.view.Gravity.CENTER_VERTICAL);
         String word = word(p);
@@ -158,7 +162,7 @@ final class DetailsScreen extends Screen {
         // Kept by a receipt after its source went, a package has no section (and Wave itself may have no source).
         if (p.sourceName != null && !p.sourceName.isEmpty()) facts.add(new String[]{"Source", p.sourceName});
         if (p.sectionName != null && !p.sectionName.isEmpty()) facts.add(new String[]{"Section", p.sectionName});
-        if (d.author != null) facts.add(new String[]{"Author", d.author});
+        if (!empty(d.author)) facts.add(new String[]{"Author", d.author});
         if (!d.depends.isEmpty()) facts.add(new String[]{"Needs", join(d.depends)});
         if (!d.conflicts.isEmpty()) facts.add(new String[]{"Conflicts", join(d.conflicts)});
         facts.add(new String[]{"Id", p.id});
@@ -170,9 +174,13 @@ final class DetailsScreen extends Screen {
         app.redressBar();
     }
 
+    private static boolean empty(String s) {
+        return s == null || s.isEmpty();
+    }
+
     private void description(Detail d) {
-        if (d.description == null || d.description.isEmpty()) {
-            if (d.pkg.summary != null) {
+        if (empty(d.description)) {
+            if (!empty(d.pkg.summary)) {
                 TextView p = paragraph(app, d.pkg.summary);
                 p.setPadding(p.getPaddingLeft(), Kit.dp(app, 4), p.getPaddingRight(), p.getPaddingBottom());
                 column.addView(p);

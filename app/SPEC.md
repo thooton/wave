@@ -94,11 +94,13 @@ fixed lines that are not stops. With 500 packages, All Packages opens in
 about 0.3 s and keeps about 190 views (a ScrollView of every row took 6 s
 and 3,600 views).
 
-Debug builds take `--es fixture browse|reboot|errors|offline|uptodate|big|noroot`
+Debug builds take `--es fixture browse|reboot|errors|offline|uptodate|big|noroot|newer|kept`
 (and `--es query <text>` to open Search typed) to show sample data
 (`src/debug/.../FakeWaveData`) without changing the phone; release builds
 ignore both. `big` adds Big Source, 500 packages in five sections (40
-installed, 10 updates), for long lists. Debug builds also log each screen's
+installed, 10 updates), for long lists. `newer` has a source offer Wave 0.8.0, which Night Theme
+(a newer format) needs. `kept` shows what stays after a source is removed:
+Weather (by its receipt), Clock Seconds and Wave itself, with no source or section. Debug builds also log each screen's
 build and first-draw time under the logcat tag `WaveTime`.
 
 ### The Updater list (`MainActivity`, off the launcher since 0.5.0)
