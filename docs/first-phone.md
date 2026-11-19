@@ -47,8 +47,8 @@ number keys: plain `adb shell input text` translated `4483` into letters on
 this handset's input configuration, and `KEYCODE_NUMPAD_*` did not enter the
 digits. The final address used long presses for `4`, `4`, `8`, `3`, with
 brief pauses, then submitted normally. No touchscreen or system CA changes
-were needed. Screenshot and UI-tree captures are in the local scratch run
-`.oak/tmp/temp7/phone17/` and are not part of the release.
+were needed. Screenshot and UI-tree captures were kept in a local scratch run and have
+been deleted; they were never part of the release.
 
 ## Still pending
 

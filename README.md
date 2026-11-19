@@ -39,6 +39,7 @@ See [publishing](docs/publishing.md), the [site build](site/README.md), and
 ## Repositories and design
 
 - [Design](docs/design.md), [source format](docs/source-format.md),
+  [publishing a source](docs/publishing-a-source.md),
   [decisions](docs/decisions.md), [work briefs](docs/tasks/README.md),
   [status](docs/status.md) and the [refactor log](docs/refactor-log.md).
 - [wave_packages](https://github.com/thooton/wave_packages) holds the package

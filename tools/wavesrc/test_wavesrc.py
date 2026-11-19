@@ -97,6 +97,32 @@ class LintTest(Fixtures):
         self.assertIn("warning: conflicts id 'missing_conflict'", output)
         self.assertNotIn("warning: depends id 'messages_improved'", output)
 
+    def test_warns_when_the_committed_snapshot_is_too_big_to_fetch(self):
+        init(self.source)
+        git(self.source, "add", "-A")
+        git(self.source, "commit", "-m", "source")
+        status, output = self.lint()
+        self.assertEqual(0, status, output)
+        self.assertNotIn("too big", output)
+        for number in range(40):  # forty 200 KB files that a fetch carries, one over 256 KB that it does not
+            (self.source / f"assets-{number}.bin").write_bytes(bytes([number]) * (200 * 1024))
+        (self.source / "huge.bin").write_bytes(bytes(300 * 1024))
+        git(self.source, "add", "-A")
+        git(self.source, "commit", "-m", "assets")
+        status, output = self.lint()
+        self.assertEqual(0, status, output)
+        self.assertIn("warning: the committed files under 256 KB add up to 7.8 MiB", output)
+        self.assertIn("'That source is too big'", output)
+
+    def test_warns_about_moving_download_urls_without_failing(self):
+        self.mutate(LIST, lambda p: p["download"].update(
+            url="https://github.com/acme/apps/releases/download/latest/list.apk"))
+        status, output = self.lint()
+        self.assertEqual(0, status, output)
+        self.assertIn("mutable download URL selector 'latest'", output)
+        self.assertIn("warning:", output)
+        self.assertEqual(1, self.cli("verify", self.source)[0])
+
     def test_required_root_and_fields(self):
         path = self.source / "wave.json"
         write_json(path, {})

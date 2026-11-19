@@ -4,6 +4,7 @@ import datetime
 import json
 import re
 import stat
+import subprocess
 import struct
 import zlib
 from dataclasses import dataclass
@@ -189,6 +190,12 @@ def validate(value, document, path, report):
             report.emit(path, f"{field} must be an https:// URL with a host and no whitespace")
         elif url is not None and "@" in urlsplit(url).netloc:
             report.emit(path, f"{field} must not carry a user name or password")
+        elif field == "download.url":
+            from artifact import require_pinned_url  # imported late: artifact imports this module
+            try:
+                require_pinned_url(url)
+            except Invalid as exc:
+                report.emit(path, f"{exc} (`wavesrc verify` fails on this)", warning=True)
     if document == "package.schema.json":
         for i, note in enumerate(value.get("changes", [])):
             if "date" in note:
@@ -269,6 +276,28 @@ def package_paths(root):
                     yield manifest
 
 
+FETCH_CAP = 8 * 1024 * 1024  # Wave refuses a fetch reply over this
+BLOB_FILTER = 256 * 1024     # Wave asks the server to leave out blobs over this
+SNAPSHOT_WARN = 6 * 1024 * 1024
+
+
+def snapshot_size(root):
+    """Bytes of files at HEAD that a fetch carries (blobs up to 256 KB), or None when root is not a Git checkout."""
+    if not (root / ".git").exists():
+        return None
+    try:
+        listing = subprocess.run(["git", "-C", str(root), "ls-tree", "-r", "-l", "HEAD"],
+                                 capture_output=True, check=True, timeout=60).stdout.decode("utf-8", "replace")
+    except (OSError, subprocess.SubprocessError):
+        return None
+    total = 0
+    for line in listing.splitlines():
+        fields = line.split(None, 4)
+        if len(fields) == 5 and fields[1] == "blob" and fields[3].isdigit() and int(fields[3]) <= BLOB_FILTER:
+            total += int(fields[3])
+    return total
+
+
 def lint(root, report, *, candidate=None, verify_binary=None):
     """Lint disk contents or the prospective result of publishing a pair."""
     if not root.is_dir():
@@ -311,6 +340,11 @@ def lint(root, report, *, candidate=None, verify_binary=None):
                 verify_binary(manifest)
             except (Invalid, OSError) as exc:
                 report.emit(path, str(exc))
+    size = None if candidate else snapshot_size(root)
+    if size is not None and size > SNAPSHOT_WARN:
+        report.emit(root, f"the committed files under 256 KB add up to {size / 1048576:.1f} MiB, and Wave refuses a fetch over "
+                          f"{FETCH_CAP // 1048576} MiB ('That source is too big'); keep the source in its own small repository",
+                    warning=True)
     if header:
         for package_id in header.get("featured", []):
             if package_id not in by_id:
