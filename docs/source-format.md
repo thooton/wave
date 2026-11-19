@@ -96,7 +96,7 @@ icon.png                     optional
 | `homepage` | no | An `https://` URL |
 | `license` | no | An SPDX identifier |
 | `version` | yes | Dot-separated numbers, compared part by part as numbers. Must equal the binary's own version: an APK's `versionName`, a module's `version` in `module.prop` |
-| `download.url` | yes | `https://`. Should be immutable: a new version gets a new URL |
+| `download.url` | yes | `https://`, with no user name or password. Should be immutable: a new version gets a new URL |
 | `download.size` | yes | Bytes |
 | `download.sha256` | yes | Lowercase hex. Wave refuses a file that doesn't match |
 | `requires.device` | no | Any of these must equal the phone's `ro.product.device` or `ro.product.model`. Otherwise the package is greyed |

@@ -204,6 +204,15 @@ class LintTest(Fixtures):
                 self.mutate(LIST, lambda p: (p.pop("homepage", None), p["download"].update(url=url)))
                 self.assertLintError(LIST, "download.url must be an https:// URL with a host")
 
+    def test_urls_with_user_info_are_rejected(self):
+        for url in ("https://user:pw@host/a.apk", "https://token@host/a.apk", "https://@host/a.apk"):
+            with self.subTest(url=url):
+                self.mutate(LIST, lambda p: (p.pop("homepage", None), p["download"].update(url=url)))
+                self.assertLintError(LIST, "download.url must not carry a user name or password")
+        self.mutate(LIST, lambda p: (p["download"].update(url="https://host/a.apk"),
+                                     p.update(homepage="https://user:pw@host/")))
+        self.assertLintError(LIST, "homepage must not carry a user name or password")
+
 
 class PublishTest(Fixtures):
     def setUp(self):

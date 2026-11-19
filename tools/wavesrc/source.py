@@ -187,6 +187,8 @@ def validate(value, document, path, report):
     for field, url in urls:
         if url is not None and not https_url(url):
             report.emit(path, f"{field} must be an https:// URL with a host and no whitespace")
+        elif url is not None and "@" in urlsplit(url).netloc:
+            report.emit(path, f"{field} must not carry a user name or password")
     if document == "package.schema.json":
         for i, note in enumerate(value.get("changes", [])):
             if "date" in note:
