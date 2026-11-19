@@ -81,7 +81,18 @@ moving; resolve open questions when the relevant brief has evidence.
 12. **Dependencies are simple**: `depends`, `conflicts`, `replaces`, no
     solver.
 13. **Sections of the default source**: Applications, System.
-
+14. **The screens are `site/mockups/`** (brief 00; all 46 frames and the
+    d-pad paths pass `site/mockups/CHECKLIST.md`). Choices made there, now in
+    `design.md` section 4: a filled capsule is what OK presses, otherwise OK
+    opens the row, so browsed rows (sections, Featured, search) open the
+    details and show their state as an icon badge, while Installed keeps
+    the Updater's press-the-capsule rows; on a details page the capsule is
+    the only focus stop and Up/Down scroll; REMOVE and Reinstall only in
+    the menu; the tab bar never takes focus and badges the update count;
+    Add a Source fetches before the root-trust dialog so it can name the
+    source; Search keeps its cursor at the end so Left/Right still switch
+    tabs; the queue screens are modal (no tab bar). Mockup text uses the
+    phone's own Roboto files, pulled from `/system/fonts` (read only).
 ## Open
 
 1. **The QR scanner.** Reading a QR code without a library means writing a

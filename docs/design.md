@@ -154,12 +154,51 @@ A bottom tab bar as Cydia's, four tabs. Left/Right moves between tabs from
 anywhere a row doesn't use them; Up/Down moves in the list; OK presses; Back
 goes up a level; Menu opens the context menu, as the Updater does now.
 
+The screens are drawn in `site/mockups/app.html` (every screen at 240x320,
+with its keys) and checked in `site/mockups/CHECKLIST.md`; those are the
+reference for the look and the keys, and this section is their summary.
+
 | Tab | Shows |
 | :--- | :--- |
-| **Wave** | What Cydia's home is: a welcome header, Featured (from the default source's `featured`), What is Wave, Add a Source, device facts (model, firmware, Magisk and root state, storage), a Reboot row when one is pending, community links |
-| **Sources** | "All Sources", then each source with its icon, name and URL. Refresh and Add on the bar. A source opens to its sections (All Packages, then each folder with a count), a section to its packages, a package to its details |
-| **Installed** | The Updater's screen. Updates first with Update All, then everything installed, alphabetically. A banner when a reboot is pending |
-| **Search** | A field and live results across every source, matching name, summary and description |
+| **Wave** | What Cydia's home is: a welcome header, Featured (from the default source's `featured`), What is Wave, Add a Source, device facts (model, firmware, Magisk and root state, storage), a Reboot row when one is pending, community links. The facts and links are text, below the last focus stop |
+| **Sources** | "All Sources", then each source with its icon, name and URL. Refresh and Add on the bar. A source opens to its sections (All Packages, then each folder with a count) and the source's own Featured, a section to its packages, a package to its details |
+| **Installed** | The Updater's screen. Updates first (with what's new) and Update All on the bar, then everything else under Up to Date, alphabetically. A Reboot banner on top when one is pending. The tab carries a red badge with the number of updates |
+| **Search** | The field in place of the bar's title, and live results across every source, matching name, summary and description |
+
+### The look and the keys
+
+- **Chrome.** The Updater's: status bar and a 34dp bar in `#F9F9F9` over a
+  `#B2B2B2` hairline, the title centred, Back's target named on the left in
+  blue ("‹ Sources"; "Back" when the name doesn't fit), the bar's links
+  (Refresh, Add, Update All) on the sides. A link is reached with Up from
+  the top row and fills blue while focused. The tab bar is 36dp, icons over
+  labels, the open tab blue; it never takes focus. A tab's page is 225px
+  tall.
+- **What OK does is drawn.** A filled capsule or button is what OK presses;
+  otherwise OK opens the row, and the row ends in a chevron. So rows
+  that are browsed (a section, All Packages, Featured, search results) have
+  no capsule: they open the details, and their state is a badge on the icon
+  (a grey tick installed, a blue arrow for an update). Installed's rows are
+  the Updater's and keep its capsule (UPDATE, OPEN), which fills on focus;
+  a mod's row and Wave's own have none, since there is nothing to open.
+  Menu on any package row has the capsule's action too.
+- **Details.** The capsule is the page's one focus stop, so it always looks
+  pressed; Up/Down scroll the page. REMOVE and Reinstall are only in the
+  menu. A package that can't be installed has its capsule greyed and the
+  reason as a line under the header.
+- **Adding a source.** The address field starts as `https://github.com/`,
+  typed on the keypad by multi-tap (Left/Right move the cursor there). Add
+  fetches the source first, then the dialog that says it is trusted with
+  root names it, its maintainer and how many packages it has.
+- **Search** keeps the cursor at the end of its field, so Left/Right still
+  switch tabs; Back deletes; Down goes into the results.
+- **The queue is modal.** Confirm, Installing and Done have no tab bar; their
+  buttons sit in a foot, focus on the forward action (Confirm, Done, Reboot
+  Now), Left for the other.
+- **Errors** use the Updater's patterns and words: a message screen with a
+  Try Again button when there is nothing to show, a toast when a list is
+  already there, an alert for a package that failed, a red line on a
+  source's row that won't refresh.
 
 Cydia's Changes tab is left out; what's new is on each row and on the details
 page, from the manifest's `changes`.

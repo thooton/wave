@@ -22,7 +22,7 @@ rules.
 
 | # | Brief | Repo | Needs | Done |
 | :- | :--- | :-- | :--- | :-: |
-| 00 | [Mockups of the app's screens](00-mockups.md) | W | | [ ] |
+| 00 | [Mockups of the app's screens](00-mockups.md) | W | | [x] |
 | 01 | [Create and rename the repos](01-repos.md) | all | | [x] |
 | 02 | [wavesrc: lint and publish](02-wavesrc.md) | W | | [x] |
 | 03 | [The git client](03-git-client.md) | W | 04 | [x] |
@@ -80,3 +80,5 @@ Four agents can work without touching the same files: one on the app's core
 - **11 (local complete):** See [import record](11-import-record.md). All ten dex SHA-256 digests match committed upstream baselines; five unsigned requests preserve stock resources and manifest. Verified launcher/Music link checks. Installable zips require genuine OEM signatures; no signing material is available.
 
 - **03 done:** Git v2 self-tests replay a binary `git http-backend` exchange and use real plain, OFS/REF delta, and filtered packs. Live depth-1 fetch and unchanged refresh passed on GitHub (`octocat/Hello-World`), GitLab (`gitlab-org/gitlab-test`), Codeberg (`Codeberg/pages-server`), sourcehut (`~sircmpwn/aerc`), and the local example source (6 files). A 1,000-package local CGI source fetched and parsed in 1.03 s with a 32 MiB heap cap (5 MiB in use after the last young GC). Regenerate fixtures or start the loopback source with `app/core/test-tools/git_fixture.py`.
+
+- **00 done:** `site/mockups/app.html` draws all 46 screens at 240x320 with each frame's Left/Right, Up/Down, OK, Back and Menu; `site/mockups/shoot.sh` screenshots them to `site/mockups/shots/<id>.png` (headless Chromium) and every shot was checked at full size. Sizes were measured on 8516067e from the Updater (density 160, 24px status bar, 34px bar, hairline at y=58) and the text uses the phone's own Roboto files. Results, the d-pad path to every action, and notes for 07 are in `site/mockups/CHECKLIST.md`; the design choices are in `../design.md` section 4 ("The look and the keys") and `../decisions.md` working default 14.
