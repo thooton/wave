@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/thooton/wave/spec/setup-payload.schema.json",
+  "title": "A Wave setup payload, format version 1",
+  "description": "See spec/setup-payload.md. Each setting's name, pattern and maximum length come from the app's descriptor (setup-descriptor.schema.json); this schema checks only the shape. Unknown top-level fields are allowed and ignored.",
+  "type": "object",
+  "required": ["wave", "app"],
+  "properties": {
+    "wave": { "const": 1 },
+    "app": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*$",
+      "maxLength": 30,
+      "description": "The app's id: its directory name in wave_packages."
+    },
+    "label": { "type": "string", "maxLength": 60 },
+    "settings": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][A-Za-z0-9]*$", "maxLength": 40 },
+      "additionalProperties": { "type": "string", "maxLength": 2000 }
+    },
+    "delta": {
+      "type": "object",
+      "required": ["server", "token"],
+      "properties": {
+        "server": {
+          "type": "string",
+          "pattern": "^https://[^/?#@\\s]+(/[^?#\\s]*)?$",
+          "maxLength": 300
+        },
+        "token": { "type": "string", "pattern": "^[!-~]+$", "maxLength": 500 }
+      }
+    }
+  },
+  "oneOf": [
+    { "required": ["settings"], "not": { "required": ["delta"] } },
+    { "required": ["delta"], "not": { "required": ["settings"] } }
+  ]
+}

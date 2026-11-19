@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/thooton/wave/spec/setup-descriptor.schema.json",
+  "title": "wave-setup.json: the settings a Wave app is set up with, format version 1",
+  "description": "One per app, at wave_packages/<app>/android/app/src/main/assets/wave-setup.json. Both the app's setup screen and the site's generator are built from it. See spec/setup-payload.md.",
+  "type": "object",
+  "required": [
+    "format",
+    "app",
+    "name",
+    "package",
+    "settings",
+    "delta"
+  ],
+  "properties": {
+    "format": {
+      "const": 1
+    },
+    "app": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*$",
+      "maxLength": 30
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 30
+    },
+    "package": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$"
+    },
+    "about": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "settings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "label",
+          "secret",
+          "required"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][A-Za-z0-9]*$",
+            "maxLength": 40
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 24
+          },
+          "secret": {
+            "type": "boolean"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "manual": {
+            "type": "boolean",
+            "default": false
+          },
+          "pattern": {
+            "type": "string",
+            "description": "Matched against the whole trimmed value; ECMAScript and java.util.regex compatible."
+          },
+          "max": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2000,
+            "default": 2000
+          },
+          "default": {
+            "type": "string"
+          },
+          "example": {
+            "type": "string"
+          },
+          "obtain": {
+            "type": "string",
+            "maxLength": 600
+          },
+          "group": {
+            "type": "string",
+            "maxLength": 30,
+            "description": "Settings sharing a group are alternatives the generator shows together, e.g. an access token or a cookie service."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "alternatives": {
+      "type": "array",
+      "description": "Each entry: exactly one of `sets` must be given in full, and no setting from the other sets given. Settings named here are not `required` themselves.",
+      "items": {
+        "type": "object",
+        "required": [
+          "label",
+          "sets"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 24
+          },
+          "sets": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "limits": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 300
+      }
+    },
+    "delta": {
+      "type": "object",
+      "required": [
+        "supported"
+      ],
+      "properties": {
+        "supported": {
+          "type": "boolean"
+        },
+        "about": {
+          "type": "string",
+          "maxLength": 300
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
