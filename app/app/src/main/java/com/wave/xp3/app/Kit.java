@@ -35,7 +35,7 @@ final class Kit {
      * group. Its children that duplicate its state (the capsule) see its
      * focus too.
      */
-    static final class Row extends LinearLayout {
+    static class Row extends LinearLayout {
         private final Paint rule = new Paint();
         private boolean hairline = true;
         /** What the row is about, for the menu: a package, a source, whatever the screen put there. */

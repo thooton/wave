@@ -143,9 +143,11 @@ public final class WaveActivity extends Activity {
 
     /** Puts the top screen up: its bar, its page, its focus. */
     private void show() {
+        final long started = android.os.SystemClock.uptimeMillis();
         Screen next = top();
         if (showing != null && showing != next) {
             showing.focusKey = Screen.keyOf(getCurrentFocus());
+            if (showing.feed != null) showing.feed.remember();
             showing.hidden();
         }
         boolean fresh = next.view == null;
@@ -159,10 +161,27 @@ public final class WaveActivity extends Activity {
         tabBar.setBadge(snapshot.updates.size());
         next.update(snapshot);
         next.shown();
-        View focus = next.focusKey != null ? findKey(next.view, next.focusKey) : null;
-        if (focus == null || !focus.isFocusable()) focus = next.firstFocus();
-        if (focus != null) focus.requestFocus();
-        else content.requestFocus();
+        if (!next.placeFocus()) content.requestFocus();
+        if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) timeShow(next, started);
+    }
+
+    /** Debug builds: how long a screen took to build and to reach the screen (logcat tag WaveTime). */
+    private void timeShow(Screen screen, long started) {
+        final long built = android.os.SystemClock.uptimeMillis() - started;
+        final String name = screen.getClass().getSimpleName();
+        final android.view.ViewTreeObserver tree = content.getViewTreeObserver();
+        tree.addOnDrawListener(new android.view.ViewTreeObserver.OnDrawListener() {
+            boolean done;
+
+            @Override
+            public void onDraw() {
+                if (done) return;
+                done = true;
+                final android.view.ViewTreeObserver.OnDrawListener self = this;
+                content.post(() -> content.getViewTreeObserver().removeOnDrawListener(self));
+                android.util.Log.i("WaveTime", name + " built " + built + " ms, drawn " + (android.os.SystemClock.uptimeMillis() - started) + " ms");
+            }
+        });
     }
 
     private void dressBar(Screen screen) {
@@ -234,7 +253,10 @@ public final class WaveActivity extends Activity {
     void openTab(int which) {
         if (!overlay.isEmpty()) return;
         if (which == tab && showing == top()) return;
-        if (showing != null) showing.focusKey = Screen.keyOf(getCurrentFocus());
+        if (showing != null) {
+            showing.focusKey = Screen.keyOf(getCurrentFocus());
+            if (showing.feed != null) showing.feed.remember();
+        }
         tab = which;
         show();
     }
@@ -446,7 +468,7 @@ public final class WaveActivity extends Activity {
         if (key == KeyEvent.KEYCODE_DPAD_UP && bar.getVisibility() == View.VISIBLE) {
             View focus = getCurrentFocus();
             TextView link = bar.upTarget();
-            if (link != null && focus != null && focus.getParent() != bar && focus == Screen.firstFocusable(screen.view)) {
+            if (link != null && focus != null && focus.getParent() != bar && screen.atTop(focus)) {
                 if (event.getAction() == KeyEvent.ACTION_DOWN) link.requestFocus();
                 return true;
             }

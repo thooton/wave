@@ -25,6 +25,7 @@ import java.util.Map;
  * - errors: a source that won't refresh, and Launcher Improved turned off.
  * - offline: nothing fetched and no network.
  * - uptodate: as browse, with no updates.
+ * - big: as browse, plus Big Source with 500 packages (long lists).
  * - noroot: as browse, without root.
  * Getting Mail always fails its check, to show the queue's alert.
  *
@@ -85,6 +86,22 @@ public final class FakeWaveData implements WaveData {
         if (reboot) rebootPending.add("Messages Improved");
         if (errors) turnedOff.add(new TurnedOff("launcher_improved", "Launcher Improved", "2.0.1", null));
         if ("noroot".equals(fixture)) root = Root.NONE;
+        if ("big".equals(fixture)) bulk();
+    }
+
+    /** The big fixture: a source of 500 packages in five sections, 40 of them installed and 10 with updates. */
+    private void bulk() {
+        String[] sections = {"Games", "Media", "Office", "Tools", "Travel"};
+        String[] words = {"Atlas", "Beacon", "Cinder", "Delta", "Ember", "Fable", "Garnet", "Harbor", "Iris", "Juniper"};
+        for (int i = 0; i < 500; i++) {
+            String name = words[i % words.length] + " " + String.format(Locale.US, "%03d", i + 1);
+            String section = sections[(i / 7) % sections.length];
+            State state = i % 50 == 3 ? State.UPDATE : i % 25 == 7 ? State.INSTALLED : State.NONE;
+            String installed = state == State.UPDATE ? "1.0.0" : state == State.INSTALLED ? "1.1.0" : null;
+            Change change = state == State.UPDATE ? new Change("1.1.0", "2026-11-17", "Faster start, and the list keeps its place when it is refilled.") : null;
+            put(new Pkg("org.bulk.p" + i, name, "Sample package " + (i + 1) + " of 500, for a long list", null, "1.1.0", installed, state,
+                i % 61 == 11 ? "Needs Android 9; this phone has 8.1." : null, false, false, change, "bulk", "Big Source", section));
+        }
     }
 
     private void app(String id, String name, String summary, String version, String installed, State state, String folder) {
@@ -137,8 +154,15 @@ public final class FakeWaveData implements WaveData {
             Collections.<String>emptyList(), replaces, p.id.equals("messages_improved"));
     }
 
+    private Snapshot cached;
+
     @Override
     public Snapshot snapshot() {
+        if (cached == null) cached = build();
+        return cached;
+    }
+
+    private Snapshot build() {
         boolean offline = "offline".equals(fixture);
         List<Src> sources = new ArrayList<>();
         long now = System.currentTimeMillis();
@@ -149,12 +173,16 @@ public final class FakeWaveData implements WaveData {
             sources.add(new Src("tweaks", "Sonim Tweaks", "https://gitlab.com/rpeters/sonim-tweaks", null, false, "rpeters", now - 86400000L * 3, 1,
                 refreshing, "errors".equals(fixture) ? "gitlab.com answered 404" : null, false));
         }
+        if ("big".equals(fixture)) {
+            sources.add(new Src("bulk", "Big Source", "https://github.com/example/big-source", null, false, "example", now, 500, refreshing, null, false));
+        }
         Map<String, Shelf> bySource = new LinkedHashMap<>();
         List<Pkg> featured = Arrays.asList(pkgs.get("messages_improved"), pkgs.get("com.mail.xp3"));
         if (!offline) {
             bySource.put("wave", shelf("wave", featured));
             bySource.put("games", shelf("games", Collections.<Pkg>emptyList()));
             bySource.put("tweaks", shelf("tweaks", Collections.<Pkg>emptyList()));
+            if ("big".equals(fixture)) bySource.put("bulk", shelf("bulk", Collections.<Pkg>emptyList()));
         }
         Shelf all = offline ? Shelf.empty() : shelf(null, Collections.<Pkg>emptyList());
         List<Pkg> updates = new ArrayList<>();
@@ -169,6 +197,7 @@ public final class FakeWaveData implements WaveData {
     }
 
     private void changed() {
+        cached = null;
         for (Runnable r : new ArrayList<>(listeners)) r.run();
     }
 
@@ -196,6 +225,7 @@ public final class FakeWaveData implements WaveData {
             if ("offline".equals(fixture) || "errors".equals(fixture)) actionError = "Couldn't refresh: No network.";
             changed();
             actionError = null;
+            cached = null;
         }, 2000);
     }
 
@@ -306,12 +336,14 @@ public final class FakeWaveData implements WaveData {
         actionError = "Fixture: would reboot now.";
         changed();
         actionError = null;
+        cached = null;
     }
 
     @Override public void turnOn(String moduleId) {}
 
     @Override
     public void ackTurnedOff(String moduleId) {
+        cached = null;
         for (int i = 0; i < turnedOff.size(); i++) if (turnedOff.get(i).id.equals(moduleId)) turnedOff.remove(i--);
     }
 

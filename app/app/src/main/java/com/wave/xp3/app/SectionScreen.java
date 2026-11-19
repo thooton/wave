@@ -13,7 +13,6 @@ final class SectionScreen extends Screen {
     private final String sourceId;
     private final String folder;
     private final String name;
-    private Page page;
 
     SectionScreen(WaveActivity app, String sourceId, String folder, String name) {
         super(app);
@@ -29,26 +28,23 @@ final class SectionScreen extends Screen {
 
     @Override
     View build() {
-        page = new Page(app);
-        return page.scroll;
+        feed = new Feed(app);
+        return feed.root;
     }
 
     @Override
     void update(WaveData.Snapshot s) {
-        Mark mark = page.clear();
+        Mark mark = feed.clear();
         List<Pkg> packages = s.packages(sourceId, folder);
         if (packages.isEmpty()) {
-            page.add(Kit.message(app, null, "No Packages", null, null, null));
-            page.scroll.setFocusable(true);
+            feed.message(Kit.message(app, null, "No Packages", null, null, null));
             return;
         }
         for (int i = 0; i < packages.size(); i++) {
             final Pkg p = packages.get(i);
-            Kit.Row row = Rows.browse(app, p, v -> app.details(p, sourceId));
-            if (i == packages.size() - 1) row.last();
-            page.add(row);
+            feed.add(Rows.browseLine(app, p, v -> app.details(p, sourceId), i == packages.size() - 1));
         }
-        page.restore(mark, null);
+        feed.restore(mark, null);
     }
 
     @Override

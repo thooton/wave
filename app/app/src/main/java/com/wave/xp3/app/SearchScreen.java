@@ -8,7 +8,6 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
-import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 
 import com.wave.xp3.data.WaveData;
@@ -26,8 +25,6 @@ final class SearchScreen extends Screen {
 
     private EditText field;
     private LinearLayout fieldBox;
-    private FrameLayout frame;
-    private Page page;
     private List<Pkg> results;
     private String asked = "";
     private int generation;
@@ -78,10 +75,8 @@ final class SearchScreen extends Screen {
         });
         lens.setVisibility(View.GONE);
 
-        frame = new FrameLayout(app);
-        page = new Page(app);
-        frame.addView(page.scroll);
-        return frame;
+        feed = new Feed(app);
+        return feed.root;
     }
 
     /** Puts `query` in the field, as if typed. */
@@ -111,7 +106,7 @@ final class SearchScreen extends Screen {
     @Override
     void shown() {
         field.post(() -> {
-            if (app.isShowing(this) && !page.scroll.hasFocus()) field.requestFocus();
+            if (app.isShowing(this) && !feed.root.hasFocus()) field.requestFocus();
         });
     }
 
@@ -151,49 +146,32 @@ final class SearchScreen extends Screen {
         }
     }
 
-    private View empty;
-
     private void draw() {
-        Mark mark = page.clear();
-        if (empty != null) {
-            frame.removeView(empty);
-            empty = null;
-        }
-        if (results == null) return;
-        if (results.isEmpty()) {
-            empty = Kit.message(app, null, "No Results", null, null, null);
-            frame.addView(empty);
+        Mark mark = feed.clear();
+        if (results != null && results.isEmpty()) {
+            feed.message(Kit.message(app, null, "No Results", null, null, null));
             return;
         }
-        for (int i = 0; i < results.size(); i++) {
-            final Pkg p = results.get(i);
-            Kit.Row row = Rows.browse(app, p, v -> app.details(p, null));
-            if (i == results.size() - 1) row.last();
-            page.add(row);
+        if (results != null) {
+            for (int i = 0; i < results.size(); i++) {
+                final Pkg p = results.get(i);
+                feed.add(Rows.browseLine(app, p, v -> app.details(p, null), i == results.size() - 1));
+            }
         }
-        page.restore(mark, null);
+        feed.restore(mark, null);
     }
 
     @Override
     boolean onKey(KeyEvent event) {
         int key = event.getKeyCode();
         View focus = app.getCurrentFocus();
-        if (focus == field && key == KeyEvent.KEYCODE_DPAD_DOWN) {
-            if (event.getAction() == KeyEvent.ACTION_DOWN) {
-                View first = firstFocusable(page.column);
-                if (first != null) first.requestFocus();
-            }
+        if (focus == field && (key == KeyEvent.KEYCODE_DPAD_DOWN || key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER)) {
+            // Down (or OK) goes into the results: on key-down for Down, on release for OK.
+            boolean act = key == KeyEvent.KEYCODE_DPAD_DOWN ? event.getAction() == KeyEvent.ACTION_DOWN : event.getAction() == KeyEvent.ACTION_UP;
+            if (act) feed.focusFirst();
             return true;
         }
-        if (focus == field && (key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER)) {
-            if (event.getAction() == KeyEvent.ACTION_UP) {
-                View first = firstFocusable(page.column);
-                if (first != null) first.requestFocus();
-            }
-            return true;
-        }
-        if (focus != field && key == KeyEvent.KEYCODE_DPAD_UP && focus != null && page.column.getChildCount() > 0
-            && Screen.keyOf(focus) != null && Screen.keyOf(focus).equals(Screen.keyOf(firstFocusable(page.column)))) {
+        if (focus != field && key == KeyEvent.KEYCODE_DPAD_UP && focus != null && feed.atTop(focus)) {
             if (event.getAction() == KeyEvent.ACTION_DOWN) field.requestFocus();
             return true;
         }

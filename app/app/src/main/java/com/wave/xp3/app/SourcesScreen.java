@@ -4,7 +4,6 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.view.View;
-import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 
@@ -19,9 +18,6 @@ import com.wave.xp3.data.WaveData.Src;
  */
 final class SourcesScreen extends Screen {
 
-    private FrameLayout frame;
-    private Page page;
-    private View message;
 
     SourcesScreen(WaveActivity app) {
         super(app);
@@ -34,10 +30,8 @@ final class SourcesScreen extends Screen {
 
     @Override
     View build() {
-        frame = new FrameLayout(app);
-        page = new Page(app);
-        frame.addView(page.scroll);
-        return frame;
+        feed = new Feed(app);
+        return feed.root;
     }
 
     private boolean refreshing() {
@@ -61,26 +55,19 @@ final class SourcesScreen extends Screen {
 
     @Override
     void update(WaveData.Snapshot s) {
-        boolean messageHadFocus = false;
-        if (message != null) {
-            messageHadFocus = message.hasFocus();
-            frame.removeView(message);
-            message = null;
-        }
+        boolean messageHadFocus = feed.showingMessage() && feed.root.hasFocus();
         if (s.firstLoadError != null && nothingFetched(s) && !refreshing()) {
-            page.scroll.setVisibility(View.GONE);
-            message = Kit.message(app, null, "Cannot Load Sources", s.firstLoadError, null, "Try Again");
+            View message = Kit.message(app, null, "Cannot Load Sources", s.firstLoadError, null, "Try Again");
             Kit.messageButton(message).setOnClickListener(v -> app.data.refreshAll());
-            frame.addView(message);
+            feed.message(message);
             if (app.isShowing(this)) Kit.messageButton(message).requestFocus();
             return;
         }
-        page.scroll.setVisibility(View.VISIBLE);
-        Mark mark = page.clear();
+        Mark mark = feed.clear();
         FolderIcon all = new FolderIcon(app);
         Kit.Row allRow = Rows.link(app, "All Sources", "Every package below", Look.MUTED, all, 30, null, true);
         allRow.setOnClickListener(v -> app.push(new SourceScreen(app, null)));
-        page.add(keyed(allRow, "all"));
+        feed.add(keyed(allRow, "all"));
         for (int i = 0; i < s.sources.size(); i++) {
             final Src src = s.sources.get(i);
             ImageView icon = new ImageView(app);
@@ -106,10 +93,10 @@ final class SourcesScreen extends Screen {
             row.about = src;
             if (i == s.sources.size() - 1) row.last();
             row.setOnClickListener(v -> app.push(new SourceScreen(app, src.id)));
-            page.add(keyed(row, "src:" + src.id));
+            feed.add(keyed(row, "src:" + src.id));
         }
-        page.restore(mark, null);
-        if (messageHadFocus && app.isShowing(this)) allRow.requestFocus();
+        feed.restore(mark, null);
+        if (messageHadFocus && app.isShowing(this)) feed.focus(null, true);
     }
 
     @Override

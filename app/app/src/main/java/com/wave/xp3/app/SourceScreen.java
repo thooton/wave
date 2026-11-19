@@ -20,7 +20,6 @@ import java.util.List;
 final class SourceScreen extends Screen {
 
     private final String sourceId;
-    private Page page;
 
     SourceScreen(WaveActivity app, String sourceId) {
         super(app);
@@ -41,18 +40,18 @@ final class SourceScreen extends Screen {
 
     @Override
     View build() {
-        page = new Page(app);
-        return page.scroll;
+        feed = new Feed(app);
+        return feed.root;
     }
 
     @Override
     void update(WaveData.Snapshot snap) {
-        Mark mark = page.clear();
+        Mark mark = feed.clear();
         Src src = source();
         if (sourceId != null && src == null) {
             // Removed (from its menu): back to the list it was in.
-            page.add(Kit.message(app, null, "Source Removed", null, null, null));
-            if (app.isShowing(this)) page.scroll.post(() -> {
+            feed.message(Kit.message(app, null, "Source Removed", null, null, null));
+            if (app.isShowing(this)) feed.root.post(() -> {
                 if (app.isShowing(this)) app.pop();
             });
             return;
@@ -80,36 +79,34 @@ final class SourceScreen extends Screen {
             LinearLayout.LayoutParams tl = Kit.weight();
             tl.leftMargin = Kit.dp(app, 9);
             head.addView(texts, tl);
-            page.add(head);
-            page.add(Kit.hair(app));
+            feed.add(head);
+            feed.add(Kit.hair(app));
         }
         List<Section> sections = snap.sections(sourceId);
         int total = snap.packages(sourceId, null).size();
         Kit.Row all = Rows.link(app, "All Packages", null, 0, null, 0, String.valueOf(total), false);
         all.setOnClickListener(v -> app.push(new SectionScreen(app, sourceId, null, "All Packages")));
         if (sections.isEmpty()) all.last();
-        page.add(keyed(all, "all"));
+        feed.add(keyed(all, "all"));
         for (int i = 0; i < sections.size(); i++) {
             final Section section = sections.get(i);
             Kit.Row row = Rows.link(app, section.name, null, 0, null, 0, String.valueOf(section.count), false);
             if (i == sections.size() - 1) row.last();
             row.setOnClickListener(v -> app.push(new SectionScreen(app, sourceId, section.folder, section.name)));
-            page.add(keyed(row, "section:" + section.folder));
+            feed.add(keyed(row, "section:" + section.folder));
         }
         if (sourceId != null) {
             List<Pkg> featured = snap.featured(sourceId);
             if (!featured.isEmpty()) {
-                page.add(Kit.heading(app, "Featured", false));
+                feed.add(Kit.heading(app, "Featured", false));
                 for (int i = 0; i < featured.size(); i++) {
                     final Pkg p = featured.get(i);
-                    Kit.Row row = Rows.browse(app, p, v -> app.details(p, sourceId));
-                    if (i == featured.size() - 1) row.last();
-                    page.add(row);
+                    feed.add(Rows.browseLine(app, p, v -> app.details(p, sourceId), i == featured.size() - 1));
                 }
             }
         }
-        page.add(Kit.gap(app, 6));
-        page.restore(mark, sections.isEmpty() ? "all" : "section:" + sections.get(0).folder);
+        feed.add(Kit.gap(app, 6));
+        feed.restore(mark, sections.isEmpty() ? "all" : "section:" + sections.get(0).folder);
     }
 
     @Override

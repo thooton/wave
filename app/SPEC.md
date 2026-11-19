@@ -83,10 +83,23 @@ link (Add, Update All; else Refresh).
 - Watchdog news is an alert on launch: "<Mod> Was Turned Off", OK or
   Remove It.
 
-Debug builds take `--es fixture browse|reboot|errors|offline|noroot`
+The pages that can be long (a source, a section and All Packages, Installed,
+Search, Sources) are recycled lists (`app.Feed`, a framework ListView, from
+0.7.16): only the rows on screen exist and a row scrolled off is rebound to
+the next package. Up/Down move from row to row and scroll the least that
+shows the new one (with a heading above it at the top, the end gap at the
+bottom); a refill keeps the focused row and where it sat; back from another
+screen the focus and the row's place return. Headings, gaps and headers are
+fixed lines that are not stops. With 500 packages, All Packages opens in
+about 0.3 s and keeps about 190 views (a ScrollView of every row took 6 s
+and 3,600 views).
+
+Debug builds take `--es fixture browse|reboot|errors|offline|uptodate|big|noroot`
 (and `--es query <text>` to open Search typed) to show sample data
 (`src/debug/.../FakeWaveData`) without changing the phone; release builds
-ignore both.
+ignore both. `big` adds Big Source, 500 packages in five sections (40
+installed, 10 updates), for long lists. Debug builds also log each screen's
+build and first-draw time under the logcat tag `WaveTime`.
 
 ### The Updater list (`MainActivity`, off the launcher since 0.5.0)
 

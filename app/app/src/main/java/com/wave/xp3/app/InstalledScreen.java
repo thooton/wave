@@ -17,7 +17,6 @@ import java.util.List;
  */
 final class InstalledScreen extends Screen {
 
-    private Page page;
 
     InstalledScreen(WaveActivity app) {
         super(app);
@@ -30,8 +29,8 @@ final class InstalledScreen extends Screen {
 
     @Override
     View build() {
-        page = new Page(app);
-        return page.scroll;
+        feed = new Feed(app);
+        return feed.root;
     }
 
     @Override
@@ -56,24 +55,20 @@ final class InstalledScreen extends Screen {
 
     @Override
     void update(WaveData.Snapshot s) {
-        Mark mark = page.clear();
-        if (!s.rebootPending.isEmpty()) page.add(Rows.reboot(app, Rows.rebootText(s.rebootPending)));
+        Mark mark = feed.clear();
+        if (!s.rebootPending.isEmpty()) feed.add(Rows.reboot(app, Rows.rebootText(s.rebootPending)));
         if (!s.updates.isEmpty()) {
-            page.add(Kit.heading(app, "Updates", false));
+            feed.add(Kit.heading(app, "Updates", false));
             for (int i = 0; i < s.updates.size(); i++) {
                 Pkg p = s.updates.get(i);
-                Kit.Row row = Rows.update(app, p, press(p));
-                if (i == s.updates.size() - 1) row.last();
-                page.add(row);
+                feed.add(Rows.updateLine(app, p, press(p), i == s.updates.size() - 1));
             }
         }
         if (!s.upToDate.isEmpty()) {
-            page.add(Kit.heading(app, "Up to Date", false));
+            feed.add(Kit.heading(app, "Up to Date", false));
             for (int i = 0; i < s.upToDate.size(); i++) {
                 Pkg p = s.upToDate.get(i);
-                Kit.Row row = Rows.installed(app, p, press(p));
-                if (i == s.upToDate.size() - 1) row.last();
-                page.add(row);
+                feed.add(Rows.installedLine(app, p, press(p), i == s.upToDate.size() - 1));
             }
         }
         if (s.updates.isEmpty() && s.upToDate.isEmpty()) {
@@ -84,11 +79,15 @@ final class InstalledScreen extends Screen {
                 : Kit.message(app, null, "Nothing Installed", "What Wave installs is listed here.", null, null);
             TextView retry = Kit.messageButton(message);
             if (retry != null) retry.setOnClickListener(v -> app.data.refreshAll());
-            message.setLayoutParams(new android.widget.LinearLayout.LayoutParams(-1, 0, 1f));
-            page.add(message);
+            if (s.rebootPending.isEmpty()) {
+                feed.message(message);
+                return;
+            }
+            message.setLayoutParams(new android.widget.LinearLayout.LayoutParams(-1, Kit.dp(app, 180)));
+            feed.add(message);
         }
-        page.add(Kit.gap(app, 6));
-        page.restore(mark, null);
+        feed.add(Kit.gap(app, 6));
+        feed.restore(mark, null);
     }
 
     @Override

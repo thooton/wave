@@ -38,24 +38,55 @@ final class Rows {
      * the icon; one that can't be installed here is dimmed.
      */
     static Kit.Row browse(final WaveActivity app, final Pkg p, View.OnClickListener open) {
-        Kit.Row row = new Kit.Row(app);
-        row.about = p;
-        row.setLayoutParams(Kit.fill(Kit.dp(app, 47)));
-        Kit.BadgedIcon icon = new Kit.BadgedIcon(app, 32);
-        app.icons.into(icon.image, icon(app, p), 32);
-        icon.setBadge(badge(p));
-        row.addView(icon);
-        LinearLayout texts = Kit.texts(app, p.name, p.summary, Look.MUTED, 8);
-        row.addView(texts);
-        if (unfit(p)) {
-            Kit.name(texts).setTextColor(0x73000000);
-            icon.setAlpha(0.45f);
+        return new BrowseRow(app).bind(p, open, false);
+    }
+
+    /** {@link #browse} as a line of a {@link Feed}, recycled. */
+    static Feed.Entry browseLine(final WaveActivity app, final Pkg p, final View.OnClickListener open, final boolean last) {
+        return new Feed.Entry("pkg:" + p.id, Feed.BROWSE, true) {
+            @Override
+            View view(View recycled) {
+                BrowseRow row = recycled instanceof BrowseRow ? (BrowseRow) recycled : new BrowseRow(app);
+                return row.bind(p, open, last);
+            }
+        };
+    }
+
+    static final class BrowseRow extends Kit.Row {
+        private final WaveActivity app;
+        private final Kit.BadgedIcon icon;
+        private final TextView name;
+        private final TextView sub;
+
+        BrowseRow(WaveActivity app) {
+            super(app);
+            this.app = app;
+            setLayoutParams(Kit.fill(Kit.dp(app, 47)));
+            icon = new Kit.BadgedIcon(app, 32);
+            addView(icon);
+            LinearLayout texts = Kit.texts(app, "", "-", Look.MUTED, 8);
+            addView(texts);
+            name = Kit.name(texts);
+            sub = (TextView) texts.getChildAt(1);
+            addView(Kit.chevron(app));
         }
-        row.addView(Kit.chevron(app));
-        row.setOnClickListener(open);
-        Screen.keyed(row, "pkg:" + p.id);
-        row.setContentDescription(p.name + ", " + p.summary);
-        return row;
+
+        BrowseRow bind(Pkg p, View.OnClickListener open, boolean last) {
+            about = p;
+            app.icons.into(icon.image, icon(app, p), 32);
+            icon.setBadge(badge(p));
+            name.setText(p.name);
+            sub.setText(p.summary);
+            sub.setVisibility(p.summary == null || p.summary.isEmpty() ? GONE : VISIBLE);
+            boolean dim = unfit(p);
+            name.setTextColor(dim ? 0x73000000 : Look.TEXT);
+            icon.setAlpha(dim ? 0.45f : 1f);
+            setHairline(!last);
+            setOnClickListener(open);
+            Screen.keyed(this, "pkg:" + p.id);
+            setContentDescription(p.name + ", " + p.summary);
+            return this;
+        }
     }
 
     static int badge(Pkg p) {
@@ -95,73 +126,153 @@ final class Rows {
      * the date of the newest change, the capsule, and two lines of what's new.
      */
     static Kit.Row update(final WaveActivity app, final Pkg p, View.OnClickListener press) {
-        Kit.Row row = new Kit.Row(app);
-        row.about = p;
-        row.setOrientation(LinearLayout.VERTICAL);
-        row.setGravity(Gravity.NO_GRAVITY);
-        row.setPadding(Kit.dp(app, 10), Kit.dp(app, 8), Kit.dp(app, 10), Kit.dp(app, 8));
-        LinearLayout top = new LinearLayout(app);
-        top.setGravity(Gravity.CENTER_VERTICAL);
-        top.setDuplicateParentStateEnabled(true);
-        ImageView icon = Kit.iconView(app, 40);
-        app.icons.into(icon, icon(app, p), 40);
-        top.addView(icon);
-        String when = p.newestChange != null && p.newestChange.date != null ? Format.date(p.newestChange.date) : null;
-        String sub = when != null ? when : "Version " + p.version;
-        top.addView(Kit.texts(app, p.name, sub, Look.MUTED, 8));
-        String word = capsuleWord(app, p);
-        if (word != null) top.addView(Kit.capsule(app, word, false, false));
-        else top.addView(Kit.chevron(app));
-        row.addView(top, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        if (p.newestChange != null && p.newestChange.text != null && !p.newestChange.text.isEmpty()) {
-            TextView notes = Look.text(app, p.newestChange.text, 12, Look.TEXT, Look.REGULAR);
+        return new UpdateRow(app).bind(p, press, false);
+    }
+
+    static Feed.Entry updateLine(final WaveActivity app, final Pkg p, final View.OnClickListener press, final boolean last) {
+        return new Feed.Entry("pkg:" + p.id, Feed.UPDATE, true) {
+            @Override
+            View view(View recycled) {
+                UpdateRow row = recycled instanceof UpdateRow ? (UpdateRow) recycled : new UpdateRow(app);
+                return row.bind(p, press, last);
+            }
+        };
+    }
+
+    static final class UpdateRow extends Kit.Row {
+        private final WaveActivity app;
+        private final ImageView icon;
+        private final TextView name;
+        private final TextView sub;
+        private final TextView capsule;
+        private final View chevron;
+        private final TextView notes;
+
+        UpdateRow(WaveActivity app) {
+            super(app);
+            this.app = app;
+            setOrientation(LinearLayout.VERTICAL);
+            setGravity(Gravity.NO_GRAVITY);
+            setPadding(Kit.dp(app, 10), Kit.dp(app, 8), Kit.dp(app, 10), Kit.dp(app, 8));
+            setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            LinearLayout top = new LinearLayout(app);
+            top.setGravity(Gravity.CENTER_VERTICAL);
+            top.setDuplicateParentStateEnabled(true);
+            icon = Kit.iconView(app, 40);
+            top.addView(icon);
+            LinearLayout texts = Kit.texts(app, "", "-", Look.MUTED, 8);
+            top.addView(texts);
+            name = Kit.name(texts);
+            sub = (TextView) texts.getChildAt(1);
+            capsule = Kit.capsule(app, "UPDATE", false, false);
+            top.addView(capsule);
+            chevron = Kit.chevron(app);
+            top.addView(chevron);
+            addView(top, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            notes = Look.text(app, "", 12, Look.TEXT, Look.REGULAR);
             notes.setMaxLines(2);
             notes.setEllipsize(TextUtils.TruncateAt.END);
             notes.setLineSpacing(Kit.dp(app, 1), 1f);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             lp.topMargin = Kit.dp(app, 7);
-            row.addView(notes, lp);
+            addView(notes, lp);
         }
-        row.setOnClickListener(press);
-        Screen.keyed(row, "pkg:" + p.id);
-        row.setContentDescription(p.name + ", " + (word != null ? word : sub));
-        return row;
+
+        UpdateRow bind(Pkg p, View.OnClickListener press, boolean last) {
+            about = p;
+            app.icons.into(icon, icon(app, p), 40);
+            String when = p.newestChange != null && p.newestChange.date != null ? Format.date(p.newestChange.date) : null;
+            String line = when != null ? when : "Version " + p.version;
+            name.setText(p.name);
+            sub.setText(line);
+            String word = capsuleWord(app, p);
+            capsule.setText(word != null ? word : "");
+            capsule.setVisibility(word != null ? VISIBLE : GONE);
+            chevron.setVisibility(word != null ? GONE : VISIBLE);
+            boolean hasNotes = p.newestChange != null && p.newestChange.text != null && !p.newestChange.text.isEmpty();
+            notes.setText(hasNotes ? p.newestChange.text : "");
+            notes.setVisibility(hasNotes ? VISIBLE : GONE);
+            setHairline(!last);
+            setOnClickListener(press);
+            Screen.keyed(this, "pkg:" + p.id);
+            setContentDescription(p.name + ", " + (word != null ? word : line));
+            return this;
+        }
     }
 
     /** An installed package with nothing new: the Updater's row without notes. */
     static Kit.Row installed(final WaveActivity app, final Pkg p, View.OnClickListener press) {
-        Kit.Row row = new Kit.Row(app);
-        row.about = p;
-        row.setLayoutParams(Kit.fill(Kit.dp(app, 47)));
-        ImageView icon = Kit.iconView(app, 32);
-        app.icons.into(icon, icon(app, p), 32);
-        row.addView(icon);
-        String sub;
-        int color = Look.MUTED;
-        switch (p.state) {
-            case OFF:
-                sub = bootFailed(app, p.id) ? "Turned off: boot failed" : "Turned off";
-                color = Look.RED;
-                break;
-            case PENDING_INSTALL:
-                sub = "Starts after a reboot";
-                color = Look.BLUE;
-                break;
-            case PENDING_REMOVAL:
-                sub = "Removed after a reboot";
-                color = Look.BLUE;
-                break;
-            default:
-                sub = (p.isModule ? "System mod, " : "Version ") + (p.installedVersion != null ? p.installedVersion : p.version);
+        return new InstalledRow(app).bind(p, press, false);
+    }
+
+    static Feed.Entry installedLine(final WaveActivity app, final Pkg p, final View.OnClickListener press, final boolean last) {
+        return new Feed.Entry("pkg:" + p.id, Feed.INSTALLED, true) {
+            @Override
+            View view(View recycled) {
+                InstalledRow row = recycled instanceof InstalledRow ? (InstalledRow) recycled : new InstalledRow(app);
+                return row.bind(p, press, last);
+            }
+        };
+    }
+
+    static final class InstalledRow extends Kit.Row {
+        private final WaveActivity app;
+        private final ImageView icon;
+        private final TextView name;
+        private final TextView sub;
+        private final TextView capsule;
+        private final View chevron;
+
+        InstalledRow(WaveActivity app) {
+            super(app);
+            this.app = app;
+            setLayoutParams(Kit.fill(Kit.dp(app, 47)));
+            icon = Kit.iconView(app, 32);
+            addView(icon);
+            LinearLayout texts = Kit.texts(app, "", "-", Look.MUTED, 8);
+            addView(texts);
+            name = Kit.name(texts);
+            sub = (TextView) texts.getChildAt(1);
+            capsule = Kit.capsule(app, "OPEN", false, false);
+            addView(capsule);
+            chevron = Kit.chevron(app);
+            addView(chevron);
         }
-        row.addView(Kit.texts(app, p.name, sub, color, 8));
-        String word = p.state == State.OFF || p.state == State.PENDING_INSTALL || p.state == State.PENDING_REMOVAL ? null : capsuleWord(app, p);
-        if (word != null) row.addView(Kit.capsule(app, word, false, false));
-        else row.addView(Kit.chevron(app));
-        row.setOnClickListener(press);
-        Screen.keyed(row, "pkg:" + p.id);
-        row.setContentDescription(p.name + ", " + sub);
-        return row;
+
+        InstalledRow bind(Pkg p, View.OnClickListener press, boolean last) {
+            about = p;
+            app.icons.into(icon, icon(app, p), 32);
+            String line;
+            int color = Look.MUTED;
+            switch (p.state) {
+                case OFF:
+                    line = bootFailed(app, p.id) ? "Turned off: boot failed" : "Turned off";
+                    color = Look.RED;
+                    break;
+                case PENDING_INSTALL:
+                    line = "Starts after a reboot";
+                    color = Look.BLUE;
+                    break;
+                case PENDING_REMOVAL:
+                    line = "Removed after a reboot";
+                    color = Look.BLUE;
+                    break;
+                default:
+                    line = (p.isModule ? "System mod, " : "Version ") + (p.installedVersion != null ? p.installedVersion : p.version);
+            }
+            name.setText(p.name);
+            sub.setText(line);
+            sub.setTextColor(color);
+            String word = p.state == State.OFF || p.state == State.PENDING_INSTALL || p.state == State.PENDING_REMOVAL ? null : capsuleWord(app, p);
+            capsule.setText(word != null ? word : "");
+            capsule.setVisibility(word != null ? VISIBLE : GONE);
+            chevron.setVisibility(word != null ? GONE : VISIBLE);
+            setHairline(!last);
+            setOnClickListener(press);
+            Screen.keyed(this, "pkg:" + p.id);
+            setContentDescription(p.name + ", " + line);
+            return this;
+        }
     }
 
     /** Whether the watchdog turned `id` off (rather than the user or Magisk's safe mode). */

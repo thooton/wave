@@ -72,9 +72,47 @@ abstract class Screen {
     /** The menu's items for where the focus is. */
     void menu(Menu menu) {}
 
-    /** The focus stop to start on. */
+    /** The screen's recycled list, when its page is one (set by build). */
+    Feed feed;
+
+    /** The focus stop to start on; with a list, null means its first row. */
     View firstFocus() {
-        return firstFocusable(view);
+        return feed != null ? null : firstFocusable(view);
+    }
+
+    /** Whether `focus` is the page's first stop, from which Up goes to the bar. */
+    boolean atTop(View focus) {
+        return feed != null ? feed.atTop(focus) : focus == firstFocusable(view);
+    }
+
+    /** Puts the focus back on the stop with {@link #focusKey}, or the first; false when the page has none. */
+    boolean placeFocus() {
+        if (feed != null && focusKey != null && feed.focus(focusKey, false)) return true;
+        if (feed == null && focusKey != null) {
+            View v = findKey(view, focusKey);
+            if (v != null && v.isFocusable()) {
+                v.requestFocus();
+                return true;
+            }
+        }
+        View first = firstFocus();
+        if (first != null) {
+            first.requestFocus();
+            return true;
+        }
+        return feed != null && feed.focus(null, true);
+    }
+
+    static View findKey(View root, String key) {
+        if (key.equals(root.getTag(R_KEY))) return root;
+        if (root instanceof ViewGroup) {
+            ViewGroup g = (ViewGroup) root;
+            for (int i = 0; i < g.getChildCount(); i++) {
+                View found = findKey(g.getChildAt(i), key);
+                if (found != null) return found;
+            }
+        }
+        return null;
     }
 
     void shown() {}
