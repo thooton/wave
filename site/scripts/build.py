@@ -21,7 +21,14 @@ BACKUP_FILES = (
     'src/protocols/sahara.mjs', 'src/protocols/firehose.mjs', 'src/protocols/gpt.mjs',
 )
 BACKUP_MARKER = '<!-- OPTIONAL_DEVICE_BACKUP -->'
-BACKUP_LINK = '<p class="actions"><a href="../backup/">Read an XP3800 boot backup over USB</a></p>'
+BACKUP_LINK = (
+    '<section class="box" aria-labelledby="backup-title"><h2 id="backup-title">Start here: read a boot backup</h2>'
+    '<p>This build can read your phone\u2019s <code>boot</code> partition over USB, twice, compare the copies and '
+    'save the image with a manifest. It only reads; no partition is written. Then '
+    '<a href="../restore/#verify">verify the saved files</a>. Linux may need a driver detached first: see the '
+    '<a href="../platforms/">USB guide</a>.</p>'
+    '<p class="actions"><a class="button" href="../backup/">Read an XP3800 boot backup</a></p></section>'
+)
 
 
 def build(destination, with_device_backup=False):

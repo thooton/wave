@@ -1,11 +1,114 @@
 # XP3800 device guide and recovery
 
 The Wave site helps an owner identify their phone, keep a verified stock boot
-backup, and recover from a bad Magisk module. It does not patch or write boot
+backup (an opt-in build reads it over USB; see the first section), and recover
+from a bad Magisk module. It does not patch or write boot
 images, install rooting tools, alter Magisk’s policy database, or grant apps
 root. Ordinary APKs can use Android’s Installer; Wave requires root for
 system mods. To opt in on an already-rooted phone, open **Wave → Root for
 System Mods → Check Again** and review the Magisk prompt on the phone.
+
+## Read-only boot backup from the browser (off by default)
+
+**Implemented and verified on one XP3800, read-only, and off by default.** The
+owner enables it deliberately by building the site with the flag:
+
+```sh
+python3 site/scripts/build.py --with-device-backup OUTPUT_DIR   # OUTPUT_DIR must not exist
+python3 site/scripts/check_pages.py OUTPUT_DIR
+```
+
+The default build (and the Pages workflow) leaves out `backup/index.html`,
+`src/jailbreak/backup.mjs` and the Sahara, Firehose and GPT modules, and the
+guide does not link to the backup page. The flag adds exactly those files and
+a link. No programmer binary, boot image or Magisk file is ever bundled: the
+owner selects their own copy of the Sonim-signed MSM8909 programmer as a local
+file, and the page refuses anything but the pinned size and SHA-256
+(`e6f2dbcf...2767`) before a single byte goes to USB.
+
+What the page does, in order: optionally reads the Android serial and build
+fingerprint over adb (or the owner types them from their records; EDL cannot
+authenticate either, so the manifest records which it was); claims the
+`05c6:9008` bulk interface; uploads the pinned programmer over Sahara;
+configures eMMC; validates the primary GPT header and partition array CRCs and
+refuses a layout that is not the single-slot XP3800 table (`boot` found by name,
+fifth entry, 65536 sectors between `sec` and `system`, no `vbmeta` or A/B
+slots); reads `boot` twice with a progress bar, requires the two reads to be
+byte-identical and to start with `ANDROID!` with sane component sizes; computes
+SHA-256; asks the programmer to reset to Android; then offers the image
+and a manifest (`format`, `model`, `serial`, `fingerprint`, `identitySource`,
+`partition`, `size`, `sha256`, `date`) as downloads. The Restore page's local
+verifier accepts the pair and checks the image against the manifest hash.
+
+The transport has no command for writing, erasing or patching storage. It
+sends only `configure` (with `SkipWrite="1"`), `getstorageinfo`, `read` of
+GPT sectors and the `boot` range, and `power reset`. Reading `boot` twice took well
+under a minute in testing.
+
+Failure modes the page names: `05c6:900e` (crash dump, cold start needed), no
+device chosen or the cable, an interface that cannot be claimed (udev rule,
+a bound kernel driver, another tool holding the device), a USB timeout (no
+partition was written; re-enter EDL), a GPT that is not an XP3800's, a
+programmer that is not the pinned one, two reads that differ, and a reset that
+was not acknowledged (check the phone before unplugging).
+
+Driver and platform setup (the Linux `qcserial` detach, Windows WinUSB with Zadig,
+macOS) is in **Platform setup** below; only Linux with Chromium 156 is tested.
+
+`site/src/protocols/` also contains the transport modules; replays of the
+captured exchanges run in `site/src/protocols/tests/`. The write-capable parts
+that ROOTING.md describes (patch on the phone, flash) are not implemented.
+
+### Then verify the saved files
+
+Open the Restore page and choose the saved image and its manifest. It checks
+the size, the `ANDROID!` header, the SHA-256 against the manifest (and against
+a hash you type, if you have one), prints the manifest's serial, build and
+date, and can compare a second read byte for byte. It never connects to the
+phone. A matching hash shows the file is intact, not that it came from the
+right phone or is stock: check the serial and build against the phone, and
+keep two copies offline.
+
+## Platform setup
+
+| Platform | Status |
+| :--- | :--- |
+| Linux, Chromium 156 | Tested for the read-only EDL backup on a stock XP3800. The Android check used the same protocol code over libusb, not Chromium's chooser. ModemManager was not running, so its rule is untested |
+| Windows, Chrome or Edge | **Untested.** Written from documented behaviour |
+| macOS, Chrome or Edge | **Untested** |
+| ChromeOS, Chrome on Android | **Untested** |
+
+All platforms: stop the desktop adb server (`adb kill-server`) and close other
+service tools, since one program at a time can hold a USB interface. The phone
+appears as `1d9c:8339` (Android with debugging) and `05c6:9008` (EDL);
+WebUSB needs a new device choice for each. `05c6:900e` is crash-dump mode, not
+EDL.
+
+**Linux.** Two udev lines give the desktop user access to only `05c6:9008`
+and tell ModemManager to leave it alone (the public USB guide shows them).
+The driver problem we hit: the `qcserial` module (aliased to `05c6:9008`) was
+loaded and a kernel driver held the EDL interface, which Chromium will not
+take over (it detaches only `cdc_acm`, `usblp`, `ftdi_sio` and `usb-storage`).
+We detached it with libusb before connecting; we did not read the bound
+driver's name. Administrator options, untested: unbind the interface under
+`/sys/bus/usb/drivers/`, `modprobe -r qcserial` for the session, or
+`blacklist qcserial` in `/etc/modprobe.d/` (which affects other Qualcomm
+modems).
+
+**Windows (untested).** WebUSB only sees interfaces bound to WinUSB, and in EDL
+Windows normally binds Qualcomm's serial driver ("Qualcomm HS-USB QDLoader
+9008"). With the phone in EDL, open Zadig, Options, List All Devices, select the
+entry with USB ID `05C6 9008` (stop if the ID differs or several match), choose
+WinUSB, Replace Driver, reload the page. This changes that one device's
+driver; never touch a composite parent or shared hardware. To undo, uninstall
+the device in Device Manager with "delete the driver software" and reconnect.
+Desktop service tools expecting the serial driver will not see the phone until
+then. The Android interface (`1d9c:8339`) may also need a WinUSB-bound vendor
+or Google USB driver.
+
+**macOS (untested).** No driver step is expected for vendor interfaces. Expect
+trouble only from another program or the adb server holding the interface, a
+charge-only cable, or a policy that blocks WebUSB.
 
 ## What the public pages do
 
@@ -52,61 +155,6 @@ manager are tested separately and are excluded from the public artifact. A brows
 ADB key stays in memory, so don’t select “Always allow” on the debugging
 prompt. The public guide only uses read-only shell checks; the Rescue page
 additionally performs the root operations described above.
-
-## Optional read-only browser backup (off by default)
-
-**Implemented and verified on one XP3800, read-only, and off by default.** The
-owner enables it deliberately by building the site with the flag:
-
-```sh
-python3 site/scripts/build.py --with-device-backup OUTPUT_DIR   # OUTPUT_DIR must not exist
-python3 site/scripts/check_pages.py OUTPUT_DIR
-```
-
-The default build (and the Pages workflow) leaves out `backup/index.html`,
-`src/jailbreak/backup.mjs` and the Sahara, Firehose and GPT modules, and the
-guide does not link to the backup page. The flag adds exactly those files and
-a link. No programmer binary, boot image or Magisk file is ever bundled: the
-owner selects their own copy of the Sonim-signed MSM8909 programmer as a local
-file, and the page refuses anything but the pinned size and SHA-256
-(`e6f2dbcf...2767`) before a single byte goes to USB.
-
-What the page does, in order: optionally reads the Android serial and build
-fingerprint over adb (or the owner types them from their records; EDL cannot
-authenticate either, so the manifest records which it was); claims the
-`05c6:9008` bulk interface; uploads the pinned programmer over Sahara;
-configures eMMC; validates the primary GPT header and partition array CRCs and
-refuses a layout that is not the single-slot XP3800 table (`boot` found by name,
-fifth entry, 65536 sectors between `sec` and `system`, no `vbmeta` or A/B
-slots); reads `boot` twice with a progress bar, requires the two reads to be
-byte-identical and to start with `ANDROID!` with sane component sizes; computes
-SHA-256; asks the programmer to reset to Android; then offers the image
-and a manifest (`format`, `model`, `serial`, `fingerprint`, `identitySource`,
-`partition`, `size`, `sha256`, `date`) as downloads. The Restore page's local
-verifier accepts the pair and checks the image against the manifest hash.
-
-The transport has no command for writing, erasing or patching storage. It
-sends only `configure` (with `SkipWrite="1"`), `getstorageinfo`, `read` of
-GPT sectors and the `boot` range, and `power reset`. The cost of reading `boot`
-twice is under a minute.
-
-Failure modes the page names: `05c6:900e` (crash dump, cold start needed), no
-device chosen or the cable, an interface that cannot be claimed (udev rule,
-a bound kernel driver, another tool holding the device), a USB timeout (no
-partition was written; re-enter EDL), a GPT that is not an XP3800's, a
-programmer that is not the pinned one, two reads that differ, and a reset that
-was not acknowledged (check the phone before unplugging).
-
-Platform notes: verified on Linux with Chromium 156. Chromium's usbfs backend
-detaches a bound `cdc_acm`, `usblp`, `ftdi_sio` or `usb-storage` driver itself,
-but not others; on this host the `qcserial` driver was bound to the EDL
-interface and had to be detached first (pyusb `detach_kernel_driver`, or
-unbind it in sysfs, or blacklist `qcserial` and `option` for the session).
-Windows (WinUSB via Zadig) and macOS are untested.
-
-`site/src/protocols/` also contains the transport modules; replays of the
-captured exchanges run in `site/src/protocols/tests/`. The write-capable parts
-that ROOTING.md describes (patch on the phone, flash) are not implemented.
 
 For reserved-hardware QA, serve the opt-in build on loopback and open
 `/backup/?policy=1`, or serve `site/src/protocols` and open
