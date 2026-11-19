@@ -294,7 +294,11 @@ public final class Engine {
             rebootNeeded = true;
             item.message = "Removed when the phone restarts.";
         }
-        receipts.forget(s.id);
+        try {
+            receipts.forget(s.id);
+        } catch (IOException e) {
+            item.message = "Removed, but Wave couldn't update its list: " + message(e);
+        }
         item.phase = Phase.DONE;
         changed();
         return true;
@@ -332,48 +336,57 @@ public final class Engine {
 
             item.phase = Phase.INSTALLING;
             changed();
-            if (s.kind == Plan.Kind.APK && apps != null) {
-                boolean me = s.id.equals(self);
-                if (me) {
-                    selfUpdating = true;
-                    item.message = "Wave closes to update itself.";
-                    changed();
-                }
-                PmResult pm = apps.install(file, s.id, me);
-                if (!pm.ok) {
-                    selfUpdating = false;
-                    return fail(item, pm.message);
-                }
-                if (!me) {
-                    receipts.record(new Receipts.Receipt(s.id, s.kind, p.version, p.source != null ? p.source : source,
-                        p.sha256, System.currentTimeMillis()));
-                }
-            } else if (s.kind == Plan.Kind.APK && s.id.equals(self)) {
-                Shell.Result r = shell.run(Scripts.selfUpdate(file.getAbsolutePath(), file.length(), self,
-                    platform.selfActivity()), QUICK_MS);
-                if (!r.ok()) return fail(item, "Couldn't start updating Wave: " + last(r.output));
-                // The receipt is written when Wave starts again and reads the result.
+            Receipts.Receipt receipt = new Receipts.Receipt(s.id, s.kind, p.version,
+                p.source != null ? p.source : source, p.sha256, System.currentTimeMillis());
+            if (s.kind == Plan.Kind.APK && s.id.equals(self)) {
+                // Android stops Wave part way through, before it could note
+                // the update afterwards; so it is noted first, and put back
+                // if the update can't even start.
+                Receipts.Receipt before = receipts.get(s.id);
+                note(item, receipt);
                 selfUpdating = true;
                 item.message = "Wave closes to update itself.";
-            } else if (s.kind == Plan.Kind.APK) {
-                Shell.Result r = shell.run(Scripts.installApk(file.getAbsolutePath(), file.length()), INSTALL_MS);
-                PmResult pm = PmResult.parse(r.output, r.exit);
-                if (!pm.ok) return fail(item, pm.message);
-                // Ahead-of-time compiling only makes it start faster; a failure is not the install's.
-                try {
-                    shell.run(Scripts.compile(s.id), INSTALL_MS);
-                } catch (IOException ignored) {
-                    // Left to Android's own background compile.
+                changed();
+                String failed;
+                if (apps != null) {
+                    PmResult pm = apps.install(file, s.id, true);
+                    failed = pm.ok ? null : pm.message;
+                } else {
+                    Shell.Result r = shell.run(Scripts.selfUpdate(file.getAbsolutePath(), file.length(), self,
+                        platform.selfActivity()), QUICK_MS);
+                    failed = r.ok() ? null : "Couldn't start updating Wave: " + last(r.output);
                 }
-                receipts.record(new Receipts.Receipt(s.id, s.kind, p.version, p.source != null ? p.source : source, p.sha256,
-                    System.currentTimeMillis()));
+                if (failed != null) {
+                    selfUpdating = false;
+                    unnote(s.id, before);
+                    return fail(item, failed);
+                }
+            } else if (s.kind == Plan.Kind.APK) {
+                PmResult pm;
+                if (apps != null) {
+                    pm = apps.install(file, s.id, false);
+                } else {
+                    Shell.Result r = shell.run(Scripts.installApk(file.getAbsolutePath(), file.length()), INSTALL_MS);
+                    pm = PmResult.parse(r.output, r.exit);
+                }
+                if (!pm.ok) return fail(item, pm.message);
+                // Noted before compiling, which can take minutes: a run cut
+                // off then still knows where the app came from.
+                note(item, receipt);
+                if (apps == null) {
+                    // Ahead-of-time compiling only makes it start faster; a failure is not the install's.
+                    try {
+                        shell.run(Scripts.compile(s.id), INSTALL_MS);
+                    } catch (IOException ignored) {
+                        // Left to Android's own background compile.
+                    }
+                }
             } else {
                 Shell.Result r = shell.run(Scripts.installModule(file.getAbsolutePath(), s.id), INSTALL_MS);
                 if (!r.ok()) return fail(item, moduleFailure(r.output));
                 rebootNeeded = true;
                 item.message = "Takes effect when the phone restarts.";
-                receipts.record(new Receipts.Receipt(s.id, s.kind, p.version, p.source != null ? p.source : source, p.sha256,
-                    System.currentTimeMillis()));
+                note(item, receipt);
             }
             item.phase = Phase.DONE;
             changed();
@@ -381,6 +394,27 @@ public final class Engine {
         } finally {
             // Wave's own update copied it for the detached shell already.
             file.delete();
+        }
+    }
+
+    /**
+     * Records what was installed. The install itself has happened by now, so
+     * a full disk here doesn't fail the step; it says so instead.
+     */
+    private void note(Item item, Receipts.Receipt receipt) {
+        try {
+            receipts.record(receipt);
+        } catch (IOException e) {
+            item.message = "Installed, but Wave couldn't note it: " + message(e);
+        }
+    }
+
+    private void unnote(String id, Receipts.Receipt before) {
+        try {
+            if (before != null) receipts.record(before);
+            else receipts.forget(id);
+        } catch (IOException ignored) {
+            // The list is only wrong about where Wave came from.
         }
     }
 

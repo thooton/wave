@@ -48,6 +48,23 @@ public final class Download {
     static final long MAX = 512L * 1024 * 1024;
     /** Kept free beyond the download itself, so installing has room too. */
     static final long SPARE = 4L * 1024 * 1024;
+    /** Tries per download while each one gets further. */
+    static final int ATTEMPTS = 5;
+    /** Wait before try n+1: n times this. Public only for the tests to shorten. */
+    public static volatile long backoffMs = 2000;
+
+    private static void pause(int attempt, Cancel cancel) throws IOException {
+        long until = System.currentTimeMillis() + backoffMs * attempt;
+        while (System.currentTimeMillis() < until) {
+            if (cancel != null && cancel.cancelled()) throw new Stopped();
+            try {
+                Thread.sleep(Math.min(200, Math.max(1, until - System.currentTimeMillis())));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new Stopped();
+            }
+        }
+    }
 
     public static void fetch(String url, long size, String sha256, File to, Progress progress, Cancel cancel)
             throws IOException {
@@ -66,10 +83,24 @@ public final class Download {
             throw new IOException("Not enough space: it needs " + megabytes(size + SPARE) + ".");
         }
         try {
-            if (!get(url, size, part, have, progress, cancel)) {
-                // The server ignored or refused the range: start again.
-                part.delete();
-                get(url, size, part, 0, progress, cancel);
+            // A connection cut part way resumes from what arrived, as long as
+            // each try gets further; a try that gets nothing ends it.
+            for (int attempt = 1; ; attempt++) {
+                long before = part.isFile() ? part.length() : 0;
+                try {
+                    if (!get(url, size, part, before, progress, cancel)) {
+                        // The server ignored or refused the range: start again.
+                        part.delete();
+                        get(url, size, part, 0, progress, cancel);
+                    }
+                    break;
+                } catch (Discard | Stopped e) {
+                    throw e;
+                } catch (IOException e) {
+                    long now = part.isFile() ? part.length() : 0;
+                    if (outOfSpace(e) || now <= before || attempt >= ATTEMPTS) throw e;
+                    pause(attempt, cancel);
+                }
             }
             if (part.length() != size) throw new Discard("The download isn't the size the source gives.");
             if (!sha256.equals(sha256(part))) throw new Discard("The download doesn't match the source.");
@@ -105,6 +136,10 @@ public final class Download {
         try {
             if (from > 0) c.setRequestProperty("Range", "bytes=" + from + "-");
             int status = c.getResponseCode();
+            if (status >= 500) {
+                // The server's trouble, not the file's: keep what arrived.
+                throw new IOException("The server answered " + status + ". Try again later.");
+            }
             if (from > 0) {
                 if (status == 416 || status == 200) return false;
                 if (status != 206 || !rangeStartsAt(c.getHeaderField("Content-Range"), from)) return false;

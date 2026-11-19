@@ -182,7 +182,8 @@ public final class Scripts {
         String m = module(id);
         return "rm -rf " + ADB + "/modules_update/" + m + "\n"
             + "if [ -d " + ADB + "/modules/" + m + " ]; then touch " + ADB + "/modules/" + m + "/remove; fi\n"
-            + unpend(m);
+            + drop(m, "trying") + "\n"
+            + drop(m, "pending");
     }
 
     /** Takes back a removal not yet carried out by a reboot. */
@@ -201,19 +202,28 @@ public final class Scripts {
         return "[ -d " + ADB + "/modules/" + m + " ] || [ -d " + ADB + "/modules_update/" + m
             + " ] || { echo '! No such module.'; exit 3; }\n"
             + "rm -f " + ADB + "/modules/" + m + "/disable " + ADB + "/modules_update/" + m + "/disable\n"
+            + drop(m, "trying") + "\n"
             + markPending(m);
     }
 
-    private static String unpend(String m) {
-        String pending = STATE + "/pending";
-        return "if [ -f " + pending + " ]; then grep -vxF " + quote(m) + " " + pending + " > " + pending
-            + ".new; mv " + pending + ".new " + pending + "; fi";
+    /**
+     * Takes `m` off one of the watchdog's lists. Off `trying` too when the
+     * user turns a module on again or removes it: a `trying` left over from
+     * a boot Magisk's safe mode cut short would otherwise turn it straight
+     * back off at the next boot.
+     */
+    private static String drop(String m, String list) {
+        String f = STATE + "/" + list;
+        return "if [ -f " + f + " ]; then grep -vxF " + quote(m) + " " + f + " > " + f
+            + ".new; mv -f " + f + ".new " + f + "; fi";
     }
 
     /**
      * Every module, installed or waiting for a reboot: for each folder in
      * `modules` and `modules_update`, a line `@<where> <id> <flags>`, then
-     * its `module.prop`, then `@end`. Parsed by {@link Modules#parse}.
+     * its `module.prop` with each line led by `|` (so no line of it can pass
+     * for a marker, and a last line without a newline still ends), then
+     * `@end`. Parsed by {@link Modules#parse}.
      */
     public static String listModules() {
         return "for where in modules modules_update; do\n"
@@ -224,7 +234,7 @@ public final class Scripts {
             + "    flags=\n"
             + "    for f in disable remove update skip_mount; do [ -e \"$d/$f\" ] && flags=\"$flags,$f\"; done\n"
             + "    echo \"@$where $id ${flags#,}\"\n"
-            + "    [ -f \"$d/module.prop\" ] && cat \"$d/module.prop\" && echo\n"
+            + "    [ -f \"$d/module.prop\" ] && sed 's/^/|/' \"$d/module.prop\" && echo\n"
             + "    echo @end\n"
             + "  done\n"
             + "done";

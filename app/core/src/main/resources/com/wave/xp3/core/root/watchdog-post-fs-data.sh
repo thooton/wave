@@ -1,5 +1,5 @@
 #!/system/bin/sh
-# wave-watchdog: 1
+# wave-watchdog: 2
 #
 # Wave's boot watchdog, early half: /data/adb/post-fs-data.d/wave-watchdog.sh,
 # installed by the Wave app (com.wave.xp3). See docs/design.md section 5.
@@ -41,27 +41,33 @@ if [ -f "$W/trying" ]; then
     else
         reason=boot-incomplete
     fi
-    while read -r id || [ -n "$id" ]; do
-        case "$id" in
-            '' | . | .. | */*) continue ;;
-        esac
-        hit=
-        for d in "$ADB/modules/$id" "$ADB/modules_update/$id"; do
-            if [ -d "$d" ]; then
-                touch "$d/disable" && hit=1
+    if [ -r "$W/trying" ]; then
+        while read -r id || [ -n "$id" ]; do
+            case "$id" in
+                '' | . | .. | */*) continue ;;
+            esac
+            hit=
+            for d in "$ADB/modules/$id" "$ADB/modules_update/$id"; do
+                if [ -d "$d" ]; then
+                    touch "$d/disable" && hit=1
+                fi
+            done
+            if [ -n "$hit" ]; then
+                printf '%s\t%s\t%s\n' "$now" "$id" "$reason" >> "$W/disabled"
+                log "disabled $id ($reason)"
             fi
-        done
-        if [ -n "$hit" ]; then
-            printf '%s\t%s\t%s\n' "$now" "$id" "$reason" >> "$W/disabled"
-            log "disabled $id ($reason)"
-        fi
-    done < "$W/trying"
+        done < "$W/trying"
+    else
+        # A redirect from an unreadable file would end this script (POSIX
+        # sh exits on a failed redirection of a compound command).
+        log "trying unreadable; dropped"
+    fi
     rm -f "$W/trying"
 fi
 
 if [ -f "$W/pending" ]; then
     mv -f "$W/pending" "$W/trying"
-    log "trying $(tr '\n' ' ' < "$W/trying")"
+    log "trying $(tr '\n' ' ' < "$W/trying" 2>/dev/null)"
 fi
 
 # Keep the log short.

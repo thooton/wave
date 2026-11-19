@@ -97,17 +97,23 @@ final class RootTests {
         PmResult error = PmResult.parse("Error: java.lang.IllegalArgumentException: bad", 255);
         check.ok("error", !error.ok && error.message.contains("bad"));
         check.ok("silence", PmResult.parse("", 1).message.contains("no answer"));
+        PmResult thrown = PmResult.parse("Exception occurred while executing:\njava.lang.IllegalArgumentException: "
+            + "Unknown package: com.x\n\tat com.android.server.pm.PackageManagerShellCommand.run(X.java:1)\n", 255);
+        check.ok("cmd exception", !thrown.ok);
+        check.same("cmd exception words", "Android refused it: Unknown package: com.x", thrown.message);
+        check.ok("exception beats a stray Success", !PmResult.parse("Success\nException occurred while executing:\n"
+            + "java.lang.RuntimeException: x\n", 1).ok);
         check.ok("su chatter", PmResult.parse("/system/bin/sh: pm: not found", 127).message.contains("not found"));
     }
 
     private static void modules(Check check) {
-        String out = "@modules a disable\nid=a\nname=Alpha\nversion=1.0\nversionCode=1\n\n@end\n"
-            + "@modules b remove\nid=b\nname=Bravo\nversion=2.0\n@end\n"
-            + "@modules c \nid=c\nversion=3.1\nversionCode=31\n@end\n"
-            + "@modules d update\nid=d\nname=Delta\nversion=1.1\n@end\n"
-            + "@modules_update d \nid=d\nname=Delta\nversion=1.1\nversionCode=11\n@end\n"
-            + "@modules_update e \nid=e\nname=Echo\nversion=0.1\n@end\n"
-            + "@modules ../x \nid=evil\n@end\n";
+        String out = "@modules a disable\n|id=a\n|name=Alpha\n|version=1.0\n|versionCode=1\n|\n@end\n"
+            + "@modules b remove\n|id=b\n|name=Bravo\n|version=2.0\n@end\n"
+            + "@modules c \n|id=c\n|version=3.1\n|versionCode=31\n@end\n"
+            + "@modules d update\n|id=d\n|name=Delta\n|version=1.1\n@end\n"
+            + "@modules_update d \n|id=d\n|name=Delta\n|version=1.1\n|versionCode=11\n@end\n"
+            + "@modules_update e \n|id=e\n|name=Echo\n|version=0.1\n@end\n"
+            + "@modules ../x \n|id=evil\n@end\n";
         List<Modules.Module> list = Modules.parse(out);
         check.same("count", 5, list.size());
         Map<String, Modules.Module> by = new HashMap<>();
@@ -125,10 +131,10 @@ final class RootTests {
         check.ok("sorted", list.get(0).id.equals("a") && list.get(4).id.equals("e"));
         check.ok("not all disabled", !Modules.allDisabled(list));
         check.ok("all disabled", Modules.allDisabled(Modules.parse(
-            "@modules a disable\nid=a\n@end\n@modules b disable,remove\n@end\n")));
+            "@modules a disable\n|id=a\n@end\n@modules b disable,remove\n@end\n")));
         check.ok("none is not all disabled", !Modules.allDisabled(Modules.parse("")));
         check.same("disabled waiting update", Modules.State.DISABLED, Modules.parse(
-            "@modules_update f disable\nid=f\n@end\n").get(0).state);
+            "@modules_update f disable\n|id=f\n@end\n").get(0).state);
     }
 
     private static void facts(Check check) {
@@ -214,6 +220,33 @@ final class RootTests {
             check.ok("enabled", !box.file("modules/m2/disable").exists());
             check.ok("watched again", box.read("wave/pending").contains("m2"));
             check.same("enable missing", 3, box.sh(Scripts.enableModule("nope"), null).exit);
+
+            // A module.prop whose lines look like the listing's own markers,
+            // and one without a final newline.
+            box.file("modules/tricky").mkdirs();
+            Sandbox.write(box.file("modules/tricky/module.prop"),
+                "id=tricky\nname=Tricky\ndescription=x\n@end\n@modules_update evil disable\nversion=9");
+            box.file("modules/after").mkdirs();
+            Sandbox.write(box.file("modules/after/module.prop"), "id=after\nversion=1\n");
+            Map<String, Modules.Module> listed = new HashMap<>();
+            for (Modules.Module mod : Modules.parse(box.sh(Scripts.listModules(), null).output)) listed.put(mod.id, mod);
+            check.ok("markers in a prop don't split it", !listed.containsKey("evil"));
+            check.same("prop read past them", "9", listed.get("tricky").version);
+            check.same("no final newline", Modules.State.INSTALLED, listed.get("after").state);
+            check.same("next module intact", "1", listed.get("after").version);
+
+            // Safe mode cut a boot short, leaving `trying`; the user turns a
+            // module on again: the next boot must try it, not turn it off.
+            Sandbox.write(box.file("wave/trying"), "m2\n");
+            Sandbox.write(box.file("modules/m2/disable"), "");
+            box.sh(Scripts.enableModule("m2"), null);
+            check.same("off trying", "", box.read("wave/trying"));
+            box.sh(Watchdog.install(), null);
+            box.sh("sh " + box.file("post-fs-data.d/wave-watchdog.sh").getPath(), null);
+            check.ok("tried, not turned off", !box.file("modules/m2/disable").exists()
+                && box.read("wave/trying").contains("m2"));
+            box.sh(Scripts.removeModule("m2"), null);
+            check.ok("removal leaves trying", !box.read("wave/trying").contains("m2"));
 
             check.same("no magisk exit", 0, box.sh(Scripts.facts(), null).exit);
             box.flag("no-magisk");
@@ -360,6 +393,57 @@ final class RootTests {
             check.ok("clean restart keeps it", box.read("wave/trying") == null);
             box.sh(early, fast);
             check.ok("not disabled", !box.file("modules_update/fine/disable").exists());
+        }
+
+        try (Sandbox box = new Sandbox()) {
+            box.sh(Watchdog.install(), null);
+            String early = "sh " + box.file("post-fs-data.d/wave-watchdog.sh").getPath();
+            String late = "sh " + box.file("service.d/wave-watchdog.sh").getPath();
+            // A module removed by hand while it was being tried.
+            module(box, "gone");
+            module(box, "kept");
+            Sandbox.write(box.file("wave/trying"), "gone\nkept\n");
+            Sandbox.write(box.file("wave/pending"), "next\n");
+            new File(box.adb, "modules_update/gone").delete();
+            for (File f : box.file("modules_update/gone").listFiles()) f.delete();
+            box.file("modules_update/gone").delete();
+            for (File f : box.file("modules/gone").listFiles()) f.delete();
+            box.file("modules/gone").delete();
+            check.same("pfd survives a vanished module", 0, box.sh(early, fast).exit);
+            Watchdog.State st = Watchdog.parse(box.sh(Watchdog.read(), null).output);
+            check.same("only the one still there recorded", 1, st.disabled.size());
+            check.same("which", "kept", st.disabled.get(0).id);
+            check.same("pending moved on", Arrays.asList("next"), st.trying);
+
+            // Unreadable lists (not root here, so a mode does it): no crash,
+            // and pending still moves on.
+            File trying = box.file("wave/trying");
+            trying.setReadable(false);
+            Sandbox.write(box.file("wave/pending"), "later\n");
+            Sandbox.Ran r = box.sh(early, fast);
+            check.same("unreadable trying", 0, r.exit);
+            check.ok("logged", box.read("wave/log").contains("unreadable"));
+            check.same("pending still moved", "later\n", box.read("wave/trying"));
+
+            // Lists that aren't files at all.
+            box.file("wave/trying").delete();
+            box.file("wave/trying").mkdirs();
+            box.file("wave/pending").mkdirs();
+            check.same("odd trying", 0, box.sh(early, fast).exit);
+            box.file("wave/pending").delete();
+            box.file("wave/trying").delete();
+            check.same("service without trying", 0, box.sh(late, fast).exit);
+        }
+
+        try (Sandbox box = new Sandbox()) {
+            // No /data/adb at all.
+            Map<String, String> nowhere = new HashMap<>(fast);
+            nowhere.put("WAVE_ADB", new File(box.root, "missing").getPath());
+            Sandbox.write(new File(box.root, "pfd.sh"), Watchdog.postFsData());
+            Sandbox.write(new File(box.root, "svc.sh"), Watchdog.service());
+            check.same("pfd without /data/adb", 0, box.sh("sh " + box.root + "/pfd.sh", nowhere).exit);
+            check.same("service without /data/adb", 0, box.sh("sh " + box.root + "/svc.sh", nowhere).exit);
+            check.ok("made nothing", !new File(box.root, "missing").exists());
         }
 
         try (Sandbox box = new Sandbox()) {

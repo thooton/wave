@@ -1,5 +1,5 @@
 #!/system/bin/sh
-# wave-watchdog: 1
+# wave-watchdog: 2
 #
 # Wave's boot watchdog, late half: /data/adb/service.d/wave-watchdog.sh,
 # installed by the Wave app (com.wave.xp3). See docs/design.md section 5 and

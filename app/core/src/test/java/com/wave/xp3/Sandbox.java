@@ -91,7 +91,10 @@ final class Sandbox implements AutoCloseable {
             + "esac");
         // Not root here: ownership is recorded, not changed.
         fake("chown", "echo \"chown $*\" >> \"$FAKE_LOG\"");
-        fake("cmd", "echo \"cmd $*\" >> \"$FAKE_LOG\"\necho Success");
+        // Logs the receipts as they are when it runs (compiling comes after an install).
+        fake("cmd", "echo \"cmd $*\" >> \"$FAKE_LOG\"\n"
+            + "echo \"receipts then: $(cat \"$FAKE/files/receipts.json\" 2>/dev/null | tr -d '\\n')\" >> \"$FAKE_LOG\"\n"
+            + "echo Success");
         fake("svc", "echo \"svc $*\" >> \"$FAKE_LOG\"");
         fake("am", "echo \"am $*\" >> \"$FAKE_LOG\"");
         // Magisk 24.0's --install-module in boot mode, in miniature: the

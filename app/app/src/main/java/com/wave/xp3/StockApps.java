@@ -178,7 +178,8 @@ public final class StockApps extends Activity implements Engine.Apps {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (!isChangingConfigurations()) reply(RESULT_CANCELED, null);
+        // Only a real end answers; a recreated activity gets the result later.
+        if (isFinishing()) reply(RESULT_CANCELED, null);
     }
 
     private Answer answer() {

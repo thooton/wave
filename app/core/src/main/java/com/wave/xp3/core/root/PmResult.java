@@ -33,11 +33,19 @@ public final class PmResult {
         String failure = null;
         String error = null;
         boolean success = false;
+        boolean exception = false;
         for (String raw : (output == null ? "" : output).split("\n")) {
             String line = raw.trim();
             if (line.equals("Success")) success = true;
             else if (line.startsWith("Failure") && failure == null) failure = line;
             else if (line.startsWith("Error:") && error == null) error = line.substring(6).trim();
+            else if (line.startsWith("Exception occurred while executing")) exception = true;
+            else if (exception && error == null && !line.isEmpty()) {
+                // `cmd` throwing: the first line after is the exception and
+                // its message; the rest is a stack trace.
+                int colon = line.indexOf(": ");
+                error = colon > 0 && line.substring(0, colon).matches("[\\w.$]+") ? line.substring(colon + 2) : line;
+            }
         }
         if (failure != null) {
             String inside = failure;
@@ -50,7 +58,7 @@ public final class PmResult {
             code = code.trim();
             return new PmResult(false, code, words(code, inside));
         }
-        if (success) return new PmResult(true, null, null);
+        if (success && !exception) return new PmResult(true, null, null);
         if (error != null) return new PmResult(false, "ERROR", "Android refused it: " + error);
         String last = lastLine(output);
         return new PmResult(false, "UNKNOWN", last.isEmpty()

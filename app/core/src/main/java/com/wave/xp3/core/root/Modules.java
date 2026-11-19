@@ -83,8 +83,8 @@ public final class Modules {
                 (parts[0].equals("@modules") ? mounted : waiting).put(parts[1], current);
             } else if (line.equals("@end")) {
                 current = null;
-            } else if (current != null) {
-                Prop.line(line, current.prop);
+            } else if (current != null && line.startsWith("|")) {
+                Prop.line(line.substring(1), current.prop);
             }
         }
         List<Module> out = new ArrayList<>();

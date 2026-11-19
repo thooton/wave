@@ -209,6 +209,10 @@ final class InstallTests {
         final Map<String, Integer> cut = Collections.synchronizedMap(new HashMap<String, Integer>());
         final List<String> ranges = Collections.synchronizedList(new ArrayList<String>());
         volatile boolean ignoreRanges;
+        /** Answer every request with this status (0: serve normally). */
+        volatile int failWith;
+        /** After a cut, answer 503 from then on, as a server going down would. */
+        volatile boolean failAfterCut;
 
         Files2() throws IOException {
             server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -230,6 +234,11 @@ final class InstallTests {
             }
             String range = ex.getRequestHeaders().getFirst("Range");
             ranges.add(range == null ? "-" : range);
+            if (failWith > 0) {
+                ex.sendResponseHeaders(failWith, -1);
+                ex.close();
+                return;
+            }
             int from = 0;
             int status = 200;
             if (range != null && !ignoreRanges && range.startsWith("bytes=") && range.endsWith("-")) {
@@ -247,6 +256,7 @@ final class InstallTests {
             ex.sendResponseHeaders(status, length);
             OutputStream out = ex.getResponseBody();
             Integer stop = cut.remove(name);
+            if (stop != null && failAfterCut) failWith = 503;
             try {
                 if (stop != null) {
                     out.write(body, from, Math.min(stop, length));
@@ -297,6 +307,7 @@ final class InstallTests {
     }
 
     private static void download(Check check) throws Exception {
+        Download.backoffMs = 10;
         File dir = Files.createTempDirectory("wave-download").toFile();
         try (Files2 server = new Files2()) {
             final byte[] data = bytes(300000, 7);
@@ -313,25 +324,50 @@ final class InstallTests {
             check.same("progress total", (long) data.length, seen[1]);
             check.ok("no part", !part.exists());
 
-            // Cut off half way: the part stays, and the next try resumes.
+            // Cut off half way: the same call resumes from what arrived.
             to.delete();
             server.cut.put("a.zip", 120000);
             server.ranges.clear();
-            check.fails("cut short", () -> Download.fetch(server.url("a.zip"), data.length, sha(data), to, null, null));
-            check.ok("part kept", part.isFile() && part.length() > 0 && part.length() < data.length);
-            check.ok("nothing saved", !to.exists());
             Download.fetch(server.url("a.zip"), data.length, sha(data), to, null, null);
             check.ok("resumed whole", Arrays.equals(data, Files.readAllBytes(to.toPath())));
-            check.ok("asked for the rest", server.ranges.size() == 2 && server.ranges.get(1).startsWith("bytes="));
+            check.same("asked for the rest", "[-, bytes=120000-]", server.ranges.toString());
 
-            // A server that ignores ranges: starts again.
+            // Cut, and the server goes down: it fails, keeping what arrived;
+            // the next call asks only for the rest.
+            to.delete();
+            server.cut.put("a.zip", 120000);
+            server.failAfterCut = true;
+            server.ranges.clear();
+            check.fails("server down", "503", () -> Download.fetch(server.url("a.zip"), data.length, sha(data), to,
+                null, null));
+            check.same("part kept", 120000L, part.length());
+            check.ok("nothing saved", !to.exists());
+            server.failAfterCut = false;
+            server.failWith = 0;
+            server.ranges.clear();
+            Download.fetch(server.url("a.zip"), data.length, sha(data), to, null, null);
+            check.ok("resumed later", Arrays.equals(data, Files.readAllBytes(to.toPath())));
+            check.same("only the rest", "[bytes=120000-]", server.ranges.toString());
+
+            // A server that ignores ranges: starts again, in the same call.
             to.delete();
             server.cut.put("a.zip", 1000);
-            check.fails("cut again", () -> Download.fetch(server.url("a.zip"), data.length, sha(data), to, null, null));
             server.ignoreRanges = true;
+            server.ranges.clear();
             Download.fetch(server.url("a.zip"), data.length, sha(data), to, null, null);
             check.ok("restarted whole", Arrays.equals(data, Files.readAllBytes(to.toPath())));
+            check.same("asked, then took it all", "[-, bytes=1000-, -]", server.ranges.toString());
             server.ignoreRanges = false;
+
+            // A server failing from the start: one try, nothing kept.
+            to.delete();
+            server.failWith = 500;
+            server.ranges.clear();
+            check.fails("server error", "500", () -> Download.fetch(server.url("a.zip"), data.length, sha(data), to,
+                null, null));
+            check.same("no retry without progress", 1, server.ranges.size());
+            check.ok("server error leaves nothing", !to.exists() && part.length() == 0);
+            server.failWith = 0;
 
             to.delete();
             check.fails("wrong hash", "doesn't match", () -> Download.fetch(server.url("a.zip"), data.length,
@@ -590,6 +626,10 @@ final class InstallTests {
             check.same("module receipt", Plan.Kind.MODULE, after.get("lib").kind);
             check.same("package's own source", "https://example.com/other", after.get("lib").source);
             check.same("replaced forgotten", null, after.get("old_mod"));
+            check.same("Wave's own receipt, noted before it was stopped", "0.2.0", after.get("com.wave.xp3").version);
+            String compiled = calls.substring(calls.indexOf("cmd package compile -m speed com.a.xp3"));
+            check.ok("noted before compiling", compiled.substring(0, compiled.indexOf('\n', compiled.indexOf("receipts then")))
+                .contains("com.a.xp3"));
 
             // Wave's own update ran detached; it finishes and starts Wave again.
             File result = box.file("wave/self-update");
@@ -684,8 +724,12 @@ final class InstallTests {
 
             Plan.Package cut = serve(server, "com.c.xp3", Plan.Kind.APK, "1", bytes(200000, 3));
             server.cut.put("com.c.xp3-1.apk", 5000);
+            server.failAfterCut = true;
             e = runOne(box, platform, cut);
             check.same("network lost fails", Engine.Phase.FAILED, e.items().get(0).phase);
+            check.ok("network lost says so", e.items().get(0).message.contains("503"));
+            server.failAfterCut = false;
+            server.failWith = 0;
 
             Plan.Package full = serve(server, "com.f.xp3", Plan.Kind.APK, "1", apk("com.f.xp3", "1", 1));
             box.flag("pm-fail", "INSTALL_FAILED_INSUFFICIENT_STORAGE");
@@ -736,6 +780,39 @@ final class InstallTests {
             check.ok("stopped", stopped.items().get(1).phase == Engine.Phase.SKIPPED
                 && "Stopped.".equals(stopped.items().get(1).message));
             shell.close();
+
+            // Wave's own update can't start: its receipt goes back to what it was.
+            Receipts selfReceipts = Receipts.load(new File(box.root, "self.json"));
+            selfReceipts.record(new Receipts.Receipt("com.wave.xp3", Plan.Kind.APK, "0.1.0", "old", null, 1));
+            Plan.Package me = serve(server, "com.wave.xp3", Plan.Kind.APK, "0.9", apk("com.wave.xp3", "0.9", 9));
+            box.tmp.delete();
+            Sandbox.write(box.tmp, "not a folder");
+            ProcessShell selfShell = new ProcessShell(box.su(), box.env());
+            Engine self = new Engine(Plan.make(ask(Plan.Op.INSTALL, "com.wave.xp3"), offer(me),
+                phone(new Plan.Installed("com.wave.xp3", Plan.Kind.APK, "0.1.0", false)), null, "com.wave.xp3"),
+                selfShell, platform, selfReceipts, null, "new", "com.wave.xp3");
+            self.run();
+            selfShell.close();
+            check.same("self update fails", Engine.Phase.FAILED, self.items().get(0).phase);
+            check.ok("not updating", !self.selfUpdating());
+            check.same("receipt put back", "0.1.0", Receipts.load(new File(box.root, "self.json")).get("com.wave.xp3").version);
+            box.tmp.delete();
+            box.tmp.mkdirs();
+
+            // The receipts can't be written: the install still counts.
+            File locked = new File(box.root, "locked");
+            locked.mkdirs();
+            Receipts lockedReceipts = Receipts.load(new File(locked, "r.json"));
+            locked.setWritable(false);
+            Plan.Package ok = serve(server, "com.ok.xp3", Plan.Kind.APK, "1", apk("com.ok.xp3", "1", 1));
+            ProcessShell okShell = new ProcessShell(box.su(), box.env());
+            Engine noted = new Engine(Plan.make(ask(Plan.Op.INSTALL, "com.ok.xp3"), offer(ok), phone(), null,
+                "com.wave.xp3"), okShell, platform, lockedReceipts, null, null, "com.wave.xp3");
+            noted.run();
+            okShell.close();
+            locked.setWritable(true);
+            check.same("installed though not noted", Engine.Phase.DONE, noted.items().get(0).phase);
+            check.ok("says it couldn't note it", noted.items().get(0).message.contains("couldn't note"));
 
             box.flag("deny");
             e = runOne(box, platform, user.depends.isEmpty() ? user : full);

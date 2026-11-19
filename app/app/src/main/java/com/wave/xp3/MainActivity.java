@@ -777,13 +777,17 @@ public final class MainActivity extends BaseActivity {
         done.activity = "Installing…";
         done.shown = -1;
         render();
-        installThroughRoot(done, apk);
+        // Root only once it has worked here: a phone without it, or whose
+        // owner hasn't allowed Wave yet, never gets a prompt it didn't ask for.
+        if (RootShell.known(this)) installThroughRoot(done, apk);
+        else handOver(done);
     }
 
     /**
      * Installs through root (design section 4): `pm install` from Wave's one
-     * `su` shell, Wave itself from a detached one. Without root (no `su`, or
-     * Magisk refused) it falls back to the Updater's way, Installer.
+     * `su` shell, Wave itself from a detached one. Only called once root has
+     * worked on this phone; if it no longer does (no `su`, or Magisk now
+     * refuses), it falls back to the Updater's way, Installer.
      */
     private void installThroughRoot(final Job done, final File apk) {
         final boolean self = done.entry.packageName.equals(getPackageName());
