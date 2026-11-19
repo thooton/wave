@@ -20,6 +20,12 @@ test('bundle stays inside its allowlist and resolves links beneath the project p
     for (const excluded of ['scripts', 'tests', '.git', 'AGENTS.md', '.oak', 'mockups']) {
       assert.equal(existsSync(join(out, excluded)), false, excluded);
     }
+    for (const excluded of ['src/protocols/sahara.mjs', 'src/protocols/firehose.mjs', 'public-assets']) {
+      assert.equal(existsSync(join(out, excluded)), false, excluded);
+    }
+    for (const page of ['jailbreak', 'rescue', 'restore']) {
+      assert.equal(existsSync(join(out, page, 'index.html')), true, page);
+    }
     assert.notEqual(run('build.py').status, 0, 'never replace a directory');
     const index = join(out, 'index.html');
     writeFileSync(index, readFileSync(index, 'utf8') + '<a href="../bad">bad</a>');

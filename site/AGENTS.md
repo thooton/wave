@@ -20,7 +20,9 @@ from shipped/tested behavior.
   in URLs, logs, browser storage, network requests, sample files or tests.
 - `mockups/`: app screen designer's area, not owned by the public site.
 - `jailbreak/`, `rescue/`, `restore/`, `src/protocols/`, `src/jailbreak/`:
-  reserved for the separate device tools brief. Not in the public bundle.
+  owned by the separate device tools brief. The allowlist stages only the
+  compatibility probe, Rescue, and the local stock-backup verifier and their
+  dependencies. Do not include phone backups, EDL transports or loaders.
 - `scripts/`, `tests/`: site packaging and checks. CI packages only explicitly
   reviewed public files; never upload a worktree, phone data or local secrets.
 
