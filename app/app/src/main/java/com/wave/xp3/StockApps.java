@@ -165,7 +165,7 @@ public final class StockApps extends Activity implements Engine.Apps {
         } catch (RuntimeException e) {
             // No installer, or Installer refused Wave (installed before it).
             reply(RESULT_CANCELED, e instanceof SecurityException
-                ? "Installer wouldn't take it. Reinstall Wave with adb." : "No installer on this phone.");
+                ? "This phone's Installer won't take apps from Wave." : "This phone has no app installer.");
         }
     }
 

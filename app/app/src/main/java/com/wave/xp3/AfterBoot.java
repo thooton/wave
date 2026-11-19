@@ -59,7 +59,7 @@ public final class AfterBoot {
         if (said.isEmpty()) return;
         final PmResult pm = PmResult.parse(said, 0);
         post(() -> {
-            if (pm.ok) toast("Wave is up to date");
+            if (pm.ok) toast("Wave was updated");
             else alert("Wave wasn't updated", pm.message);
         });
     }
@@ -127,8 +127,7 @@ public final class AfterBoot {
             try {
                 Shell.Result r = job.run();
                 if (done != null) {
-                    final String last = r.output.trim().isEmpty() ? "" : " " + r.output.trim();
-                    post(() -> toast(r.ok() ? done : "That didn't work." + last));
+                    post(() -> toast(r.ok() ? done : "That didn't work."));
                 }
             } catch (final IOException e) {
                 post(() -> toast(e.getMessage()));
