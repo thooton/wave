@@ -1,0 +1,8 @@
+// Wave's plain Java half: the release client today; the git client, source
+// manifests, index, search, install plan and root scripts as they arrive.
+apply from: rootProject.file("gradle/core.gradle")
+
+dependencies {
+    // Json, for manifests.
+    implementation project(":common:core")
+}

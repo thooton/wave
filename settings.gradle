@@ -1,0 +1,21 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "wave"
+
+// The app (app/core plain Java, app/app Android) and its copy of the shared
+// code (common/core, common/ui; see tools/sync-common.sh).
+include ":app:core", ":app:app", ":common:core", ":common:ui"
