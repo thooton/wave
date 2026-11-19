@@ -31,7 +31,8 @@ mkdir -p applications/hello
 
 Use a repository of its own. Wave downloads the whole latest commit (up to 8
 MiB, see [limits](source-format.md#how-wave-fetches-a-source)), so a source
-inside a repository full of code or screenshots can be refused as too big.
+inside a repository full of code or screenshots is refused: "That source is
+over the 8 MB Wave fetches. Keep only the source there."
 
 Layout, two levels: a section folder, then one folder per package.
 
@@ -208,16 +209,20 @@ Action, which writes this file from your build; see [publishing](publishing.md).
 | :--- | :--- | :--- |
 | `lint` warns "mutable download URL selector 'latest'", and `verify` fails | The URL contains `latest`, `main`, `nightly`, a `?ref=`, or similar. Whatever it points to can change under the manifest | Use a release tag URL. Never re-upload a file; give each version its own URL |
 | `icon.png: PNG must be at most 1024 pixels square`, `must be square`, or `larger than 64 KB` | The icon is the wrong shape or too big. The 1024 pixel limit exists because a 100-byte PNG can declare 65,000 pixels a side, which a phone cannot decode | Export it at 96x96 and shrink it (`optipng` or `pngquant`) |
-| The package is missing on the phone and nothing says why | Wave hides a package it can't read: a bad field, a file over 64 KB, a folder name with capitals, a `package.json` at the wrong depth | `wavesrc lint` on the same commit, then push |
+| The source's page says "1 package can't be read" (press OK for the list) | The reasons are the field problem such as "summary is required", "Same id as <folder>", "Over 64 KB", "Not UTF-8 text" or "Its folder name isn't allowed". "Icons ignored" lists icons Wave won't draw: "Icon must be square", "Icon must be at most 1024 pixels square", "Not a readable PNG image", "Over 64 KB" | Fix the named folder; `wavesrc lint` on the same commit shows the file |
+| A package is missing and the page says nothing | Wave doesn't report what it ignores: a folder with capitals or spaces, a `package.json` at the wrong depth, non-ASCII names | `wavesrc lint` on the same commit, then push |
 | `duplicate id` | Two packages in one source have the same `id`. Wave keeps one | Give each package its own id. Across sources, the highest version of an id wins, then the source added first: pick ids you own |
 | "The download is version 1.0.0, not 1.0.1." (or "is com.a.b, not com.c.d") | `version` or `id` in the manifest isn't what is inside the APK | `lint --download` finds this before your users do |
 | The size or SHA-256 doesn't match | The file was rebuilt or replaced after the manifest was written | Recompute with `sha256sum` and `stat`, or publish under a new URL |
 | "No Wave source at that address." | Wrong address, or a host that only serves plain files rather than Git | Open the address in a browser (you should see the repository), then run the `curl` test above |
 | "That source needs a sign-in." | The repository is private and the address has no token (or the token is wrong) | Make it public, or add it as `https://user:token@host/...` on the phone |
 | "That address sends Wave elsewhere. Use the address it ends at." | The repository moved or renamed, or the address redirects (for instance to `www.` or to HTTPS from a vanity domain) | Use the final address; Wave never follows redirects |
-| "That source is too big for Wave." | The repository holds more than Wave will fetch: up to 8 MiB for the whole latest commit, not just the manifests | Put the source in its own small repository. `lint` warns past 6 MiB |
+| "That source is over the 8 MB Wave fetches. Keep only the source there." | Wave reads the whole latest commit, not just the package files, and the repository holds more than 8 MB (or more than 64,000 files). Files of 200 KB each count | Put the source in a repository of its own. `lint` warns past 6 MiB |
+| "That source lists too much for Wave (12,000 files, 16 MB at most)." | More than 12,000 package and icon files, or 16 MB of them | Split it into several sources |
 | "That source is empty." | The repository has no commits on its default branch | Push |
-| "That source sent something Wave can't read." | `wave.json` is missing from the latest commit, over 64 KB, or invalid | `wavesrc lint`; also check `wave.json` is at the top of the default branch |
+| "The source's details: name is required." (or another field), "The source's details are over 64 KB." or "The source's details can't be read." | `wave.json` has a bad field, is over 64 KB, or isn't valid JSON | `wavesrc lint` |
+| "No Wave source at that address." also appears when | `wave.json` is not at the top of the default branch | Check the file is in the root of the branch the host serves |
+| "That source sent something Wave can't read." | The host's reply was not valid Git data | Try another host or report it |
 | "That source's server doesn't work with Wave." | The server doesn't speak Git protocol v2 | Use GitHub, GitLab, Codeberg or sourcehut, or enable v2 |
 
 ## Before you share the address

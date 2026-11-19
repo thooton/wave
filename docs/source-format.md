@@ -21,16 +21,16 @@ icon.png                     optional
   one `<folder>/package.json`; anything else in the repository is ignored. Wave
   does not report what it ignores: a folder with an uppercase letter or a
   space in its name, a `package.json` one level too deep or too shallow, or a
-  non-ASCII name is simply absent from the phone. `wavesrc lint` reports the
-  folder names.
+  non-ASCII name is simply absent from the phone, and other large files are
+  never mentioned. `wavesrc lint` reports the folder names.
 - Section and package folder names start with a lowercase letter or digit
   and may also contain `-`. The package folder name is only a name; identity
   is the `id` in the file. Manifest and icon paths are regular files, not symlinks.
 - Files are UTF-8. A manifest is at most 64 KB and an icon at most 64 KB
   (65,536 bytes each). Wave asks the server to leave out files over 256 KB
   and drops anything over 64 KB it still receives. A dropped `package.json`
-  hides that package and a dropped `wave.json` makes the whole source
-  unreadable, in both cases without naming the size.
+  hides that package ("Over 64 KB" on the source's page, see below) and a
+  dropped `wave.json` gives "The source's details are over 64 KB."
 - Icons are square PNGs, 96x96 recommended, at most 1024x1024 (a small file can
   declare far more pixels than a phone can decode; a larger icon is ignored).
   Wave rounds the corners. A package or source without one gets a coloured
@@ -60,7 +60,7 @@ Wave can't use that address.
 Wave fetches the whole commit at depth 1, not just the manifests. What the
 server sends counts against these limits, so a source that lives in a repository
 with other content can fail however small its manifests are ("That source is
-too big for Wave."):
+over the 8 MB Wave fetches. Keep only the source there."):
 
 | Limit | Value |
 | :--- | :--- |
@@ -185,8 +185,14 @@ Rules for readers and writers:
 - `wavesrc lint` validates the version 1 package types. Wave's reader can
   still list an unknown type or a package from a newer source as unavailable.
 - A manifest that fails to parse or lacks a required field hides that one
-  package, not the source. Wave 0.7 does not say which package or why, so
-  run `wavesrc lint` before every push.
+  package, not the source. From Wave 0.7.17 the source's page says "N
+  packages can't be read"; OK lists each folder with its reason, up to 20,
+  then "Icons ignored" (an icon problem alone doesn't hide a package). The
+  reasons are the reader's own words: the field problem (`summary is
+  required`), `Same id as <folder>`, `Over 64 KB`, `Not UTF-8 text`, `Its
+  folder name isn't allowed`. The trust dialog shows "N packages (M can't be
+  read)". Run `wavesrc lint` before every push anyway: it names the file and
+  the line of the problem.
 - The same `id` in several sources is one package; the highest version wins,
   then the source added first. Nothing ties an id to the source that first
   offered it, so a source added later can offer a higher version of a package
