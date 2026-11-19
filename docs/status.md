@@ -1,6 +1,6 @@
 # Status: what works today
 
-As of 2026-11-19. Wave is at 0.7.10 (code 17; `app/app/build.gradle` has the current one). Nothing has been pushed or
+As of 2026-11-19. Wave is at 0.7.15 (code 22; `app/app/build.gradle` has the current one). Nothing has been pushed or
 published: every GitHub step (repo renames, CI runs, Pages, releases, the
 hosted default source) waits on the [owner cutover](tasks/01-owner-checklist.md).
 So "verified" below means on this machine, and on the one reserved phone
@@ -19,9 +19,9 @@ work locally. The packages build. The default source is empty.
 | Area | Implemented | Verified | Not verified, and why |
 | :--- | :--- | :--- | :--- |
 | Git client ([03](tasks/03-git-client.md)) | Git v2 smart HTTP, depth-1 fetch, packs and deltas | Host tests; live fetches from GitHub, GitLab, Codeberg and sourcehut; 1,000 packages in 1 s at a 32 MiB heap | Nothing outstanding |
-| Sources, index, search ([05](tasks/05-sources-index.md)) | Preview and trust, transactional refresh, sections, merged candidates, search | Host tests; on the phone: adding a source over HTTPS, browsing it, search ([first phone](first-phone.md)) | Only against a local fixture source; the public source has never been fetched, because it isn't hosted |
-| Tabs and screens ([07](tasks/07-app-screens.md), open) | Wave, Sources, Installed, Search; details, queue, no-root screen; `app/SPEC.md` | Phone QA (`tools/qa`) on 0.7.2: tabs, browse and preview, search, Home and root info all pass | 0.7.3 onward have no phone QA report. Not every mockup frame has a phone screenshot yet, which is 07's done-when. Installing over the Updater-derived build isn't rechecked |
-| Install engine ([06](tasks/06-root-install.md)) | Plans with deps and conflicts, resumable download with size and SHA-256, receipts; apps without root go through Installer (`StockApps`) | 505 self-tests pass today (`:app:core:selfTest`), including whole plans run through a fake `su`. On the stock phone, from a `wavesrc`-published local HTTPS source: GET, UPDATE, a refused bad hash and Remove of a test app, installed silently through Installer ([first-install.md](first-install.md)) | Against a hosted source (none is published). Downloads that need a sign-in (decisions open item 4). Anything through root |
+| Sources, index, search ([05](tasks/05-sources-index.md)) | Preview and trust, transactional refresh, sections, merged candidates, search | Host tests; on the phone: adding a source over HTTPS, browsing it, search ([first phone](first-phone.md)); adding, refreshing and removing a `wavesrc`-published source ([first install](first-install.md)) | Only against local sources; the public source has never been fetched, because it isn't hosted. A private source has never been fetched from the phone |
+| Tabs and screens ([07](tasks/07-app-screens.md), open) | Wave, Sources, Installed, Search; details, queue, no-root screen; `app/SPEC.md` | Phone QA (`tools/qa`, debug fixtures) on 0.7.6: tabs, browsing to Confirm, search, Installed, the watchdog alert, a failing source, the reboot dialog and offline Sources all pass; on 0.7.12 the default answers (Later, Cancel) and no stale queue alert ([work notes](tasks/README.md#work-notes)) | 0.7.13 onward have no phone QA report. Not every mockup frame has a phone screenshot yet, which is 07's done-when. Installing over the Updater-derived build isn't rechecked |
+| Install engine ([06](tasks/06-root-install.md)) | Plans with deps and conflicts, resumable download with size and SHA-256, receipts; apps without root go through Installer (`StockApps`); a private source's sign-in sent to its own downloads only (Bearer for its GitHub release assets, Basic on its own host, never past a redirect to another host) | 673 self-tests pass today (`:app:core:selfTest`), including whole plans run through a fake `su` and the sign-in rules against local servers. On the stock phone, from a `wavesrc`-published local HTTPS source: GET, UPDATE, a refused bad hash and Remove of a test app, installed silently through Installer ([first-install.md](first-install.md)) | Against a hosted source (none is published). A real private asset downloaded on a phone (decisions open item 4). Anything through root |
 | Root (06) | Opt-in: `su` opens only on a user action | Host tests; on the phone, the no-root path: mods refused before download, guide shown | Everything rooted. The phone isn't rooted; [ROOT-TESTING.md](../app/ROOT-TESTING.md) section 06 is the procedure |
 | Watchdog ([08](tasks/08-boot-watchdog.md)) | Boot watchdog v2, safe-mode handling, launch dialogs | Pretend boots in host tests (good, hung, restarted, framework restarts, no reboot loop) | No real boot; safe-mode key timing on the XP3 unknown. ROOT-TESTING.md section 08 |
 
@@ -47,7 +47,7 @@ work locally. The packages build. The default source is empty.
 | Area | Implemented | Verified | Not verified, and why |
 | :--- | :--- | :--- | :--- |
 | Default source ([15](tasks/15-default-source.md)) | `../wave_repository` at `a3c0049`, deliberately empty | Lints; a disposable copy took the real Wave APK and linted; the phone fetched this exact commit locally | Hosting, branch protection, first real publications. Nothing points at the mutable `latest` release |
-| Private source ([16](tasks/16-private-source.md), open) | `../wave_private_packages` (`bd56fd0`): Source and Tablet with filtered history | 305 host checks; built, admitted and published to a disposable source; history scan found no credentials | The private host, authenticated downloads in Wave (decisions open item 4), an update on a migration phone. The owner still has to review the history. Both apps stay on P's legacy channel |
+| Private source ([16](tasks/16-private-source.md), open) | `../wave_private_packages` (`bd56fd0`): Source and Tablet with filtered history | 305 host checks; built, admitted and published to a disposable source; history scan found no credentials | The private host; Wave's authenticated downloads (in since 0.7.14, host tests only) against the real private release on a phone (decisions open item 4); an update on a migration phone. The owner still has to review the history. Both apps stay on P's legacy channel |
 
 ## The packages (P `../sonim`)
 
@@ -67,7 +67,8 @@ work locally. The packages build. The default source is empty.
   `adb backup` carries the setup and tokens. That's deliberate for moving
   phones, and waiting on the owner.
 - **Versions.** Every app on common has an unpublished patch bump (P
-  `375e34e` and later). Publishing needs the cutover first.
+  `375e34e` and later). Publishing needs the cutover first. W's `common/`
+  copy is synced to P `de87d48` (`common/UPSTREAM`).
 - **First phone, end to end ([17](tasks/17-first-phone.md)).** Only the
   stock pass ([first-phone.md](first-phone.md)) and an install, update and
   remove cycle from a local source ([first-install.md](first-install.md))
