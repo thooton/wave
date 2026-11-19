@@ -28,7 +28,7 @@ jobs:
           node-version: '22'
       - name: Test and stage public files
         run: |
-          node --test site/tests/*.test.mjs
+          node --test site/tests/*.test.mjs site/src/protocols/tests/*.test.mjs
           python3 site/scripts/build.py "$RUNNER_TEMP/pages"
           python3 site/scripts/check_pages.py "$RUNNER_TEMP/pages"
       - uses: actions/upload-pages-artifact@v3

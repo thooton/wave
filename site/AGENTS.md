@@ -9,7 +9,7 @@ mouse. Distinguish illustrated screens, planned packages and unverified steps
 from shipped/tested behavior.
 
 - `index.html`, `assets/`: public landing, shared visual assets and styles.
-  `assets/wave-home.png` is a reviewed copy of `mockups/shots/wave-home.png`,
+  `assets/wave-home.webp` is a lossless conversion of `mockups/shots/wave-home.png`,
   an app design preview, not a hardware screenshot.
 - `platforms/index.html`: USB compatibility and troubleshooting.
 - `setup/`: local setup-file generator. Use `spec/setup-payload.md` and the

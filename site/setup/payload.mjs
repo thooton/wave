@@ -4,6 +4,13 @@ const TOKEN = /^[!-~]{1,500}$/;
 const APP_ID = /^[a-z][a-z0-9]{0,29}$/;
 const BYTES = 8192;
 
+export class SetupError extends Error {
+  constructor(message, field) {
+    super(message);
+    this.field = field;
+  }
+}
+
 function matches(pattern, text) {
   return new RegExp('^(?:' + pattern + ')(?![\\s\\S])').test(text);
 }
@@ -20,11 +27,11 @@ function direct(descriptor, values) {
   const settings = Object.create(null);
   for (const [key, spec] of fields) {
     const value = field(values, key);
-    if (!value && spec.required) throw new Error(`${spec.label} is required.`);
+    if (!value && spec.required) throw new SetupError(`${spec.label} is required.`, key);
     if (!value) continue;
-    if (value.length > (spec.max ?? 2000)) throw new Error(`${spec.label} is too long.`);
+    if (value.length > (spec.max ?? 2000)) throw new SetupError(`${spec.label} is too long.`, key);
     if (spec.pattern && !matches(spec.pattern, value)) {
-      throw new Error(`${spec.label} does not match the expected format.`);
+      throw new SetupError(`${spec.label} does not match the expected format.`, key);
     }
     settings[key] = value;
   }
@@ -33,7 +40,7 @@ function direct(descriptor, values) {
     const touched = sets.filter(set => set.some(key => Object.hasOwn(settings, key)));
     if (complete.length !== 1 || touched.length !== 1) {
       const choices = sets.map(set => set.map(key => fields.get(key).label).join(' + ')).join('; ');
-      throw new Error(`${label}: give exactly one of: ${choices}.`);
+      throw new SetupError(`${label}: give exactly one of: ${choices}.`, sets[0][0]);
     }
   }
   return settings;
@@ -53,9 +60,9 @@ function delta(descriptor, values) {
   const server = field(values, 'server');
   const token = field(values, 'token');
   if (server.length > 300 || !SERVER.test(server) || !isServerAddress(server)) {
-    throw new Error('Enter an HTTPS server address without a login, query or fragment.');
+    throw new SetupError('Enter an HTTPS server address without a login, query or fragment.', 'server');
   }
-  if (!TOKEN.test(token)) throw new Error('Enter a token of up to 500 printable ASCII characters, without spaces.');
+  if (!TOKEN.test(token)) throw new SetupError('Enter a token of up to 500 printable ASCII characters, without spaces.', 'token');
   return { server, token };
 }
 
@@ -65,7 +72,7 @@ export function makeSetupFile(descriptor, backend, values, label = '') {
   if (backend === 'settings' && descriptor.direct === false) throw new Error('This app requires managed setup.');
   const payload = { wave: 1, app: descriptor.app };
   if ((label = label.trim())) {
-    if (label.length > 60) throw new Error('The setup label is too long.');
+    if (label.length > 60) throw new SetupError('The setup label is too long.', '$label');
     payload.label = label;
   }
   payload[backend] = backend === 'delta' ? delta(descriptor, values) : direct(descriptor, values);

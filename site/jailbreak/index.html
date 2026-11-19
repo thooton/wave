@@ -5,9 +5,10 @@
 <title>XP3800 jailbreak field guide | Wave</title><link rel="icon" href="../assets/wave.svg"><link rel="stylesheet" href="../assets/site.css"><script type="module" src="../src/jailbreak/probe.mjs"></script></head>
 <body><a class="skip" href="#main">Skip to content</a>
 <header><div class="wrap top"><a class="brand" href="../" aria-label="Wave home"><img src="../assets/wave.svg" width="32" height="32" alt="">Wave</a><nav aria-label="Main"><a href="../jailbreak/" aria-current="page">Jailbreak guide</a><a href="../rescue/">Rescue</a><a href="../restore/">Restore</a></nav></div></header>
-<main id="main" class="wrap guide">
+<main id="main" tabindex="-1" class="wrap guide">
 <a href="../platforms/" class="crumb">Wave / USB guide</a><p class="kicker">01 <span>/</span> DEVICE GUIDE</p>
-<h1>Prepare your XP3800.</h1><p class="lead">Identify the phone, make a verified backup, and understand the recovery route before changing anything. This page does not root or flash the phone.</p>
+<h1>Prepare your XP3800.</h1><p class="lead">Start here if Wave sent you to the device guide. You can check compatibility over USB, verify a saved backup and use Rescue to disable modules on a phone that already has root.</p>
+<p class="notice"><strong>This page does not root your phone.</strong> Make the backup and perform any patching or flashing outside the browser using your own trusted XP3800 service procedure. This site can check a backup file, not create one from your phone.</p>
 <section class="box" aria-labelledby="check-title">
 <h2 id="check-title">Check this phone</h2>
 <ol><li>Open <strong>Settings → About phone</strong> and select <strong>Build number</strong> seven times with the center key.</li><li>In <strong>Settings → Developer options</strong>, turn on <strong>USB debugging</strong>.</li><li>Connect only this phone with a USB data cable. Close desktop adb and other tools that may already hold its USB interface.</li></ol>
@@ -27,7 +28,7 @@
 <p>If servicing the phone, verify any write byte for byte before restarting. A patched image can be shorter than the partition; compare the bytes actually written. For a stock restore, compare the entire partition. Do not write to <code>/system</code> or try to edit bootloader flags.</p>
 <h2>4. Check Android before installing Wave</h2>
 <p>Wait for Android to finish booting, then check that Magisk reports a working installation. Magisk handles superuser access. Review prompts on the phone and grant only to apps you trust. If the shell is denied after installing Magisk’s app, check its Superuser access setting; denial alone does not mean the boot image is broken.</p>
-<p>Once root works, install Wave from the <a href="https://github.com/thooton/wave/releases">Wave releases</a> and open it from the launcher. Wave will ask for root. The site does not grant root privileges or change Magisk settings.</p>
+<p>Once root works, install a Wave build from <a href="https://github.com/thooton/wave/releases">Wave releases</a> when available, then open it from the launcher. Wave will ask for root. The site does not grant root privileges or change Magisk settings.</p>
 <p class="notice">If Android still answers adb but a module broke the launcher, try <a href="../rescue/">Rescue</a>. If Android does not start, use the <a href="../restore/">stock Restore guide</a>.</p>
 <h2>Credits</h2><p>XP3800 community research by anonymousfliphones and flipphoneguy on JTech Forums. <a href="https://github.com/flipphoneguy/root-sonim-xp3800">Community project</a> and <a href="https://github.com/topjohnwu/Magisk/tree/v24.0">Magisk source</a> (GPL-3.0).</p>
 </main><footer><div class="wrap foot"><span>Wave for the Sonim XP3800</span><a href="https://github.com/thooton/wave/issues">Report a problem ↗</a></div></footer></body></html>

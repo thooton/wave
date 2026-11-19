@@ -5,13 +5,13 @@ h1,h2,h3,p,figure{margin:0}
 h1,h2,h3{line-height:1.1;letter-spacing:-.043em;font-weight:680}
 a{color:var(--blue);text-underline-offset:.2em;text-decoration-thickness:1px}
 a:hover{text-decoration-thickness:2px}
-a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #b65a00;outline-offset:4px}
+:is(a,button,input,select,summary,pre,main):focus-visible{outline:3px solid #b65a00;outline-offset:4px}
 .wrap{width:min(1120px,calc(100% - 64px));margin-inline:auto}
 header{border-bottom:1px solid var(--line)}
 .top,.foot,.links,.actions,nav{display:flex;align-items:center;gap:1.4rem}
 .top,.foot{justify-content:space-between;min-height:72px}
 .brand{color:var(--ink);font-size:24px;letter-spacing:-.07em;font-weight:750;display:flex;align-items:center;gap:9px;text-decoration:none}
-nav a{font-size:.9rem;text-decoration:none;color:var(--muted);font-weight:580}
+nav a{display:inline-flex;align-items:center;min-height:24px;font-size:.9rem;text-decoration:none;color:var(--muted);font-weight:580}
 nav a:hover,nav a[aria-current]{text-decoration:underline}
 .skip{position:absolute;left:4px;top:-100px;padding:8px 16px;background:#fff;z-index:3}
 .skip:focus{top:2px}
@@ -90,7 +90,7 @@ button:disabled{background:#617180;border-color:transparent;cursor:default}
   .grid{gap:.75rem}
   .row{grid-template-columns:1fr}
   .top,.foot{gap:.5rem;flex-wrap:wrap;min-height:60px;padding-block:.7rem}
-  nav{gap:.75rem}
+  nav{gap:.45rem .75rem;flex-wrap:wrap}
   nav a{font-size:.8rem}
   .wrap{width:calc(100% - 32px)}
   .guide .crumb{margin-bottom:1.8rem}
@@ -119,3 +119,11 @@ button:disabled{background:#617180;border-color:transparent;cursor:default}
 .setup-box .secondary{background:white;color:var(--blue)}
 .setup-box .secondary:hover{background:#e2e9fa}
 .status[data-error]{color:#9f2b1e}
+
+.setup-box [aria-invalid="true"]{border-color:#9f2b1e;outline-color:#9f2b1e}
+/* A single focus column on the XP3's width also suits native spatial navigation. */
+@media(max-width:320px){
+  .top .brand,.top nav,.top nav a,.crumb,.links a,.actions>a,.actions>button,.guide .box>button{width:100%}
+  .top nav{gap:.25rem}
+  .guide .box button{min-height:44px}
+}

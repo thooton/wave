@@ -1,5 +1,5 @@
 import { descriptors } from './descriptors.mjs';
-import { makeSetupFile } from './payload.mjs';
+import { makeSetupFile, SetupError } from './payload.mjs';
 
 const byId = id => document.getElementById(id);
 const form = byId('generator');
@@ -7,6 +7,8 @@ const app = byId('app');
 const managed = byId('use-managed');
 const fields = byId('settings');
 const status = byId('status');
+const nickname = byId('nickname');
+let invalidField;
 const catalog = new Map(descriptors.map(descriptor => [descriptor.app, descriptor]));
 let backend;
 let current = new Map();
@@ -24,9 +26,27 @@ function report(text = '', error = false) {
   status.toggleAttribute('data-error', error);
 }
 
+function resetError() {
+  if (!invalidField) return;
+  invalidField.removeAttribute('aria-invalid');
+  const descriptions = invalidField.getAttribute('aria-describedby')?.split(' ').filter(id => id !== status.id);
+  if (descriptions?.length) invalidField.setAttribute('aria-describedby', descriptions.join(' '));
+  else invalidField.removeAttribute('aria-describedby');
+  invalidField = undefined;
+}
+
+function markError(input) {
+  if (!input) return;
+  invalidField = input;
+  input.setAttribute('aria-invalid', 'true');
+  input.setAttribute('aria-describedby', [input.getAttribute('aria-describedby'), status.id].filter(Boolean).join(' '));
+  input.focus();
+}
+
 function clearFields() {
+  resetError();
   for (const input of current.values()) input.value = '';
-  byId('nickname').value = '';
+  nickname.value = '';
   report();
 }
 
@@ -119,11 +139,14 @@ form.addEventListener('submit', event => {
   const descriptor = catalog.get(app.value);
   if (!descriptor || byId('output').hidden) return;
   let file;
+  resetError();
   try {
     const values = Object.fromEntries([...current].map(([key, input]) => [key, input.value]));
-    file = makeSetupFile(descriptor, backend, values, byId('nickname').value);
+    file = makeSetupFile(descriptor, backend, values, nickname.value);
   } catch (error) {
-    report(error.message, true);
+    report(error instanceof SetupError || error.message === 'The setup file exceeds 8 KB.'
+      ? error.message : 'Could not create the setup file. Check the current form and try again.', true);
+    markError(error.field === '$label' ? nickname : current.get(error.field));
     return;
   }
   revokeDownload();
@@ -141,7 +164,13 @@ form.addEventListener('submit', event => {
 
 app.addEventListener('change', () => render(true));
 managed.addEventListener('change', () => render());
-byId('clear').addEventListener('click', clearFields);
+byId('clear').addEventListener('click', () => {
+  clearFields();
+  (current.values().next().value ?? app).focus();
+});
+form.addEventListener('input', ({ target }) => {
+  if (target === invalidField) { resetError(); report(); }
+});
 // Clear anything left in the DOM before it can enter the back/forward cache.
 window.addEventListener('pagehide', () => { clearFields(); revokeDownload(); });
 for (const descriptor of descriptors) app.add(new Option(descriptor.name, descriptor.app));

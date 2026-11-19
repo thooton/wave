@@ -6,14 +6,14 @@ import shutil
 
 SITE = Path(__file__).resolve().parents[1]
 FILES = (
-    'index.html', 'assets/site.css', 'assets/wave.svg', 'assets/handset.svg', 'assets/wave-home.png',
+    'index.html', 'assets/site.css', 'assets/wave.svg', 'assets/handset.svg', 'assets/wave-home.webp',
     'platforms/index.html', 'setup/index.html', 'setup/generator.mjs',
     'setup/descriptors.mjs', 'setup/payload.mjs',
     'jailbreak/index.html', 'rescue/index.html', 'restore/index.html',
     'src/jailbreak/common.mjs', 'src/jailbreak/probe.mjs',
     'src/jailbreak/rescue.mjs', 'src/jailbreak/restore.mjs',
     'src/protocols/adb.mjs', 'src/protocols/adb-credential.mjs',
-    'src/protocols/webusb.mjs', 'src/protocols/gpt.mjs',
+    'src/protocols/webusb.mjs', 'src/protocols/boot-image.mjs',
 )
 
 

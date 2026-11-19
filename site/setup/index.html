@@ -5,11 +5,11 @@
 <title>App setup | Wave</title><link rel="icon" href="../assets/wave.svg"><link rel="stylesheet" href="../assets/site.css"><script type="module" src="generator.mjs"></script></head>
 <body><a class="skip" href="#main">Skip to content</a>
 <header><div class="wrap top"><a class="brand" href="../" aria-label="Wave home"><img src="../assets/wave.svg" width="32" height="32" alt="">Wave</a><nav aria-label="Main"><a href="../jailbreak/">Device guide</a><a aria-current="page" href="../setup/">App setup</a><a href="https://github.com/thooton/wave">GitHub ↗</a></nav></div></header>
-<main id="main" class="wrap guide">
+<main id="main" tabindex="-1" class="wrap guide">
 <a class="crumb" href="../">Wave / App setup</a>
 <p class="kicker">04 <span>/</span> UTILITIES</p>
 <h1>Set up a Wave app.</h1>
-<p class="lead">Enter your account details here instead of typing them on the XP3 keypad. The page builds a file on this computer and sends nothing over the network.</p>
+<p class="lead">Enter your account details here instead of typing them on the XP3 keypad. The page builds a setup file on this computer. Your account details are not sent over the network.</p>
 <section class="box setup-box" aria-label="Setup file generator">
 <form id="generator" autocomplete="off" novalidate hidden>
 <label for="app">App</label><select id="app" required autocomplete="off"><option value="">Choose an app</option></select>
@@ -23,8 +23,8 @@
 </div>
 <p id="status" class="status" role="status"></p>
 </form>
-<p id="loading">Preparing the setup form…</p>
-<noscript>This tool needs JavaScript to generate the file locally.</noscript>
+<p id="loading" role="status">Preparing the setup form…</p>
+<noscript><p>This tool needs JavaScript to generate the file locally.</p></noscript>
 </section>
 <p class="notice"><strong>The download may contain live credentials in plain text.</strong> Don’t share it or sync it to a shared drive. Delete your computer’s copy after the import.</p>
 <h2>Import on the phone</h2>
