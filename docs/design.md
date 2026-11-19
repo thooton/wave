@@ -291,8 +291,9 @@ use the same Action, or write manifests by hand and run `wavesrc lint`.
 | Music Improved | module | From `music_argon` |
 
 Out: HBSA. Source and Tablet move to a separate repo and source of their own.
-AppDrawer, Updater and Installer are retired. `camera_argon` is not part of
-this yet. The SQLite upgrade module is a candidate (`decisions.md`).
+Their source and releases stay private (task 16). AppDrawer, Updater and
+Installer are retired. `camera_argon` is not part of this yet. The SQLite
+upgrade module is a candidate (`decisions.md`).
 
 ### Apps that needed Delta
 
@@ -301,19 +302,19 @@ with none and the user brings their own credentials: Tesla tokens for Charge,
 a Gmail token for Mail, a Maps key for Places, and so on. Typing those on a
 T9 keypad is not an option, so:
 
-- A shared setup flow in `common/`: the app shows "Scan setup code", reads a
-  QR code with the camera, and stores what it carries. The payload is a small
-  versioned JSON document naming the app and its settings.
-- A generator page on the Wave site builds that QR code in the browser from
-  what the user pastes in. Nothing leaves the page.
+- A shared setup flow in `common/` imports a small, versioned JSON payload
+  naming the app and its settings. Task 14 tests camera scanning; use
+  setup-file import if scanning can't be validated.
+- A generator page on the Wave site builds the setup file or QR code in the
+  browser from what the user pastes in. Nothing is sent to a server.
 - The same payload can carry a Delta address and token instead. Each app
   talks to its service through one interface with two implementations
   (direct, and through Delta), so the code is the same either way and the
   Delta path simply isn't advertised.
 
 This is `wave_packages` work and is specified in its own brief
-(`tasks/14-app-setup-codes.md`); Wave itself reuses the scanner for adding a
-source by QR code.
+(`tasks/14-app-setup-codes.md`). If scanning is supported, Wave reuses it
+for adding a source by QR code.
 
 ## 9. Renaming the mods
 
@@ -332,8 +333,8 @@ patches are committed, so CI can build the mods.
 
 ## 10. Order of work
 
-`tasks/README.md` has the briefs and what depends on what. In short: the
-format tooling, the git client and the app's install engine can start at
-once and in parallel with the jailbreak site and with the `wave_packages`
-moves; the app's screens wait for mockups to be approved; the default source
-appears when `wave_packages` CI first publishes into it.
+`tasks/README.md` has the briefs and their dependencies. Work in parallel
+where dependencies allow; advance when the brief's checks pass and record
+what was verified. Screen implementation starts once the mockups pass the
+frame and d-pad checklist and the app core is ready. The default source is
+populated when `wave_packages` CI first publishes into it.

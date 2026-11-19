@@ -35,16 +35,16 @@ running the Argon builds loses nothing when it updates.
   removal (the existing `LEGACY_MODULE_IDS` mechanism), and its Wave
   manifest lists the old id in `replaces`.
 - The zips no longer abort on a fingerprint mismatch (`../decisions.md`,
-  decided 7 and assumed 6). `module.prop` gets a real `version` and a
+  decided 7 and working default 6). `module.prop` gets a real `version` and a
   `versionCode` that rises with it, not the build time.
 - Docs and AGENTS files reworded.
 
 ## Done when
 `rg -i argon mods/` finds only the legacy ids and the migration code, each
 with a comment saying why; all mods build and pass their host tests; and on
-a phone running the Argon modules (ask Sam first: this deploys and reboots),
-installing the new zips keeps the tray layout, the Music whitelist and the
-RCS configuration.
+a reserved test phone running the Argon modules, installing the new zips
+and rebooting keeps the tray layout, the Music whitelist and the RCS
+configuration.
 
 ## Watch out
 - The manifests and resources of the stock APKs stay byte-identical: this is

@@ -28,16 +28,18 @@ the default source, with nothing done by hand.
   manifest and icon into `wave_repository`.
 - **The mods in CI**: a job with apktool, build-tools, Python (and the NDK
   if the SQLite module is published) that builds and packages `mods/*`.
-- **Retirements**: remove HBSA from the build; move Source and Tablet out
-  (16); remove AppDrawer (`launcher/`) once Launcher Improved covers the
-  programmable key that opened it (see the last lines of
+- **Retirements**: remove HBSA from the build. Keep Source and Tablet out
+  of the default source and move them out of the build once their private
+  source is verified (16). Remove AppDrawer (`launcher/`) once Launcher
+  Improved covers the programmable key that opened it (see the last lines of
   `../launcher_argon/AGENTS.md`; if it can't, keep AppDrawer and say so in
   `../decisions.md`); Updater and Installer get a last release whose
   description says Wave replaces them, and Wave's manifest lists both in
   `replaces`.
 - **The old channel**: keep publishing the rolling `latest` release with
-  `manifest.json` until Sam says every phone is on Wave, then delete that
-  job.
+  `manifest.json` until 17's migration checklist verifies that all known
+  legacy devices update through Wave. If the inventory or migration status
+  is unknown, keep the job and continue publishing the Wave releases.
 - `AGENTS.md` updated: how shipping works now, and that `SPEC.md` rules and
   version bumps still apply.
 
@@ -47,8 +49,8 @@ A no-op version bump of one app and one mod each appear in
 result, and a second push without a bump publishes nothing.
 
 ## Watch out
-- Installer is the device owner on Sam's phones. Removing it needs the role
-  given up first (its status page has the button); `pm uninstall` fails
+- Installer is the device owner on existing managed phones. Give up the
+  role first (its status page has the button); `pm uninstall` fails
   otherwise. Wave's `replaces` handling (06) must cope, or Installer is
   removed by hand.
 - Apps that still bake a Delta login (`gradle/bundled.gradle`) build with

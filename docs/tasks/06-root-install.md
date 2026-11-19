@@ -38,8 +38,8 @@ In `:app`:
 - Wave updating itself: from a detached root shell, then relaunch.
 
 ## Done when
-On a rooted phone (ask before using it), from a debug screen or instrumented
-entry point: install, update and remove an apk; install, update and remove a
+On a reserved rooted test phone, from a debug screen or instrumented entry
+point: install, update and remove an apk; install, update and remove a
 module with a reboot in between; a wrong hash, a wrong package name, no
 network mid-download and no space each fail cleanly and leave nothing
 behind; Wave updates itself. Self-tests cover the plan, scripts and parsers.

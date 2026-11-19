@@ -1,6 +1,7 @@
 # 01: Create and rename the repos
 
-**Repos** all. **Needs** Sam (GitHub admin actions). **Blocks** 11, 13, 15.
+**Repos** all. **Needs** an authenticated GitHub session with the required
+repository permissions for the remote steps. **Blocks** 11, 13, 15.
 
 ## Goal
 The three repositories exist under their final names, locally and on GitHub.
@@ -9,14 +10,18 @@ The three repositories exist under their final names, locally and on GitHub.
 1. Rename `thooton/sonim` to `thooton/wave_packages` on GitHub (history and
    releases come along; GitHub redirects the old URL). Rename the local
    folder `../sonim` to `../wave_packages` and fix its remote.
-2. Create `thooton/wave` and push this folder to it. Rename the local folder
-   `sonim_wave` to `wave` if Sam wants (`../decisions.md`, open 6). Enable
-   GitHub Pages for it (source: the Actions workflow that 09 adds).
+2. Create `thooton/wave` and push this folder to it, or verify the existing
+   remote if already created. Use `wave` for the local folder where it can
+   be renamed safely (`../decisions.md`, open 6). Enable GitHub Pages for it
+   (source: the Actions workflow that 09 adds).
 3. Create `thooton/wave_repository`, empty, public.
 4. Give `wave_packages` CI a way to push to `wave_repository`: a deploy key
    or fine-grained token, stored as the secret `WAVE_REPOSITORY_TOKEN`.
 
 ## Watch out
+- If remote access is missing, record the affected steps and finish any
+  independent local preparation. Leave active worktrees in place until
+  they can be moved safely.
 - **Phones on the old Updater** fetch
   `https://github.com/thooton/sonim/releases/download/latest/manifest.json`.
   GitHub's redirect keeps that working after the rename; confirm with `curl

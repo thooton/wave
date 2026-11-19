@@ -9,8 +9,16 @@ Repos: **W** = `thooton/wave` (this one), **P** = `thooton/wave_packages`
 
 Paths in the briefs: `../design.md` and the like are relative to this
 folder. `../sonim`, `../rphone` and `../*_argon` are the sibling folders of
-this repo on Sam's machine, under their names before the renames in 01 and
-11.
+this repo, under their names before the renames in 01 and 11.
+
+## Working through the briefs
+
+Use the design and the brief's completion checks to proceed without
+personal sign-off. Record verification, design decisions, and any blocked
+steps in the notes below. If a step needs credentials, permissions, or a
+reserved test device that isn't available, continue independent work and
+leave only the affected check pending. See `../../AGENTS.md` for device
+rules.
 
 | # | Brief | Repo | Needs | Done |
 | :- | :--- | :-- | :--- | :-: |
@@ -30,8 +38,8 @@ this repo on Sam's machine, under their names before the renames in 01 and
 | 13 | [Releases and publishing from wave_packages CI](13-packages-ci.md) | P | 01, 02 | [ ] |
 | 14 | [Setup codes: apps without a baked login](14-app-setup-codes.md) | P | | [ ] |
 | 15 | [The default source](15-default-source.md) | R | 01, 02 | [ ] |
-| 16 | [Source and Tablet in their own repo and source](16-private-source.md) | new | 13 | [ ] |
-| 17 | [First phone, end to end](17-first-phone.md) | all | 07, 08, 09, 12, 13, 15 | [ ] |
+| 16 | [Source and Tablet in their own repo and source](16-private-source.md) | new | 13's CI pattern, 14's shared setup | [ ] |
+| 17 | [First phone, end to end](17-first-phone.md) | all | 07, 08, 09, 12, 13, 15; 14 and 16 for migration | [ ] |
 
 ## What can run at the same time
 
@@ -39,7 +47,7 @@ this repo on Sam's machine, under their names before the renames in 01 and
 start now:   00  01  02  04  09  14(spike first)
 then:        03  06        (after 04)      11 -> 12   13 15  (after 01, 02)
 then:        05  08
-then:        07            (after 00 approved, 05, 06)
+then:        07            (after 00, 05, 06 pass their checks)
 last:        10  16  17
 ```
 
@@ -47,7 +55,6 @@ Four agents can work without touching the same files: one on the app's core
 (03, 05, 06, 08), one on the site (09, 10), one on `wave_packages` (11, 12,
 13), one on the app reworks (14). 00 and 07 belong to whoever does the UI.
 
-## Notes from finished briefs
+## Work notes
 
-(Add a line here when you finish one and the next agent should know
-something.)
+(Record completion evidence, decisions, and blocked checks here.)

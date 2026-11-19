@@ -9,8 +9,8 @@ Sources, Sections, Changes, Installed, Details, Search),
 and the Updater's layouts in `../sonim/updater/android/app/src/main/res/`.
 
 ## Goal
-Static HTML mockups at exactly 240x320 of every screen, for Sam to approve
-before any screen is built. The look is the Updater's (the App Store's light
+Static HTML mockups at exactly 240x320 of every screen, validated before
+implementation. The look is the Updater's (the App Store's light
 chrome, iOS blue, grey hairlines, focus drawn as a press), arranged as Cydia
 is.
 
@@ -38,8 +38,11 @@ Beside each frame, a line on the keys: what Left/Right, Up/Down, OK, Back and
 Menu do there.
 
 ## Done when
-Sam has looked at a screenshot of every frame and said yes, and what he
-changed is in the mockups and in `../design.md`.
+A screenshot of every frame has been checked at 240x320: essential content
+and focus indicators fit, and the documented key paths reach every action
+without touch. Record the results with the mockups and update
+`../design.md` for any design changes. Task 07 can proceed once these checks
+pass.
 
 ## Watch out
 - 240x320 at mdpi means 1dp is 1px. A bottom tab bar, a title bar and the

@@ -27,10 +27,10 @@ by the next boot, without a computer.
   with.
 
 ## Done when
-On a rooted phone (ask first; this needs reboots and a module that breaks
-boot, so have the stock boot image and EDL ready): the broken module is
-installed through Wave, the phone fails to boot once, comes up on the next
-boot with the module disabled, and Wave explains.
+On a reserved rooted test phone with a verified stock boot backup and EDL
+recovery ready: the broken module is installed through Wave, the phone fails
+to boot once, comes up on the next boot with the module disabled, and Wave
+explains.
 
 ## Watch out
 - The ordering the design relies on was read from Magisk v24.0's source

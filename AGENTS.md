@@ -39,10 +39,16 @@ folder is `sonim_wave` locally and `thooton/wave` on GitHub.
 - **The site** may use third-party JavaScript. Keep it a static site.
 - **Every change to the app bumps its version** (`versionName` and
   `versionCode`), or it never reaches a phone.
-- **The phone.** It has no touchscreen: keys only. Other agents may be using
-  the connected phone. Don't send key events, install, flash or reboot
-  unless your brief or the user says so. Never write to `/system`. Never
-  flash a boot image that wasn't patched from that same phone's own.
+- **Work autonomously.** Use the design and briefs to decide, implement,
+  and verify work without personal sign-off. Record decisions and evidence.
+  If access, credentials, or hardware are missing, record the affected step
+  as blocked and continue independent work. Don't mark unverified work done.
+- **The phone.** It has no touchscreen: keys only. Run device-changing
+  steps only when the brief calls for them and an authorized device is
+  reserved for the task by serial. Don't use an unreserved or busy phone.
+  Never write to `/system`. Never flash a patched boot image from another
+  phone, or restore anything other than the target phone's verified stock
+  backup.
 - **Commits**: author thooton. Never name Claude or Anthropic, and no
   AI attribution lines, in commits or pull requests.
 - **Briefs**: when you finish one, tick it in `docs/tasks/README.md` and

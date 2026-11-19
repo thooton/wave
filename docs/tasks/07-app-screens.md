@@ -1,9 +1,9 @@
 # 07: The app's screens
 
-**Repo** W (`app/app`). **Needs** 00 approved, 05, 06.
+**Repo** W (`app/app`). **Needs** 00, 05, 06.
 
 ## Read first
-The approved mockups (00), `../design.md` section 4, `../sonim/DESIGN.md`,
+The validated mockups (00), `../design.md` section 4, `../sonim/DESIGN.md`,
 `common/ui` (`BaseActivity`, `Tabs`, `SelectableAdapter`, `Markdown`), the
 Updater's `MainActivity` and `AppAdapter`.
 
@@ -31,4 +31,4 @@ Installing Wave over the Updater-derived build from 04 keeps working.
 - Lists can be long (All Packages). Icons load off the main thread and rows
   recycle.
 - Text entry on a keypad: the source URL field should start with
-  `https://github.com/` and accept a QR scan once 14's scanner exists.
+  `https://github.com/`. Support QR entry if task 14 validates scanning.

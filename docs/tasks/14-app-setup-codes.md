@@ -11,17 +11,18 @@ Charge, Mail, Places, Authenticator, Flashcards.
 
 ## Goal
 Each of the six apps works for a stranger who brings their own credentials,
-moved onto the phone by scanning a QR code, and still works through Delta
+imported using the chosen setup transport, and still works through Delta
 for a phone that is given a Delta login the same way. One code path per app,
 two backends.
 
-## Step 1, a spike, before any design is fixed
-Can the XP3 read a QR code off a monitor? Fixed-focus 5 MP camera, no
-library allowed. Find out: what module size and code version it reads
-reliably, at what distance, from the camera preview and from a still. Report
-to Sam with the numbers and a recommendation on `../decisions.md` open 1
-(write a decoder, allow ZXing core as the one exception, or use a fallback
-transport). Nothing below is built until that is settled.
+## Step 1, choose the setup transport
+Can the XP3 read a QR code off a monitor? On a reserved test phone, measure
+which module sizes, code versions and distances work reliably, from preview
+and from a still. Record the results and chosen transport in
+`../decisions.md` (open item 1). Keep the no-dependencies rule unless the
+spike supports a documented exception. If scanning is unreliable or the
+hardware is unavailable, implement setup-file import first. The shared
+payload and app reworks can proceed either way.
 
 ## Step 2, shared pieces in `common/`
 - **The payload**: a versioned, compact JSON document: which app it is for
@@ -31,9 +32,9 @@ transport). Nothing below is built until that is settled.
 - **A description of each app's settings** (name, label, how to obtain it,
   secret or not), in one machine-readable file per app, from which both the
   app's setup screen and the generator's form are built.
-- **`Setup` in `common/ui`**: "Scan setup code", the scanner, a summary of
-  what was read, storing it privately; plus the fallbacks (a file on the SD
-  card, manual entry for short values). And "Sign out" that forgets it.
+- **`Setup` in `common/ui`**: import through the chosen transport, show a
+  summary and store settings privately. Support manual entry for short
+  values and "Sign out" to forget stored settings.
 - **`Config` in `common/core`**: what the app reads at runtime, replacing
   `Bundled` and the scattered login prefs.
 
@@ -46,13 +47,14 @@ today, probably sync, which becomes optional or goes to a store the user
 chooses), put it behind the same interface as the Delta backend, remove
 `bundled(...)` from the build, and update `SPEC.md`. Bump versions.
 
-Sam's own phones keep working: a Delta setup code replaces the baked login.
+Existing Delta installations keep working: a Delta setup payload replaces
+the baked login.
 
 ## Done when
 For each app: a fresh install with no setup shows the setup screen and
-nothing else that needs a login; a code from the generator configures it; a
-Delta code configures it the old way; the published APK contains no
-credentials.
+nothing else that needs a login; a payload from the generator configures
+it using the supported transport; a Delta payload configures the Delta
+backend; the published APK contains no credentials.
 
 ## Watch out
 - Each app's direct backend is a piece of work of its own, with its own

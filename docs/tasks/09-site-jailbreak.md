@@ -1,7 +1,7 @@
 # 09: The jailbreak page
 
-**Repo** W (`site/`). **Needs** nothing to start; a phone Sam is willing to
-flash to finish.
+**Repo** W (`site/`). **Needs** nothing to start; hardware verification
+requires a stock test phone reserved for this brief (see `../../AGENTS.md`).
 
 ## Read first
 `../jailbreak.md`, then `../rphone/ROOTING.md` end to end (every trap in it
@@ -50,8 +50,8 @@ wasn't tested in `../jailbreak.md`.
 ## Watch out
 - **This flashes a phone.** Never write before the backup has been read,
   checked, and handed to the user. Never write an image that didn't come
-  from patching that phone's own backup. Verify by reading back. Ask Sam
-  before every first write on a given phone.
+  from patching that phone's own backup. Verify by reading back. Leave
+  hardware validation pending if no reserved test phone is available.
 - Find `boot` by name in the GPT. Refuse if the table doesn't look like an
   XP3800's.
 - A patched image is shorter than the partition; compare only the bytes

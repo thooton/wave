@@ -15,19 +15,19 @@ with no keyboard.
 - **Setup-code generator**: pick an app (Charge, Mail, Places, Canvas,
   Authenticator, Flashcards), fill in what that app needs with a short guide
   to obtaining each value (for example, creating a Google Maps key), and get
-  a QR code to scan with the phone. Everything happens in the page; nothing
-  is sent anywhere, and the page says so. Also: a QR code for adding a
-  source URL to Wave.
+  a setup file or a QR code, depending on the transport in 14. Everything
+  happens in the page; nothing is sent anywhere, and the page says so. If
+  scanning is supported, also generate QR codes for adding sources to Wave.
 - The per-app forms are generated from the same description of each app's
   settings that 14 defines, so a new setting doesn't need the page edited by
   hand.
 
 ## Done when
-Each app in 14 can be set up from a code made on the page, on a real phone.
+Each app in 14 can be set up on a reserved test phone using the supported
+transport and a payload made on the page.
 
 ## Watch out
-- A code holds secrets. Don't put them in the URL, don't log them, and say
-  on the page not to photograph or share the code.
-- Size the code for the XP3's fixed-focus camera reading a monitor: large
-  modules, low error correction only if it still reads, and split into
-  several codes if one would be too dense (14 decides how).
+- Setup payloads hold secrets. Don't put them in the URL or logs. Warn
+  users not to share setup files or photograph codes.
+- If QR is supported, size codes for the XP3's fixed-focus camera using 14's
+  measurements.

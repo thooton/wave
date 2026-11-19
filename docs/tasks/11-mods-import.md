@@ -53,4 +53,6 @@ deterministic, compare the dex files).
 - `../sonim/launcher` (AppDrawer) is a different thing from
   `mods/launcher`. Don't merge them here; 13 retires AppDrawer.
 - Other agents may have uncommitted work in the old mod repos. Check `git
-  status` in each and ask before importing.
+  status` in each and import committed refs from disposable clones. Leave
+  the original worktrees unchanged and record any uncommitted work excluded
+  from the import.
