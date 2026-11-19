@@ -250,12 +250,20 @@ class Device:
         return focused_on_wave(text)
 
     def hierarchy(self):
+        # uiautomator cannot always reach an idle state while a spinner animates; it then
+        # writes an error or a truncated file. Try again before calling the screen unreadable.
         try:
-            self.call('shell', 'uiautomator', 'dump', self.dump_path, timeout=10)
-            xml = self.call('exec-out', 'cat', self.dump_path).stdout
-            return ET.fromstring(xml)
-        except ET.ParseError as e:
-            raise HarnessError('uiautomator returned an unreadable hierarchy.') from e
+            for attempt in range(4):
+                try:
+                    self.call('shell', 'uiautomator', 'dump', self.dump_path, timeout=10)
+                    xml = self.call('exec-out', 'cat', self.dump_path).stdout
+                    return ET.fromstring(xml)
+                except (ET.ParseError, HarnessError) as e:
+                    if attempt == 3:
+                        if isinstance(e, HarnessError):
+                            raise
+                        raise HarnessError('uiautomator returned an unreadable hierarchy.') from e
+                    time.sleep(.6)
         finally:
             self.call('shell', 'rm', '-f', self.dump_path, check=False, timeout=4)
 
