@@ -32,7 +32,8 @@ LOCK = ROOT / '.oak' / 'phone.lock'
 KEYS = {'DPAD_UP', 'DPAD_DOWN', 'DPAD_LEFT', 'DPAD_RIGHT', 'ENTER', 'BACK', 'MENU'}
 REGION = (0, 25, WIDTH, 270)  # Omit status/navigation bars. Override for finer focus checks.
 STEP_FIELDS = {'action', 'key', 'name', 'wait_ms', 'before_text', 'text_all', 'text_any',
-               'changed', 'focus_moved', 'region', 'min_diff', 'reference', 'max_diff'}
+               'changed', 'focus_moved', 'region', 'min_diff', 'reference', 'max_diff', 'focus_on', 'text_none',
+               'fixture_confirm'}
 
 
 class HarnessError(RuntimeError):
@@ -66,10 +67,15 @@ def read_scenario(path):
         if 'action' not in step and step.get('key') not in KEYS:
             raise HarnessError(f'Step {n + 1} ({step["name"]}): unknown key {step.get("key")!r}. '
                                'Accepted: ' + ', '.join(sorted(KEYS)) + '.')
-        for field in ('before_text', 'text_all', 'text_any'):
+        for field in ('before_text', 'text_all', 'text_any', 'text_none'):
             if field in step and (not isinstance(step[field], list) or not step[field]
                                   or not all(isinstance(s, str) and s.strip() for s in step[field])):
                 raise HarnessError(f'Step {n + 1}: {field} must be a nonempty array of strings.')
+        if 'focus_on' in step and (not isinstance(step['focus_on'], str) or not step['focus_on'].strip()):
+            raise HarnessError(f'Step {n + 1}: focus_on must be a nonempty string.')
+        if 'fixture_confirm' in step and (step['fixture_confirm'] is not True or 'fixture' not in doc
+                                          or step.get('key') != 'ENTER'):
+            raise HarnessError(f'Step {n + 1}: fixture_confirm is only for an ENTER step in a debug fixture scenario.')
         if step.get('key') == 'ENTER' and 'before_text' not in step:
             raise HarnessError(f'Step {n + 1}: ENTER requires before_text.')
         if any(field in step and type(step[field]) is not bool for field in ('changed', 'focus_moved')):
@@ -293,6 +299,16 @@ def text_matches(tree, expected, every=True):
     return all(matches) if every else any(matches)
 
 
+def focused_labels(tree):
+    """Normalized labels of every focused/selected Wave node and its descendants."""
+    labels = []
+    for node in wave_nodes(tree):
+        if node.get('selected') == 'true' or node.get('focused') == 'true':
+            for inner in node.iter('node'):
+                labels.extend(normalize(inner.get(key, '')) for key in ('text', 'content-desc') if inner.get(key))
+    return labels
+
+
 def focus(tree):
     """Return selected/focused identities, excluding container-level ListView focus."""
     chosen = []
@@ -310,7 +326,7 @@ def focus(tree):
 def inspect_step(device, step, frame, previous, current, prior_focus):
     tree = None
     has_reference = '_reference_rgb' in step
-    if any(field in step for field in ('text_all', 'text_any', 'focus_moved')):
+    if any(field in step for field in ('text_all', 'text_any', 'text_none', 'focus_on', 'focus_moved')):
         try:
             tree = device.hierarchy()
         except HarnessError:
@@ -333,6 +349,18 @@ def inspect_step(device, step, frame, previous, current, prior_focus):
                 frame['checks'].append('Focus inferred from a visual change, not proven by accessibility.')
             else:
                 raise CheckFailed('No accessible or visible focus movement.')
+    if 'focus_on' in step:
+        wanted = normalize(step['focus_on'])
+        if tree is None or not any(wanted in label for label in focused_labels(tree)):
+            raise CheckFailed(f'Expected focus on: {step["focus_on"]}')
+        frame['checks'].append('focus_on: ' + step['focus_on'])
+    if 'text_none' in step:
+        if tree is None:
+            raise CheckFailed('Cannot confirm absent text without the accessibility tree.')
+        present = [text for text in step['text_none'] if text_matches(tree, [text])]
+        if present:
+            raise CheckFailed('Unexpected text: ' + ', '.join(present))
+        frame['checks'].append('text_none: ' + ', '.join(step['text_none']))
     missing = []
     for key in ('text_all', 'text_any'):
         if key in step:
@@ -369,8 +397,9 @@ def run_steps(device, scenario, output, frames):
                     raise
         if 'before_text' in step and not text_matches(before, step['before_text']):
             raise CheckFailed('Key guard failed; expected: ' + ', '.join(step['before_text']))
-        if action == 'ENTER' and any(normalize(node.get(key, '')) in {'confirm', 'reboot now'}
-                                     for node in wave_nodes(before) for key in ('text', 'content-desc')):
+        if action == 'ENTER' and not (step.get('fixture_confirm') and device.fixture) and any(
+                normalize(node.get(key, '')) in {'confirm', 'reboot now'}
+                for node in wave_nodes(before) for key in ('text', 'content-desc')):
             raise CheckFailed('Test stopped before a visible Confirm or Reboot Now action.')
         if before is not None and not device.foreground():
             raise CheckFailed('Wave lost foreground while reading the hierarchy; no key sent.')

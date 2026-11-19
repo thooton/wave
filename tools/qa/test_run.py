@@ -149,6 +149,32 @@ class Safety(unittest.TestCase):
                 with run.phone_lock(wait=0):
                     pass
 
+    def test_focus_labels_include_descendants_and_text_matching_is_wave_only(self):
+        tree = ET.fromstring('''<hierarchy>
+          <node package="com.wave.xp3" focused="true" text=""><node package="com.wave.xp3" text="Later"/></node>
+          <node package="com.wave.xp3" text="Reboot"/>
+          <node package="com.other" focused="true" text="Elsewhere"/>
+        </hierarchy>''')
+        self.assertEqual(run.focused_labels(tree), ['later'])
+
+    def test_fixture_confirm_needs_a_fixture_and_enter(self):
+        base = [{'name': 'Launch', 'action': 'launch'}]
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 's.json'
+            for doc, ok in (
+                    ({'fixture': 'browse', 'steps': base + [{'name': 'Go', 'key': 'ENTER', 'before_text': ['Confirm'],
+                                                             'fixture_confirm': True}]}, True),
+                    ({'steps': base + [{'name': 'Go', 'key': 'ENTER', 'before_text': ['Confirm'],
+                                        'fixture_confirm': True}]}, False),
+                    ({'fixture': 'browse', 'steps': base + [{'name': 'Go', 'key': 'DPAD_DOWN',
+                                                             'fixture_confirm': True}]}, False)):
+                path.write_text(json.dumps({'name': 'x', **doc}), encoding='utf-8')
+                if ok:
+                    run.read_scenario(path)
+                else:
+                    with self.assertRaises(run.HarnessError):
+                        run.read_scenario(path)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,0 +1,9 @@
+{
+  "name": "A cached source with unreadable icons, an unreachable address and a sign-in (debug build, seeded)",
+  "builder": "cached-and-signin",
+  "steps": [
+    {"name": "Launch", "action": "launch", "wait_ms": 2500, "text_all": ["Welcome to Wave"]},
+    {"name": "Sources, after the refreshes fail", "key": "DPAD_RIGHT", "wait_ms": 9000, "text_all": ["QA Cached Source"], "changed": true},
+    {"name": "Capture the list", "action": "capture"}
+  ]
+}

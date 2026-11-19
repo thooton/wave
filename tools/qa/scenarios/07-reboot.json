@@ -1,5 +1,5 @@
 {
-  "name": "Reboot to Finish row and its dialog (07, reboot fixture; the dialog's Reboot is never pressed)",
+  "name": "Reboot to Finish row and its dialog (07, reboot fixture; Reboot is never pressed)",
   "fixture": "reboot",
   "steps": [
     {
@@ -21,13 +21,23 @@
         "Reboot Now?",
         "Later"
       ],
+      "focus_on": "Later",
       "changed": true
     },
     {
-      "name": "Leave it with Back",
-      "key": "BACK",
+      "name": "OK on the default answer closes it without rebooting",
+      "key": "ENTER",
+      "before_text": [
+        "Reboot Now?",
+        "Later"
+      ],
+      "wait_ms": 500,
       "text_all": [
         "Reboot to Finish"
+      ],
+      "text_none": [
+        "would reboot now",
+        "Reboot Now?"
       ],
       "changed": true
     }

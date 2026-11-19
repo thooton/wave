@@ -1,0 +1,209 @@
+{
+  "name": "A second queue does not repeat the last failure (07, browse fixture; pretend queue)",
+  "fixture": "browse",
+  "steps": [
+    {
+      "name": "Wave Home",
+      "action": "launch",
+      "wait_ms": 800,
+      "text_all": [
+        "Welcome to Wave"
+      ]
+    },
+    {
+      "name": "Focus Mail",
+      "key": "DPAD_DOWN",
+      "focus_on": "Mail",
+      "focus_moved": true
+    },
+    {
+      "name": "Mail details",
+      "key": "ENTER",
+      "before_text": [
+        "Mail",
+        "Gmail on the keypad"
+      ],
+      "text_all": [
+        "Mail",
+        "GET"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Plan Mail",
+      "key": "ENTER",
+      "before_text": [
+        "Mail",
+        "GET"
+      ],
+      "text_all": [
+        "Confirm",
+        "Cancel"
+      ],
+      "focus_on": "Confirm",
+      "changed": true
+    },
+    {
+      "name": "Run the pretend Mail queue (always fails)",
+      "key": "ENTER",
+      "fixture_confirm": true,
+      "before_text": [
+        "Confirm",
+        "Cancel"
+      ],
+      "wait_ms": 7000,
+      "text_any": [
+        "wasn't installed"
+      ],
+      "changed": true
+    },
+    {
+      "name": "OK on the failure alert",
+      "key": "ENTER",
+      "before_text": [
+        "wasn't installed",
+        "OK"
+      ],
+      "wait_ms": 600,
+      "text_any": [
+        "Done"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Done",
+      "key": "ENTER",
+      "before_text": [
+        "Done"
+      ],
+      "wait_ms": 600,
+      "text_all": [
+        "Mail"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Back to Home",
+      "key": "BACK",
+      "text_all": [
+        "Welcome to Wave"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Open Sources",
+      "key": "DPAD_RIGHT",
+      "text_all": [
+        "All Sources"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Focus Wave",
+      "key": "DPAD_DOWN",
+      "focus_moved": true
+    },
+    {
+      "name": "Open Wave",
+      "key": "ENTER",
+      "before_text": [
+        "All Sources"
+      ],
+      "text_all": [
+        "All Packages",
+        "Applications"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Focus Applications",
+      "key": "DPAD_DOWN",
+      "focus_moved": true
+    },
+    {
+      "name": "Open Applications",
+      "key": "ENTER",
+      "before_text": [
+        "All Packages",
+        "Applications"
+      ],
+      "text_all": [
+        "Authenticator",
+        "Books",
+        "Canvas"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Down to Books",
+      "key": "DPAD_DOWN",
+      "focus_moved": true
+    },
+    {
+      "name": "Down to Canvas",
+      "key": "DPAD_DOWN",
+      "focus_on": "Canvas",
+      "focus_moved": true
+    },
+    {
+      "name": "Canvas details",
+      "key": "ENTER",
+      "before_text": [
+        "Authenticator",
+        "Canvas"
+      ],
+      "text_all": [
+        "Canvas",
+        "GET"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Plan Canvas",
+      "key": "ENTER",
+      "before_text": [
+        "Canvas",
+        "GET"
+      ],
+      "text_all": [
+        "Confirm",
+        "Cancel"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Run the pretend Canvas queue",
+      "key": "ENTER",
+      "fixture_confirm": true,
+      "before_text": [
+        "Confirm",
+        "Cancel"
+      ],
+      "wait_ms": 1500,
+      "text_none": [
+        "wasn't installed"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Canvas finishes with no stale alert",
+      "action": "capture",
+      "wait_ms": 7000,
+      "text_all": [
+        "Done"
+      ],
+      "text_none": [
+        "wasn't installed"
+      ]
+    },
+    {
+      "name": "Done",
+      "key": "ENTER",
+      "before_text": [
+        "Done"
+      ],
+      "wait_ms": 600,
+      "changed": true
+    }
+  ]
+}

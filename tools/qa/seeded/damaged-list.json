@@ -1,0 +1,10 @@
+{
+  "name": "A damaged sources.json does not lock Wave out (debug build, seeded)",
+  "seed": {"files/sources.json": "[{\"url\":\"https://exam"},
+  "expect": ["files/sources/damaged.json"],
+  "steps": [
+    {"name": "Launch with a truncated source list", "action": "launch", "wait_ms": 2500, "text_all": ["Welcome to Wave"]},
+    {"name": "Sources shows the default source", "key": "DPAD_RIGHT", "wait_ms": 6000, "text_any": ["All Sources", "Cannot Load Sources"], "changed": true},
+    {"name": "Home still works", "key": "DPAD_LEFT", "text_all": ["Welcome to Wave"], "changed": true}
+  ]
+}

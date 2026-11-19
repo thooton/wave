@@ -1,0 +1,86 @@
+{
+  "name": "Remove Source asks first and starts on Cancel (07, browse fixture)",
+  "fixture": "browse",
+  "steps": [
+    {
+      "name": "Wave Home",
+      "action": "launch",
+      "wait_ms": 800,
+      "text_all": [
+        "Welcome to Wave"
+      ]
+    },
+    {
+      "name": "Open Sources",
+      "key": "DPAD_RIGHT",
+      "text_all": [
+        "XP3 Games"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Focus Wave",
+      "key": "DPAD_DOWN",
+      "focus_moved": true
+    },
+    {
+      "name": "Focus XP3 Games",
+      "key": "DPAD_DOWN",
+      "focus_on": "XP3 Games",
+      "focus_moved": true
+    },
+    {
+      "name": "Open the source menu",
+      "key": "MENU",
+      "wait_ms": 600,
+      "text_all": [
+        "Copy Address",
+        "Remove Source"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Down to Copy Address",
+      "key": "DPAD_DOWN",
+      "focus_on": "Copy Address",
+      "focus_moved": true
+    },
+    {
+      "name": "Down to Remove Source",
+      "key": "DPAD_DOWN",
+      "focus_on": "Remove Source",
+      "focus_moved": true
+    },
+    {
+      "name": "Ask to remove",
+      "key": "ENTER",
+      "before_text": [
+        "Copy Address",
+        "Remove Source"
+      ],
+      "text_all": [
+        "Remove XP3 Games?",
+        "Cancel"
+      ],
+      "focus_on": "Cancel",
+      "changed": true
+    },
+    {
+      "name": "OK on the default answer keeps the source",
+      "key": "ENTER",
+      "before_text": [
+        "Remove XP3 Games?",
+        "Cancel"
+      ],
+      "wait_ms": 500,
+      "text_all": [
+        "XP3 Games",
+        "Sonim Tweaks"
+      ],
+      "text_none": [
+        "Remove XP3 Games?"
+      ],
+      "changed": true
+    }
+  ]
+}
