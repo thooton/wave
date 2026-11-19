@@ -33,10 +33,10 @@ body.gallery { margin: 0; padding: 16px 20px 40px; background: #DADBE0; font: 13
 .gallery h2 { font-size: 16px; margin: 28px 0 10px; border-bottom: 1px solid #b9bac0; padding-bottom: 4px; }
 .gallery .intro { max-width: 980px; }
 .gallery .grid { display: flex; flex-wrap: wrap; gap: 22px 22px; }
-.gallery .card { width: 240px; }
-.gallery .card .frame { box-shadow: 0 0 0 1px #9a9ba1, 0 4px 14px rgba(0,0,0,.18); }
-.gallery .card h3 { font-size: 12.5px; margin: 8px 0 3px; }
-.gallery .card h3 code { font-weight: 400; color: #666; font-size: 11px; }
+.gallery .shot { width: 240px; }
+.gallery .shot .frame { box-shadow: 0 0 0 1px #9a9ba1, 0 4px 14px rgba(0,0,0,.18); }
+.gallery .shot h3 { font-size: 12.5px; margin: 8px 0 3px; }
+.gallery .shot h3 code { font-weight: 400; color: #666; font-size: 11px; }
 .gallery .keys { font-size: 11.5px; line-height: 1.35; color: #333; margin: 0; padding: 0; list-style: none; }
 .gallery .keys b { display: inline-block; min-width: 46px; color: #000; }
 .gallery .note { font-size: 11.5px; color: #555; margin: 4px 0 0; }

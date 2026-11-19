@@ -33,12 +33,26 @@ if (want) {
       group = f.group;
     }
     const k = f.keys;
-    html += `<div class="card" id="${f.id}">${f.html}<h3>${f.title} <code>${f.id}</code></h3><ul class="keys">` +
+    html += `<div class="shot" id="${f.id}">${f.html}<h3>${f.title} <code>${f.id}</code></h3><ul class="keys">` +
       `<li><b>Left/Right</b> ${k.lr}</li><li><b>Up/Down</b> ${k.ud}</li><li><b>OK</b> ${k.ok}</li><li><b>Back</b> ${k.back}</li><li><b>Menu</b> ${k.menu}</li></ul>` +
       (f.note ? `<p class="note">${f.note}</p>` : '') + '</div>';
   }
   root.innerHTML = html + '</div>';
 }
+// A bar's title is centred on the screen and as wide as what is on its
+// sides leaves it, as iOS lays out a navigation bar (and as the app should).
+document.fonts.ready.then(() => {
+  for (const bar of document.querySelectorAll('.bar')) {
+    const title = bar.querySelector('.title');
+    if (!title) continue;
+    let side = 10;
+    const back = bar.querySelector('.back'), l = bar.querySelector('.act.l, .spin'), r = bar.querySelector('.act.r');
+    if (back) { const range = document.createRange(); range.selectNodeContents(back); side = Math.max(side, back.offsetLeft + Math.min(back.offsetWidth, range.getBoundingClientRect().width + 13) + 6); }
+    if (l) side = Math.max(side, l.offsetLeft + l.offsetWidth + 6);
+    if (r) side = Math.max(side, 240 - r.offsetLeft + 6);
+    title.style.left = title.style.right = side + 'px';
+  }
+});
 </script>
 </body>
 </html>

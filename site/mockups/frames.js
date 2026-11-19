@@ -102,10 +102,13 @@ function bar(b) {
     return s + '</div>';
   }
   // Back's target, named as on iOS; a name too long for its side becomes "Back".
-  if (b.back) s += `<div class="back">${b.back.length > 9 ? 'Back' : b.back}</div>`;
+  const back = b.back && (b.back.length > 9 ? 'Back' : b.back);
+  if (back) s += `<div class="back">${back}</div>`;
   if (b.spin) s += `<div class="spin">${spinner()}</div>`;
   if (b.l) s += `<div class="act l${b.lOn ? ' on' : ''}">${b.l}</div>`;
-  if (b.title) s += `<div class="title">${b.title}</div>`;
+  // The title is centred on the screen, clear of whatever is on its sides.
+  const side = back ? (back.length <= 5 ? 58 : 76) : (b.l || b.r || b.spin ? 62 : 10);
+  if (b.title) s += `<div class="title" style="left:${side}px;right:${side}px">${b.title}</div>`;
   if (b.r) s += `<div class="act r${b.rOn ? ' on' : ''}${b.rOff ? ' off' : ''}">${b.r}</div>`;
   return s + '</div>';
 }

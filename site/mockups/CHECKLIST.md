@@ -78,10 +78,14 @@ intended (it scrolls), and is marked "scrolls".
 | error-watchdog-row | yes | row grey | "Turned off" in red |
 
 Result: **all 46 frames pass**. Fixed during the check: back labels too long
-for the bar ("Applic…") now read "Back"; the confirm's plan was 12px too tall
-and its rows are now 42px; a firmware note that wrapped mid-build was
-shortened; the progress rows' ring margin squeezed the names; the toast
-wrapped at half width.
+for the bar ("Applic…") now read "Back"; bar titles are centred on the
+screen and as wide as the bar's sides leave them (computed in `app.html`, as
+the app should), which un-cut "Add a Source" and "What is Wave"; the
+confirm's plan was 12px too tall and its rows are now 42px; a firmware note
+that wrapped mid-build was shortened; the progress rows' ring margin
+squeezed the names; the toast wrapped at half width; a failing source's
+reason and the turned-off mod's line were cut and are now short enough to
+read whole.
 
 ## 2. D-pad paths: every action without touch
 
