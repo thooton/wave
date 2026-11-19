@@ -1,0 +1,211 @@
+{
+  "name": "Kept packages (a mod with no receipt, Wave itself, one kept by its receipt) open with no Section or Author row and no Reinstall (07, kept fixture)",
+  "fixture": "kept",
+  "steps": [
+    {
+      "name": "Wave Home",
+      "action": "launch",
+      "wait_ms": 800,
+      "text_all": [
+        "Welcome to Wave"
+      ]
+    },
+    {
+      "name": "Open Sources",
+      "key": "DPAD_RIGHT",
+      "text_all": [
+        "Sources"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Open Installed",
+      "key": "DPAD_RIGHT",
+      "text_all": [
+        "Installed",
+        "Update All"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Down to Clock Seconds",
+      "key": "DPAD_DOWN",
+      "repeat": 4,
+      "focus_on": "Clock Seconds"
+    },
+    {
+      "name": "Open Clock Seconds's details",
+      "key": "ENTER",
+      "before_text": [
+        "Clock Seconds",
+        "0.3"
+      ],
+      "wait_ms": 800,
+      "text_all": [
+        "Clock Seconds",
+        "0.3",
+        "Details"
+      ],
+      "text_none": [
+        "Reinstall",
+        "Section",
+        "Author"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Clock Seconds's menu has no Reinstall",
+      "key": "MENU",
+      "wait_ms": 600,
+      "text_none": [
+        "Reinstall"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Close the menu",
+      "key": "BACK",
+      "wait_ms": 400,
+      "text_all": [
+        "Clock Seconds"
+      ],
+      "text_none": [
+        "Reinstall"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Back to Installed",
+      "key": "BACK",
+      "wait_ms": 600,
+      "text_all": [
+        "Installed",
+        "Update All"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Down to Wave",
+      "key": "DPAD_DOWN",
+      "repeat": 7,
+      "focus_on": "Wave"
+    },
+    {
+      "name": "Open Wave's details",
+      "key": "ENTER",
+      "before_text": [
+        "Wave",
+        "0.5.0"
+      ],
+      "wait_ms": 800,
+      "text_all": [
+        "Wave",
+        "0.5.0",
+        "Details"
+      ],
+      "text_none": [
+        "Reinstall",
+        "Section",
+        "Author"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Wave's details have no menu to offer Reinstall (Wave can't be removed)",
+      "key": "MENU",
+      "wait_ms": 600,
+      "changed": false,
+      "text_all": [
+        "Wave",
+        "0.5.0",
+        "Information"
+      ],
+      "text_none": [
+        "Reinstall"
+      ]
+    },
+    {
+      "name": "Back to Installed",
+      "key": "BACK",
+      "wait_ms": 600,
+      "text_all": [
+        "Installed",
+        "Update All"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Down to Weather",
+      "key": "DPAD_DOWN",
+      "repeat": 1,
+      "focus_on": "Weather"
+    },
+    {
+      "name": "Weather's row menu (Enter on the row would open the app)",
+      "key": "MENU",
+      "wait_ms": 600,
+      "text_all": [
+        "Details"
+      ],
+      "text_none": [
+        "Reinstall"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Down to Details (the menu starts on Open)",
+      "key": "DPAD_DOWN",
+      "focus_on": "Details",
+      "focus_moved": true
+    },
+    {
+      "name": "Open Weather's details from the menu",
+      "key": "ENTER",
+      "before_text": [
+        "Details"
+      ],
+      "wait_ms": 800,
+      "text_all": [
+        "Weather",
+        "1.0.3"
+      ],
+      "text_none": [
+        "Reinstall",
+        "Section",
+        "Author"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Weather's menu has no Reinstall",
+      "key": "MENU",
+      "wait_ms": 600,
+      "text_none": [
+        "Reinstall"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Close the menu",
+      "key": "BACK",
+      "wait_ms": 400,
+      "text_all": [
+        "Weather"
+      ],
+      "text_none": [
+        "Reinstall"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Back to Installed",
+      "key": "BACK",
+      "wait_ms": 600,
+      "text_all": [
+        "Installed",
+        "Update All"
+      ],
+      "changed": true
+    }
+  ]
+}
