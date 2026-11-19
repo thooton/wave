@@ -33,7 +33,14 @@ moving; resolve open questions when the relevant brief has evidence.
    without it Wave still installs apps, through Installer where a phone
    has it or Android's own installer otherwise. Installer and Updater are
    retired as packages (no new releases, `gradle/retired-apps.txt`), not
-   removed from phones that have them.
+   removed from phones that have them. So Wave's manifest (`app/wave/package.json`)
+   must not `replace` them: on a phone without root, Installer is how Wave
+   itself installs apps without a prompt, and it is the device owner on the
+   phones that have it, so a plan that uninstalled it would break Wave's own
+   install path on exactly the phones that need it (and the uninstall fails
+   for a device owner anyway). A phone that still has the Updater keeps it,
+   unmaintained; that is fine, since its `latest` channel keeps working and it
+   does nothing unless opened.
 7. **Mods ship as full patched APKs in a Magisk module zip**, one binary for
    all firmware builds. Firmware differences are not to be designed around.
    The stock APKs are committed to `wave_packages` so CI can build.

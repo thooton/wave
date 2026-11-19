@@ -590,12 +590,23 @@ public final class WaveActivity extends Activity {
     // Shared bits for screens
     // ------------------------------------------------------------------
 
+    /** Wave's own update, when a source offers one this phone can take; else null. */
+    Pkg waveUpdate() {
+        if (snapshot == null) return null;
+        for (Pkg u : snapshot.updates) if (u.id.equals(getPackageName())) return u;
+        return null;
+    }
+
     /** The common package menu: the capsule's action, details, what's new. */
     void packageMenu(Screen.Menu menu, final Pkg p, boolean withDetails, final String sourceId) {
         String word = Rows.capsuleWord(this, p);
         if (word != null) {
             if (word.equals("OPEN")) menu.add("Open", () -> open(p));
             else if (!Rows.unfit(p)) menu.add(word.equals("GET") ? "Get" : "Update", () -> press(p));
+        }
+        if (p.needsNewerWave) {
+            final Pkg wave = waveUpdate();
+            if (wave != null) menu.add("Update Wave", () -> press(wave));
         }
         if (withDetails) menu.add("Details", () -> details(p, sourceId));
         if (p.state == WaveData.State.OFF) menu.add("Turn On", () -> data.turnOn(p.id));

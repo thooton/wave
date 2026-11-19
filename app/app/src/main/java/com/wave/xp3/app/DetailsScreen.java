@@ -119,8 +119,11 @@ final class DetailsScreen extends Screen {
         column.addView(Kit.hair(app));
 
         // What to know.
-        if (p.unfitReason != null) column.addView(line(Glyph.WARN, Look.ORANGE, p.unfitReason, Look.RED));
-        if (p.needsNewerWave) column.addView(line(Glyph.INFO, Look.MUTED, "Needs a newer Wave", Look.TEXT));
+        // A newer format is said once, as a note (its reason is the same words), and points at Wave's own update when there is one.
+        if (p.unfitReason != null && !p.needsNewerWave) column.addView(line(Glyph.WARN, Look.ORANGE, p.unfitReason, Look.RED));
+        if (p.needsNewerWave) {
+            column.addView(line(Glyph.INFO, Look.MUTED, app.waveUpdate() != null ? "Update Wave to install this" : "Needs a newer Wave", Look.TEXT));
+        }
         if (p.state == State.UPDATE && Rows.unfit(p)) column.addView(line(Glyph.INFO, Look.MUTED, "Version " + p.version + " can't be installed here", Look.TEXT));
         if (p.isModule) column.addView(line(Glyph.REBOOT, Look.BLUE, "System mod, needs a reboot", Look.TEXT));
         if (p.state == State.OFF) column.addView(line(Glyph.WARN, Look.ORANGE, "Turned off: the phone didn't finish starting with it", Look.RED));
@@ -152,8 +155,9 @@ final class DetailsScreen extends Screen {
         java.util.List<String[]> facts = new java.util.ArrayList<>();
         facts.add(new String[]{"Version", version});
         if (size != null) facts.add(new String[]{"Size", size});
-        if (p.sourceName != null) facts.add(new String[]{"Source", p.sourceName});
-        if (p.sectionName != null) facts.add(new String[]{"Section", p.sectionName});
+        // Kept by a receipt after its source went, a package has no section (and Wave itself may have no source).
+        if (p.sourceName != null && !p.sourceName.isEmpty()) facts.add(new String[]{"Source", p.sourceName});
+        if (p.sectionName != null && !p.sectionName.isEmpty()) facts.add(new String[]{"Section", p.sectionName});
         if (d.author != null) facts.add(new String[]{"Author", d.author});
         if (!d.depends.isEmpty()) facts.add(new String[]{"Needs", join(d.depends)});
         if (!d.conflicts.isEmpty()) facts.add(new String[]{"Conflicts", join(d.conflicts)});

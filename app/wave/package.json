@@ -3,9 +3,8 @@
   "type": "apk",
   "name": "Wave",
   "summary": "Browse, install and update XP3800 apps and system mods",
-  "description": "Wave brings apps and system mods from Git sources to your Sonim XP3800. Browse packages, check what is installed, and review changes before updating.\n\nWave replaces the old Updater and Installer. If Installer is your device owner, release that role before removing it.",
+  "description": "Wave brings apps and system mods from Git sources to your Sonim XP3800. Browse packages, check what is installed, and review changes before updating.",
   "author": "thooton",
   "homepage": "https://github.com/thooton/wave",
-  "requires": { "device": ["XP3800"], "sdk": 27 },
-  "replaces": ["com.updater.xp3", "com.installer.xp3"]
+  "requires": { "device": ["XP3800"], "sdk": 27 }
 }

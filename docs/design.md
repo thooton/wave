@@ -89,8 +89,8 @@ APK, settings tweaks, themes) without breaking old phones.
 
 `depends` (ids, optionally with a minimum version), `conflicts` (ids), and
 `replaces` (ids removed when this installs; how `messages_improved` takes
-over from a phone's old `messages_argon` module, and how Wave removes the
-Updater and Installer). Wave resolves them into an ordered plan and shows it
+over from a phone's old `messages_argon` module). Wave itself replaces
+nothing: the Updater and Installer stay on phones that have them (decision 6). Wave resolves them into an ordered plan and shows it
 before doing anything, as Cydia's confirm screen does. No version solver: a
 dependency is satisfied by whatever the best candidate is, or the install is
 refused with the reason.
@@ -140,7 +140,13 @@ and icons within the format's individual size limits and also bounds total
 pack expansion.
 Works with GitHub, GitLab, Codeberg/Forgejo and sourcehut. Protocol v0/v1 and
 dumb HTTP are not supported. A private source uses `https://user:token@host/...`,
-sent as Basic auth.
+sent as Basic auth. Its packages' downloads sign in the same way, but only
+where the owner's own requests would: a release asset of the same GitHub
+repository through GitHub's API (as `Bearer`), and any address on the
+source's own host (as Basic); never another host, and each redirect is judged
+again, so a CDN's signed address never gets it (`core/install/Credential`,
+decisions). The address with its token stays on the phone: it isn't shown,
+logged, put in a receipt or backed up.
 
 A changed HEAD refetches the whole tree (no `have` negotiation), which is fine
 at this size and keeps the client small.
@@ -226,8 +232,10 @@ detached root shell, because Android kills the app being replaced.
 
 ### Root
 
-Wave needs root and says so: with no working `su` it shows one screen that
-points at the jailbreak site. It keeps a single `su` shell open and sends it
+Wave needs root for mods and says so: without a working `su`, the Wave tab
+has a Root row that opens one screen ("Wave Needs Root for Mods", with Check
+Again) pointing at the jailbreak site, and a mod is refused before anything is
+downloaded. Apps still install without root (below). It keeps a single `su` shell open and sends it
 scripts; `:core` builds the scripts and parses their output, so that logic is
 tested on a desktop JVM. Operations:
 
@@ -292,7 +300,9 @@ versioned by a `# wave-watchdog: N` line):
   there, the boot that first tried those modules never settled, so it
   touches `disable` in both `modules/<id>` and `modules_update/<id>` and
   logs `time, id, reason` to `/data/adb/wave/disabled` (`boot-timeout` after
-  a forced reboot, else `boot-incomplete`).
+  a forced reboot, else `boot-incomplete`). Each change of state is followed
+  by `sync` (watchdog 4): on the XP3's f2fs an unsynced rename was lost when
+  power was cut, and the mod was tried again instead of turned off.
 - `service.d` acts only while `trying` exists. Settled means
   `sys.boot_completed=1` and `system_server` keeping the same pid for 60 s;
   a shutdown asked for after boot completed counts as settled too, so a
@@ -315,8 +325,9 @@ Three more ways out, in rising order of effort:
 - **Magisk's safe mode.** Holding Volume Down for three seconds as the phone
   boots makes Magisk 24.0 disable every module (same source file,
   `check_key_combo`). No computer needed. Wave notices disabled modules and
-  offers to turn them back on one at a time. To be confirmed on the XP3's
-  keys.
+  offers to turn them back on one at a time (checked on the rooted phone by
+  setting Magisk's safe-mode property). The key itself is still to be
+  confirmed on the XP3.
 - **Rescue** on the website: disable modules over adb.
 - **Restore** on the website: locally verify the stock backup or readback;
   perform stock recovery with a trusted service procedure outside the site.
@@ -410,7 +421,8 @@ credentials on a T9 keypad is not an option, so:
 
 This is `wave_packages` work and is specified in its own brief
 (`tasks/14-app-setup-codes.md`). If scanning is supported, Wave reuses it
-for adding a source by QR code.
+for adding a source by QR code. Until then (and in v1) a source's address is
+typed.
 
 ## 9. Renaming the mods
 

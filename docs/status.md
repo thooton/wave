@@ -1,6 +1,6 @@
 # Status: what works today
 
-As of 2026-11-19. Wave is at 0.7.21 (code 28; `app/app/build.gradle` has the current one). Nothing has been pushed or
+As of 2026-11-19. Wave is at 0.7.22 (code 29; `app/app/build.gradle` has the current one). Nothing has been pushed or
 published: every GitHub step (repo renames, CI runs, Pages, releases, the
 hosted default source) waits on the [owner cutover](tasks/01-owner-checklist.md).
 So "verified" below means on this machine, and on the one reserved phone
