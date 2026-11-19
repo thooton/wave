@@ -128,3 +128,11 @@ button:disabled{background:#617180;border-color:transparent;cursor:default}
   .guide .box button{min-height:44px}
 }
 .guide table{border-collapse:collapse;width:100%;margin-block:1rem;font-size:.94rem}.guide th,.guide td{border-bottom:1px solid var(--line);padding:.55rem .6rem;text-align:left;vertical-align:top}.guide td{color:var(--muted)}
+.screens{border-top:1px solid var(--rule);padding-block:2.6rem}
+.shots{list-style:none;margin:1.7rem 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,240px));justify-content:space-between;gap:1.4rem 1rem}
+.shots li{margin:0}
+.shots figure{margin:0}
+.shots img{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:6px;background:#fff}
+.shots figcaption{position:static;display:block;margin-top:.5rem;color:var(--muted);font-size:.72rem}
+.screens .caption{margin-top:1.4rem;max-width:70ch}
+@media(min-width:960px){.shots{grid-template-columns:repeat(5,minmax(0,1fr));gap:1rem}}

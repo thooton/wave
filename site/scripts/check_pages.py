@@ -6,9 +6,9 @@ import re
 from urllib.parse import unquote, urlsplit
 import sys
 
-BUNDLE_BUDGET = 110 * 1024
-OPTIONAL_BACKUP_BUDGET = 140 * 1024
-LANDING_BUDGET = 32 * 1024
+BUNDLE_BUDGET = 140 * 1024
+OPTIONAL_BACKUP_BUDGET = 170 * 1024
+LANDING_BUDGET = 64 * 1024
 IMPORT = re.compile(r'^\s*(?:import|export)\s+(?:[^;\'"\n]*?\bfrom\s+)?([\'"])([^\'"\n]+)\1', re.M)
 
 

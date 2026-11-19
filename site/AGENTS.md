@@ -9,8 +9,11 @@ mouse. Distinguish illustrated screens, planned packages and unverified steps
 from shipped/tested behavior.
 
 - `index.html`, `assets/`: public landing, shared visual assets and styles.
-  `assets/wave-home.webp` is a lossless conversion of `mockups/shots/wave-home.png`,
-  an app design preview, not a hardware screenshot.
+  `assets/screens/*.webp` are real XP3800 screenshots (240x320, Wave 0.7.12 debug build with
+  sample packages) from `mockups/phone/`, made by `python3 site/scripts/screens.py` (256-colour
+  palette, lossless WebP; the script fails if a screen changes too much, `--check` verifies the
+  committed files). Say they are screenshots with sample data; never describe them as designs or
+  show a screen the app does not have.
 - `platforms/index.html`: USB compatibility and troubleshooting.
 - `setup/`: local setup-file generator. Use `spec/setup-payload.md` and the
   canonical per-app descriptors from wave_packages. Regenerate the reviewed,

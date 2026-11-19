@@ -31,10 +31,15 @@ repository variable `WAVE_PACKAGES_CHECK` is `true` (secret
 
 The checker covers relative URLs and fragments, HTML landmarks and label
 references, static module imports, and reachability of all staged assets.
-The landing page has no JavaScript and a 32 KiB asset budget; the whole
-artifact has a 110 KiB budget (uncompressed). Development-only service and
-ADB transfer code is not in the public dependency graph. The PNG design
-preview is converted to pixel-identical lossless WebP for this site.
+The landing page has no JavaScript and a 64 KiB asset budget; the whole
+artifact has a 140 KiB budget (170 KiB with the optional backup), uncompressed. Development-only service and
+ADB transfer code is not in the public dependency graph. The five real
+phone screenshots on the landing page (`site/mockups/phone/`) are converted by
+`python3 site/scripts/screens.py` to 256-colour lossless WebP (about 37 kB in all;
+about 0.5% of pixels at most move by more than 4 levels, all anti-aliasing
+fringes). The script refuses a screen that changes more, and `--check` fails if
+the committed files are not what it would write. They are plain `<img>` elements
+with captions, no script.
 
 For a keyboard smoke test, serve the parent of the staged `wave` directory.
 Use Tab, Shift+Tab and Enter to follow the first skip link into each page,

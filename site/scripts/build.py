@@ -6,7 +6,8 @@ import shutil
 
 SITE = Path(__file__).resolve().parents[1]
 FILES = (
-    'index.html', 'assets/site.css', 'assets/wave.svg', 'assets/handset.svg', 'assets/wave-home.webp',
+    'index.html', 'assets/site.css', 'assets/wave.svg', 'assets/handset.svg', 'assets/screens/home.webp', 'assets/screens/sources.webp', 'assets/screens/details.webp',
+    'assets/screens/installed.webp', 'assets/screens/search.webp',
     'platforms/index.html', 'setup/index.html', 'setup/generator.mjs',
     'setup/descriptors.mjs', 'setup/payload.mjs',
     'jailbreak/index.html', 'rescue/index.html', 'restore/index.html',
