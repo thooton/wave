@@ -120,6 +120,8 @@ final class Sandbox implements AutoCloseable {
         fake("getprop", "cat \"$FAKE/props/$1\" 2>/dev/null");
         fake("setprop", "echo \"setprop $*\" >> \"$FAKE_LOG\"\necho \"$2\" > \"$FAKE/props/$1\"");
         fake("pidof", "cat \"$FAKE/props/pid.$1\" 2>/dev/null");
+        // What Wave's state folder held when it was synced.
+        fake("sync", "echo \"sync $(ls \"$WAVE_ADB/wave\" 2>/dev/null | tr '\\n' ' ')\" >> \"$FAKE_LOG\"");
         // Each sleep is a tick; at tick N, files in at/N/ become props.
         fake("sleep", "n=$(cat \"$FAKE/ticks\" 2>/dev/null || echo 0); n=$((n + 1)); echo $n > \"$FAKE/ticks\"\n"
             + "if [ -d \"$FAKE/at/$n\" ]; then cp \"$FAKE/at/$n\"/* \"$FAKE/props/\"; fi");

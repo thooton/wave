@@ -13,16 +13,49 @@ This file is for what only a rooted XP3 can show. Follow it top to bottom,
 in order: later steps rely on earlier ones (06.1 lets Wave use root, 06.6
 puts the watchdog in place for 08).
 
-**Status.** None of the rooted steps have been run, because the test phone
-isn't rooted. On 2026-11-19 the harness was dry-run on the stock phone
-(`8516067e`, Wave 0.7.15 debug), and it works:
-- the debug build installs, and `d` and `p` drive `DebugActivity`;
-- the fixtures are served through `adb reverse`, and `run-as` reads the
-  receipts;
-- without root, the APK plans went through Installer with the messages shown
-  below: install, update, remove (Android's uninstall prompt), bad hash and
-  bad package;
-- `d facts` said "This phone has no root".
+**Status.** Run end to end on 2026-11-19 on the rooted XP3800 `8516067e`:
+- firmware `3A.0.1-02-8.1.0-11.20.00`, Magisk 24.0 (24000), Zygisk off;
+- Wave 0.7.17 debug (`ca10e4f`) for 06 to 08.3;
+- from 08.4 on, the same build with watchdog 4 (the fix below), as 0.7.19.
+
+Every step passed except these:
+- 06.5 can't run on this phone (too much free space);
+- 08.4 failed on watchdog 3, was fixed, and passed on watchdog 4;
+- 08.5 and 08.6 ran without a person's hands, so the Volume Down key and a
+  real power cut are still untried (see the end of "What is already
+  proven").
+
+Per step:
+
+| Step | Result | Seen |
+|------|--------|------|
+| 06.1 | pass | Magisk's prompt; Deny (Forever) gave the refusal line; later requests are refused within 2 s with no prompt; after the grant, `magisk=24.0:MAGISK`, `magiskCode=24000` |
+| 06.2 | pass | `pm` through root; `dumpsys` has no `installerPackageName` line at all (null); no uninstall prompt; receipts right |
+| 06.3 | pass | both messages exact; nothing installed, cache empty |
+| 06.4 | pass | "Could not connect." (cut at `plan:`); cache empty |
+| 06.5 | not run | 3.3 GB free: the 505 MB plan downloads and fails as "The download isn't the size the source gives."; cache empty |
+| 06.6 | pass | modes `-rwxr-xr-x root root`; boot 53 s to `sys.boot_completed`; "boot settled after 76s" |
+| 06.7 | pass | `version=1.1`, then removed |
+| 06.8 | pass | 0.7.17.1 installed through root, Wave reopened by itself, `self-result` empty (the toast itself wasn't caught on screen) |
+| 06.9 | pass | removed from Installed, no Android prompt, queue Done |
+| 08.1 | pass | zygote held stopped; the watchdog rebooted at about 345 s uptime; 403 s from `adb reboot` to the second home screen; `boot-timeout`, `disable` present |
+| 08.2 | pass | alert text exact, focus on OK, Left reaches Remove It; "Turned off" after OK |
+| 08.3 | pass | Turn On, settled; Remove It, Confirm; Wave's Reboot Now restarted the phone; folder gone |
+| 08.4 | fail on 3, pass on 4 | see "Found and fixed" below; the alert text is exact |
+| 08.5 | pass (property) | `persist.sys.safemode=1`: every module disabled by Magisk, nothing in `disabled`; no alert; "Turned off"; Turn On remounted it |
+| 08.6 | pass | `svc power reboot` 3 s after boot completed: "shutdown asked for after boot completed; modules kept"; 11 s from the command to adb dropping |
+
+Also seen:
+- `adb reboot` 3 s after boot completed gave `boot-incomplete`, as the
+  risk below says.
+- At post-fs-data the XP3's clock reads about 110,000 s (2 January 1970).
+  So the early half's log lines, `disabled` and the test module's marker
+  carry 1970 times. Wave doesn't show those times, so this only affects
+  the log.
+- Magisk shows a toast, "Wave was granted Superuser rights", each time Wave
+  uses root. That's Magisk's default notification setting.
+- No "Magisk has stopped" crash appeared during the run (`logcat -b crash`
+  was empty).
 
 Record each run's results in `docs/tasks/README.md` under 06 and 08 (see
 "Recording" at the end).
@@ -74,8 +107,8 @@ and `system_server`, and mounting. The cases, all passing:
 **`phone.sh`** runs on the real XP3 as the shell user, only inside
 `/data/local/tmp/wave-sim`, and removes it afterwards. On `8516067e`
 (stock, Android 8.1) all 24 checks passed on 2026-11-19. That run used
-watchdog version 2; version 3 changes only the default poll interval,
-which `phone.sh` sets itself. These parts are
+watchdog version 2. Version 3 changes only the default poll interval,
+which `phone.sh` sets itself, and version 4 adds only `sync`. These parts are
 real:
 - Wave's root scripts under the phone's own `/system/bin/sh` (mksh R55),
   its toybox and its `grep`, against a pretend `/data/adb`;
@@ -85,6 +118,21 @@ real:
 
 `setprop`, `reboot`, `chown` and `magisk` are stubs there that only record
 the call, so nothing can reboot or change the phone.
+
+**Found and fixed on the phone: a crash soon after post-fs-data didn't
+count.** The XP3's `/data` is f2fs. f2fs keeps a rename only once it
+checkpoints, about a minute later, unless something syncs. In 08.4 the boot
+was cut 38 s after `adb reboot` (`echo b > /proc/sysrq-trigger`). The next
+boot came back with `pending` instead of `trying`, and even that boot's log
+line was gone. So the module was tried again instead of being turned off. A
+mod that crashed the phone within a minute would have looped forever, which
+is the case the watchdog exists for. The same cut after a real `sync` turned
+the module off, which showed the logic was right and only durability was
+wrong. Watchdog 4 syncs whenever the early half changes anything, and when
+the late half clears `trying`. With it, the same cut without any sync gives
+`boot-incomplete`. The desktop tests now check that each change is synced
+(`RootTests`, "trial synced"). Neither `sim.py` nor the desktop tests can
+lose writes, which is why this only showed on the phone.
 
 **Found and fixed: a user restart could cost a good mod.** The late half
 looked every five seconds. Android sets `sys.shutdown.requested` only a few
@@ -127,20 +175,19 @@ every second (version 3). Step 08.6 is the check on hardware.
   screen then counts as an incomplete boot for a mod on trial. That's why
   the steps below wait two minutes before such a reboot.
 
-**Still assumptions, only a rooted XP3 can settle them.** These are the
-point of the steps below:
-- Magisk's `su`: the prompt, the remembered grant, and that Wave's scripts
-  run as root in Magisk's SELinux domain and can write `/data/adb` (06.1,
-  06.6);
-- `pm install` and the self-update through root (06.2, 06.8);
-- that the broken module's `setprop ctl.stop zygote` really holds the boot
-  at the animation, and that `sys.boot_completed` stays unset meanwhile
-  (08.1);
-- that `setprop sys.powerctl reboot` from Magisk's context reboots the XP3,
-  and how long its boots take against the five-minute limit (08.1);
-- how long Android takes from `sys.shutdown.requested` to going down
-  (08.6);
-- the safe-mode key on the hardware (08.5).
+**Settled on the phone (see Status).** Magisk's prompt and remembered
+grant; Wave's scripts run as root in `u:r:magisk:s0` and write `/data/adb`;
+`pm` installs and the self-update through root; `ctl.stop zygote` holds the
+boot with `sys.boot_completed` unset; `setprop sys.powerctl reboot` from the
+watchdog reboots the XP3; a boot takes about 53 s, far inside the five
+minutes; a clean restart takes about 11 s to go down, and the watchdog sees
+`sys.shutdown.requested` in time.
+
+**Still open, they need a person at the phone:**
+- the Volume Down key for Magisk's safe mode (08.5 used the property);
+- a real power cut: holding Power or pulling the battery. The run used the
+  kernel's immediate reboot, which loses unsynced writes the same way;
+- the toast "Wave was updated" (06.8) on screen.
 
 ## Before you start
 
@@ -213,6 +260,7 @@ d() { # d ACTION [WAIT_FOR] [SECONDS]: runs a DebugActivity action and prints it
   adb -s $S logcat -d -s WaveDebug | grep WaveDebug | cut -d' ' -f7-
 }
 p() { # p PLAN: runs app/root-tests/build/PLAN.json through EngineService and waits for the result
+  adb -s $S reverse tcp:8765 tcp:8765 >/dev/null  # dropped by every boot
   adb -s $S push app/root-tests/build/$1.json /sdcard/Android/data/com.wave.xp3/files/plan.json >/dev/null &&
   d plan 'finished;\|refused:\|busy\|error:\|no plan' 600
 }
@@ -223,6 +271,10 @@ p() { # p PLAN: runs app/root-tests/build/PLAN.json through EngineService and wa
 - `p <plan>` runs a plan through the same engine the screens use. It prints
   `plan: [...]`, then `finished; succeeded=... reboot=... self=...` and one
   line per item.
+
+The XP3 drops `adb reverse` on every boot, and its adbd restarts once more
+about 20 s after boot completes, which drops it again. `p` puts it back
+each time; without that, a plan fails as "Could not connect."
 
 `--activity-clear-task` matters: without it, a second `am start` only brings
 the old screen to the front, and nothing runs.
@@ -251,8 +303,9 @@ on this phone. If it has, remove it from Magisk > Superuser first.
 - Do: `p apk-install`
   - Expect: `INSTALL com.wave.xp3.testapp: DONE` and `succeeded=true`. Then
     `adb -s $S shell dumpsys package com.wave.xp3.testapp | grep -E
-    'versionName|installerPackageName'` shows `versionName=1.0` and
-    `installerPackageName=null`. Null means `pm` installed it through root.
+    'versionName|installerPackageName'` shows `versionName=1.0`, and
+    `installerPackageName=null` or no such line at all (the XP3 prints
+    none). Null means `pm` installed it through root.
     `com.installer.xp3` would mean it went through Installer, the stock
     path: in that case 06.1 didn't take.
   - Also: `adb -s $S shell run-as com.wave.xp3 cat files/receipts.json`
@@ -282,8 +335,9 @@ plan to install 1.0 over 2.0 is refused as a downgrade.
 
 - Do: `p big-download` in one shell. While it downloads (30 MB, a few
   seconds), run `adb -s $S reverse --remove tcp:8765` in another.
-  - Expect: `FAILED`, with "The download was cut short." or a "couldn't
-    reach" message.
+  - Expect: `FAILED`, with "The download was cut short." or "Could not
+    connect." Cut as soon as `plan:` shows: over `adb reverse` the 30 MB
+    arrive within a second.
   - Also: `run-as com.wave.xp3 ls -l cache/downloads` lists nothing, because
     the engine cleans up when a run ends.
 - Put the reverse back: `adb -s $S reverse tcp:8765 tcp:8765`.
@@ -296,7 +350,8 @@ plan to install 1.0 over 2.0 is refused as a downgrade.
 - Do: `p no-space`
   - Expect: `FAILED (Not enough space: it needs 505 MB.)`. The XP3 has less
     free than that. Nothing is left in the cache.
-- If it downloads instead: the phone has more than 505 MB free. Record the
+- If it downloads instead: the phone has more than 505 MB free, and the
+  plan fails as "The download isn't the size the source gives." Record the
   free space (`adb shell df /data`) and skip this step.
 
 **06.6 A module, and the watchdog put in place.**
@@ -304,8 +359,9 @@ plan to install 1.0 over 2.0 is refused as a downgrade.
 - Do: `p module-install`
   - Expect:
     - `INSTALL wave_test_ok: DONE`, `succeeded=true reboot=true`, and the
-      line `Boot watchdog 3 installed.`;
-    - `d facts` shows `watchdogPfd=3` and `watchdogService=3`;
+      line `Boot watchdog 4 installed.`. The line comes with the first
+      module plan, so if 06.4 already showed it, it's missing here;
+    - `d facts` shows `watchdogPfd=4` and `watchdogService=4`;
     - this command:
       ```sh
       adb -s $S shell su -c 'ls -l /data/adb/post-fs-data.d /data/adb/service.d; cat /data/adb/wave/pending; ls /data/adb/modules_update /data/adb/modules/wave_test_ok'
@@ -376,8 +432,8 @@ plan to install 1.0 over 2.0 is refused as a downgrade.
 
 ## 08: the boot watchdog
 
-Before you start, `d facts` must show `watchdogPfd=3` and
-`watchdogService=3` (from 06.6).
+Before you start, `d facts` must show `watchdogPfd=4` and
+`watchdogService=4` (from 06.6).
 
 **08.1 A broken mod is turned off.** Only the first boot after a mod is
 installed or turned on is judged: Wave lists it in
@@ -446,7 +502,10 @@ installed or turned on is judged: Wave lists it in
 
 - Do: `p module-install` (wave_test_ok, on trial again), then reboot. At the boot
   animation, before the home screen, cut the boot: hold Power until the
-  phone restarts, or take the battery out.
+  phone restarts, or take the battery out. Without hands, cut it as soon as
+  adb answers (within the first minute after the home screen also counts):
+  `adb -s $S wait-for-device; adb -s $S shell su -c 'echo b > /proc/sysrq-trigger'`.
+  Don't sync before the cut: losing unsynced writes is part of the test.
 - Expect: on the next boot, `disabled` has `wave_test_ok	boot-incomplete`,
   and the log has `disabled wave_test_ok (boot-incomplete)`. Wave's alert
   says "With version 1.0: the phone restarted before it finished starting,
@@ -468,22 +527,29 @@ installed or turned on is judged: Wave lists it in
     off", not "boot failed".
   - Menu on its row, then Turn On, then reboot brings it back with a fresh
     `wave_test_ok.mounted`.
+- Without hands: `adb -s $S shell su -c 'setprop persist.sys.safemode 1'`,
+  then `adb -s $S reboot`. Magisk checks that property as well as the key.
+  Android starts in its own safe mode too, with "Safe mode" in the corner
+  and Wave hidden. Reboot once more, normally, before opening Wave.
 - Record which key timing worked. It's the open question in
   `docs/status.md` (Watchdog row).
 
 **08.6 A normal restart doesn't cost a good mod.**
 
-- Do: put wave_test_ok on trial again. Run `p module-remove`, reboot,
-  then `p module-install`, so `/data/adb/wave/pending` lists it. Reboot.
-  As soon as the home screen appears (within the minute), restart from the
-  power menu.
+- Do: put wave_test_ok on trial again: `p module-install` reinstalls it,
+  so `/data/adb/wave/pending` lists it. Reboot. As soon as the home screen
+  appears (within the minute), restart cleanly. The XP3's power menu has
+  only Power off, with no Restart, so use Wave's Reboot Now (after any
+  module change) or its command,
+  `adb -s $S shell su -c 'svc power reboot'`. Don't use `adb reboot`: see
+  the risks above.
 - Expect: the module stays enabled. The log says `service: shutdown asked
   for after boot completed; modules kept`.
 - If it was disabled with `boot-incomplete`: a user restart was taken for a
-  crash. Record it, and how long the phone took from the power menu's
-  Restart to the screen going dark. Watchdog 2 polled every five seconds
-  and missed short shutdowns. Version 3 polls every second, so this
-  shouldn't happen.
+  crash. Record it, and how long the phone took from the restart to the
+  screen going dark (11 s on `8516067e`). Watchdog 2 polled every five
+  seconds and missed short shutdowns. Version 3 and later poll every
+  second, so this shouldn't happen.
 
 ## Clean up
 
@@ -494,6 +560,12 @@ adb -s $S reverse --remove tcp:8765
 adb -s $S shell rm -f /sdcard/Android/data/com.wave.xp3/files/plan.json
 adb -s $S reboot
 ```
+
+Uninstalling Wave leaves its grant in Magisk's table, and Android may give
+that uid to the next app installed. Delete it:
+`adb -s $S shell "su -c \"magisk --sqlite 'DELETE FROM policies WHERE uid=<Wave uid>'\""`
+(the uid is `userId=` in `dumpsys package com.wave.xp3`, taken before
+uninstalling).
 
 Leave the watchdog and `/data/adb/wave` in place: they belong to Wave. To
 take them out too, run

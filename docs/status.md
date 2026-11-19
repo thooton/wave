@@ -1,17 +1,19 @@
 # Status: what works today
 
-As of 2026-11-19. Wave is at 0.7.15 (code 22; `app/app/build.gradle` has the current one). Nothing has been pushed or
+As of 2026-11-19. Wave is at 0.7.19 (code 26; `app/app/build.gradle` has the current one). Nothing has been pushed or
 published: every GitHub step (repo renames, CI runs, Pages, releases, the
 hosted default source) waits on the [owner cutover](tasks/01-owner-checklist.md).
 So "verified" below means on this machine, and on the one reserved phone
-(XP3800 `8516067e`, Android 8.1, **stock and not rooted**). The briefs'
+(XP3800 `8516067e`, Android 8.1, rooted with Magisk 24.0 since 2026-11-19). The briefs'
 progress and the evidence behind each line are in the
 [work notes](tasks/README.md#work-notes).
 
 The short version: the app browses, searches and plans on a real phone, and
 has installed, updated and removed an app from a real (local) source without
-root ([first-install.md](first-install.md)). Nothing that needs root
-has run on a phone. The site works in a browser but isn't hosted. The tools
+root ([first-install.md](first-install.md)). Through root on the rooted
+phone, it has installed apps and mods and updated itself, and the boot
+watchdog has turned off a mod that hung the boot
+([ROOT-TESTING.md](../app/ROOT-TESTING.md)). The site works in a browser but isn't hosted. The tools
 work locally. The packages build. The default source is empty.
 
 ## The app (W `app/`)
@@ -22,8 +24,8 @@ work locally. The packages build. The default source is empty.
 | Sources, index, search ([05](tasks/05-sources-index.md)) | Preview and trust, transactional refresh, sections, merged candidates, search | Host tests; on the phone: adding a source over HTTPS, browsing it, search ([first phone](first-phone.md)); adding, refreshing and removing a `wavesrc`-published source ([first install](first-install.md)) | Only against local sources; the public source has never been fetched, because it isn't hosted. A private source has never been fetched from the phone |
 | Tabs and screens ([07](tasks/07-app-screens.md), open) | Wave, Sources, Installed, Search; details, queue, no-root screen; `app/SPEC.md` | Phone QA (`tools/qa`, debug fixtures) on 0.7.6: tabs, browsing to Confirm, search, Installed, the watchdog alert, a failing source, the reboot dialog and offline Sources all pass; on 0.7.12 the default answers (Later, Cancel) and no stale queue alert ([work notes](tasks/README.md#work-notes)) | 0.7.13 onward have no phone QA report. Not every mockup frame has a phone screenshot yet, which is 07's done-when. Installing over the Updater-derived build isn't rechecked |
 | Install engine ([06](tasks/06-root-install.md)) | Plans with deps and conflicts, resumable download with size and SHA-256, receipts; apps without root go through Installer (`StockApps`); a private source's sign-in sent to its own downloads only (Bearer for its GitHub release assets, Basic on its own host, never past a redirect to another host) | 673 self-tests pass today (`:app:core:selfTest`), including whole plans run through a fake `su` and the sign-in rules against local servers. On the stock phone, from a `wavesrc`-published local HTTPS source: GET, UPDATE, a refused bad hash and Remove of a test app, installed silently through Installer ([first-install.md](first-install.md)) | Against a hosted source (none is published). A real private asset downloaded on a phone (decisions open item 4). Anything through root |
-| Root (06) | Opt-in: `su` opens only on a user action | Host tests; on the phone, the no-root path: mods refused before download, guide shown | Everything rooted. The phone isn't rooted; [ROOT-TESTING.md](../app/ROOT-TESTING.md) section 06 is the procedure |
-| Watchdog ([08](tasks/08-boot-watchdog.md)) | Boot watchdog v2, safe-mode handling, launch dialogs | Pretend boots in host tests (good, hung, restarted, framework restarts, no reboot loop) | No real boot; safe-mode key timing on the XP3 unknown. ROOT-TESTING.md section 08 |
+| Root (06) | Opt-in: `su` opens only on a user action | Host tests; on the phone, the no-root path: mods refused before download, guide shown. On the rooted phone (Magisk 24.0), all of [ROOT-TESTING.md](../app/ROOT-TESTING.md) 06: the su prompt (deny, then grant), `pm` installs and removals through root, modules across reboots, Wave's self-update, root removal from Installed | 06.5 (out of space) can't run on this phone |
+| Watchdog ([08](tasks/08-boot-watchdog.md)) | Boot watchdog v4, safe-mode handling, launch dialogs | Pretend boots in host tests and against Magisk 24.0's own busybox (`app/root-tests/magisk`). On the rooted phone, ROOT-TESTING.md 08: a hung boot rebooted once and the mod turned off, the alert, Turn On, Remove It, a cut boot (watchdog 4), Magisk's safe mode through its property, a clean restart keeping the mod | The safe-mode key and a real battery pull, which need a person at the phone |
 
 ## The site (W `site/`)
 

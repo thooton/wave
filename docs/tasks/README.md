@@ -94,22 +94,34 @@ Four agents can work without touching the same files: one on the app's core
   `tools/sync-common.sh` from `../sonim` at ab210e6 (`common/UPSTREAM`). CI green is **pending**:
   `.github/workflows/build.yml` is written but nothing can be pushed from here.
 
-- **06 (host complete, device pending):** W `bc7f21d`, `9c34668`, `f846c64`, `60f1abd` (Wave 0.6.0).
+- **06 (done on the rooted phone, 2026-11-19, agent 1):** [ROOT-TESTING.md](../../app/ROOT-TESTING.md)
+  06.1 to 06.9 all pass on 8516067e (Magisk 24.0, Wave 0.7.17 debug `ca10e4f`), except 06.5, which
+  this phone can't run (3.3 GB free). Seen: Magisk's prompt, Deny remembered, then Grant; `pm`
+  through root (no uninstall prompt); module install, update and removal across reboots; Wave
+  updated itself through root and reopened; Installed's Remove used root. The per-step table is in
+  ROOT-TESTING.md's Status. Earlier host work: W `bc7f21d`, `9c34668`, `f846c64`, `60f1abd` (Wave 0.6.0).
   `core/root` (scripts, framing, `ProcessShell`, pm/module/facts parsers) and `core/install`
   (`Plan` with deps/conflicts/replaces/downgrades/cycles/requires, resumable `Download` with
   size+SHA-256, `Verify`, `Receipts`, `Engine`); `:app` `RootShell`, `Phone`, `EngineService`,
   `StockApps` (no-root APKs through Installer). Root is opt-in: `su` opens only on a user action;
   the design's "pre-grant" was dropped (decision 16). 470 self-tests, including whole plans run
   end to end through a fake `su` on a pretend `/data/adb`, pass under bash and busybox ash
-  (`WAVE_TEST_SH`). **Pending:** every on-phone check, since the test phone isn't rooted: run
-  [app/ROOT-TESTING.md](../../app/ROOT-TESTING.md) section 06 once `adb shell su -c id` works.
-- **08 (host complete, device pending):** watchdog scripts in
+  (`WAVE_TEST_SH`).
+- **08 (done on the rooted phone, 2026-11-19, agent 1; the safe-mode key is still to try by hand):**
+  08.1 to 08.6 pass on 8516067e. The broken mod held the boot, the watchdog rebooted once at about
+  345 s, and the mod was turned off (403 s from reboot to the second home screen). The alert,
+  Turn On and Remove It work. A boot cut early gives `boot-incomplete`, but only since watchdog 4
+  (Wave 0.7.19): the phone's f2fs lost the unsynced `pending` to `trying` rename on a cut, so the
+  mod was retried and not turned off; the scripts now `sync`. Magisk's safe mode was reached through
+  `persist.sys.safemode`, not the key. A clean restart (`svc power reboot`; the XP3's power menu has
+  only Power off) keeps a mod on trial. `adb reboot` in the first minute doesn't (known risk).
+  Earlier host work: watchdog scripts in
   `app/core/src/main/resources/com/wave/xp3/core/root/`, installed by the engine before the first
   module; tested through pretend boots (good, never-completing, restarted mid-boot, framework
   restarting, clean user restart, no forced-reboot loop). Wave's launch dialogs (`AfterBoot`):
   Remove / Try Again / Leave Off, and safe mode's "every mod is off". Test modules
   `app/root-tests/` (`wave_test_broken` breaks at most one boot, disarmed first).
-  **Pending:** ROOT-TESTING.md section 08 on a rooted phone, including the XP3's safe-mode key timing.
+  **Pending:** the Volume Down key for Magisk's safe mode, and a real power cut (battery out), by hand.
 
 - **11 (local complete):** See [import record](11-import-record.md). All ten dex SHA-256 digests match committed upstream baselines; five unsigned requests preserve stock resources and manifest. Verified launcher/Music link checks. Installable zips require genuine OEM signatures; no signing material is available.
 

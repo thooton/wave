@@ -385,6 +385,30 @@ final class RootTests {
             box.sh(Watchdog.install(), null);
             String early = "sh " + box.file("post-fs-data.d/wave-watchdog.sh").getPath();
             String late = "sh " + box.file("service.d/wave-watchdog.sh").getPath();
+            // Each change reaches the disk before its script ends. The XP3's
+            // f2fs lost an unsynced `trying` when the phone was cut soon after
+            // (seen on 8516067e), so the mod was tried again, not turned off.
+            module(box, "durable");
+            box.sh(Scripts.markPending("durable"), null);
+            box.sh(early, fast);
+            check.ok("trial synced", box.calls().matches("(?s).*sync [^\n]*trying[^\n]*\n?$"));
+            box.prop("sys.boot_completed", "1");
+            box.prop("pid.system_server", "7");
+            box.sh(late, fast);
+            check.ok("settle synced", box.calls().matches("(?s).*sync (?![^\n]*trying)[^\n]*\n?$"));
+            Sandbox.write(box.file("wave/trying"), "durable\n");
+            box.sh(early, fast);
+            check.ok("turned off, synced", box.file("modules_update/durable/disable").exists()
+                && box.calls().matches("(?s).*sync [^\n]*disabled[^\n]*\n?$"));
+            String before = box.calls();
+            box.sh(early, fast);
+            check.same("nothing to do, no sync", before, box.calls());
+        }
+
+        try (Sandbox box = new Sandbox()) {
+            box.sh(Watchdog.install(), null);
+            String early = "sh " + box.file("post-fs-data.d/wave-watchdog.sh").getPath();
+            String late = "sh " + box.file("service.d/wave-watchdog.sh").getPath();
             // The user restarts right after boot completed: not the module's fault.
             module(box, "fine");
             box.sh(Scripts.markPending("fine"), null);

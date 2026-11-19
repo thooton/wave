@@ -1,5 +1,5 @@
 #!/system/bin/sh
-# wave-watchdog: 3
+# wave-watchdog: 4
 #
 # Wave's boot watchdog, late half: /data/adb/service.d/wave-watchdog.sh,
 # installed by the Wave app (com.wave.xp3). See docs/design.md section 5 and
@@ -52,11 +52,13 @@ while :; do
         if [ "$settled" -ge "$SETTLE" ]; then
             rm -f "$W/trying" "$W/forced.last"
             log "boot settled after ${waited}s; modules kept"
+            sync  # else a crash soon after could bring `trying` back (f2fs)
             exit 0
         fi
         if [ -n "$(getprop sys.shutdown.requested)" ]; then
             rm -f "$W/trying" "$W/forced.last"
             log "shutdown asked for after boot completed; modules kept"
+            sync
             exit 0
         fi
     fi

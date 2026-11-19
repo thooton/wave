@@ -1,5 +1,5 @@
 #!/system/bin/sh
-# wave-watchdog: 3
+# wave-watchdog: 4
 #
 # Wave's boot watchdog, early half: /data/adb/post-fs-data.d/wave-watchdog.sh,
 # installed by the Wave app (com.wave.xp3). See docs/design.md section 5.
@@ -18,12 +18,18 @@
 #   log          a short log
 #
 # Must be quick and must never fail the boot: Magisk waits for it.
+#
+# Every change is synced before the script ends. The XP3's /data is f2fs,
+# which keeps a rename only once it checkpoints (about a minute) unless it is
+# synced: a phone that crashed or lost power before then came back with
+# `pending` instead of `trying`, so the module was tried again, not turned off.
 
 ADB=${WAVE_ADB:-/data/adb}
 W=$ADB/wave
 [ -d "$W" ] || exit 0
 
 now=$(date +%s)
+changed=
 log() {
     echo "$now post-fs-data: $*" >> "$W/log"
 }
@@ -63,12 +69,15 @@ if [ -f "$W/trying" ]; then
         log "trying unreadable; dropped"
     fi
     rm -f "$W/trying"
+    changed=1
 fi
 
 if [ -f "$W/pending" ]; then
     mv -f "$W/pending" "$W/trying"
     log "trying $(tr '\n' ' ' < "$W/trying" 2>/dev/null)"
+    changed=1
 fi
+[ -n "$changed" ] && sync
 
 # Keep the log short.
 if [ -f "$W/log" ] && [ "$(wc -l < "$W/log")" -gt 200 ]; then
