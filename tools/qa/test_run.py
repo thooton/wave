@@ -175,6 +175,23 @@ class Safety(unittest.TestCase):
                     with self.assertRaises(run.HarnessError):
                         run.read_scenario(path)
 
+    def test_repeat_is_bounded_and_only_for_direction_keys(self):
+        base = [{'name': 'Launch', 'action': 'launch'}]
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 's.json'
+            for step, ok in (({'name': 'Far', 'key': 'DPAD_DOWN', 'repeat': 600}, True),
+                             ({'name': 'Far', 'key': 'DPAD_DOWN', 'repeat': 601}, False),
+                             ({'name': 'Far', 'key': 'DPAD_DOWN', 'repeat': 0}, False),
+                             ({'name': 'Far', 'key': 'DPAD_DOWN', 'repeat': True}, False),
+                             ({'name': 'Many', 'key': 'BACK', 'repeat': 2}, False),
+                             ({'name': 'Many', 'key': 'ENTER', 'before_text': ['x'], 'repeat': 2}, False)):
+                path.write_text(json.dumps({'name': 'x', 'fixture': 'big', 'steps': base + [step]}), encoding='utf-8')
+                if ok:
+                    run.read_scenario(path)
+                else:
+                    with self.assertRaises(run.HarnessError):
+                        run.read_scenario(path)
+
 
 if __name__ == '__main__':
     unittest.main()

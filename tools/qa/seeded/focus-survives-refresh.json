@@ -1,0 +1,43 @@
+{
+  "name": "Search field and bar link keep the focus while sources refresh and fail (debug build, offline refresh)",
+  "steps": [
+    {
+      "name": "Launch",
+      "action": "launch",
+      "wait_ms": 2000,
+      "text_all": [
+        "Welcome to Wave"
+      ]
+    },
+    {
+      "name": "Right to Sources",
+      "key": "DPAD_RIGHT",
+      "text_any": [
+        "All Sources",
+        "Cannot Load Sources"
+      ]
+    },
+    {
+      "name": "Right to Installed",
+      "key": "DPAD_RIGHT",
+      "changed": true
+    },
+    {
+      "name": "Right to Search, the field has the keys",
+      "key": "DPAD_RIGHT",
+      "text_all": [
+        "Names and descriptions"
+      ],
+      "focus_on": "Names and descriptions"
+    },
+    {
+      "name": "Refresh failures arrive while the field is focused",
+      "action": "capture",
+      "wait_ms": 9000,
+      "text_all": [
+        "Names and descriptions"
+      ],
+      "focus_on": "Names and descriptions"
+    }
+  ]
+}

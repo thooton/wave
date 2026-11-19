@@ -26,14 +26,14 @@ ROOT = HERE.parents[1]
 SERIAL = '8516067e'
 PACKAGE = 'com.wave.xp3'
 ACTIVITIES = {'com.wave.xp3.MainActivity', 'com.wave.xp3.app.WaveActivity'}
-FIXTURES = ('browse', 'reboot', 'errors', 'offline', 'noroot')
+FIXTURES = ('browse', 'reboot', 'errors', 'offline', 'uptodate', 'big', 'noroot')
 FIXTURE_DESCRIPTOR = b'Lcom/wave/xp3/app/FakeWaveData;'
 LOCK = ROOT / '.oak' / 'phone.lock'
 KEYS = {'DPAD_UP', 'DPAD_DOWN', 'DPAD_LEFT', 'DPAD_RIGHT', 'ENTER', 'BACK', 'MENU'}
 REGION = (0, 25, WIDTH, 270)  # Omit status/navigation bars. Override for finer focus checks.
 STEP_FIELDS = {'action', 'key', 'name', 'wait_ms', 'before_text', 'text_all', 'text_any',
                'changed', 'focus_moved', 'region', 'min_diff', 'reference', 'max_diff', 'focus_on', 'text_none',
-               'fixture_confirm'}
+               'fixture_confirm', 'repeat'}
 
 
 class HarnessError(RuntimeError):
@@ -71,6 +71,9 @@ def read_scenario(path):
             if field in step and (not isinstance(step[field], list) or not step[field]
                                   or not all(isinstance(s, str) and s.strip() for s in step[field])):
                 raise HarnessError(f'Step {n + 1}: {field} must be a nonempty array of strings.')
+        if 'repeat' in step and (type(step['repeat']) is not int or not 1 <= step['repeat'] <= 600
+                                 or step.get('key') not in {'DPAD_UP', 'DPAD_DOWN', 'DPAD_LEFT', 'DPAD_RIGHT'}):
+            raise HarnessError(f'Step {n + 1}: repeat is 1 to 600 and only for a d-pad direction key.')
         if 'focus_on' in step and (not isinstance(step['focus_on'], str) or not step['focus_on'].strip()):
             raise HarnessError(f'Step {n + 1}: focus_on must be a nonempty string.')
         if 'fixture_confirm' in step and (step['fixture_confirm'] is not True or 'fixture' not in doc
@@ -384,6 +387,8 @@ def run_steps(device, scenario, output, frames):
     for i, step in enumerate(scenario['steps'], 1):
         action = step.get('key') or step['action']
         frame = {'name': step['name'], 'action': action, 'checks': [], 'status': 'incomplete'}
+        if step.get('repeat', 1) > 1:
+            frame['repeat'] = step['repeat']
         frames.append(frame)
         print(f'{i:02d} {action}: {step["name"]}', flush=True)
         if action != 'launch' and not device.foreground():
@@ -411,7 +416,8 @@ def run_steps(device, scenario, output, frames):
             if not re.search(r'^Status: ok$', reply, re.M):
                 raise CheckFailed('Activity did not report a successful launch.')
         elif action != 'capture':
-            device.call('shell', 'input', 'keyevent', 'KEYCODE_' + action, timeout=8)
+            count = step.get('repeat', 1)
+            device.call('shell', 'input', 'keyevent', *(['KEYCODE_' + action] * count), timeout=8 + count // 4)
         time.sleep(step.get('wait_ms', 350) / 1000)
         if not device.foreground():
             raise CheckFailed('Wave lost foreground. No screenshot of the owner’s other apps was taken.')
@@ -471,7 +477,7 @@ def report(output, title, metadata, frames, notes, status):
         image = (f'<img src="{escape(frame["image"])}" width="240" height="320" alt="XP3800 capture">'
                  if 'image' in frame else '<p>No Wave screen captured.</p>')
         checks = ''.join(f'<li>{escape(line)}</li>' for line in frame['checks'])
-        label = 'launch' if frame['action'] == 'launch' else frame['action']
+        label = 'launch' if frame['action'] == 'launch' else frame['action'] + (f' ×{frame["repeat"]}' if 'repeat' in frame else '')
         cards.append(f'<article><h2>{escape(frame["name"])}</h2><p><code>{escape(label)}</code> '
                      f'{escape(frame["status"])}</p>{image}<ul>{checks}</ul></article>')
     observations = ''.join(f'<li>{escape(note)}</li>' for note in notes)

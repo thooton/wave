@@ -64,7 +64,7 @@ query; this harness deliberately exposes only the listed d-pad/menu keys. No pac
 in these UI scenarios.
 
 Scenario files may also carry `"fixture"` (one of `browse`, `reboot`, `errors`,
-`offline`, `noroot`, `uptodate`) and, with a fixture, `"query"` (letters and digits
+`offline`, `uptodate`, `big`, `noroot`) and, with a fixture, `"query"` (letters and digits
 only, seeds the Search field). `--fixture` and `--fixture-query` override them.
 `suite.py` runs every `07-*.json` that names a fixture, one report each, plus an
 index. Add `--wait-lock SECONDS` to `run.py` to queue for the phone lock instead of
@@ -74,3 +74,9 @@ rejected before any phone access, with the accepted names listed.
 Accessibility caveat: Android reports only what is on screen. A row below the fold
 is not in the hierarchy until focus scrolls it into view, so assert text after the
 key that reveals it.
+
+`repeat` (1 to 600, direction keys only) sends the key that many times in one
+`input keyevent` call, then runs the step's checks once; use it to reach the end of
+the `big` fixture's 500-package lists. `focus_on` checks the focused node's label,
+`text_none` that none of the listed strings is on screen, and `fixture_confirm`
+lets an ENTER step press Confirm, only in a fixture scenario (the queue is pretend).
