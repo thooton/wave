@@ -116,14 +116,18 @@ Four agents can work without touching the same files: one on the app's core
 - **13 (local implementation, remote validation pending):** P `34a553b`, `7279e37`. Workflow passes actionlint; release gate unit tests verify versions, same-version drift and nonempty generated credentials. Clean release smoke built and signature-checked 19 APKs (everything except Charge before its prerequisite was removed), generated the legacy manifest, and published Books plus a synthetic module fixture into a scratch source over HTTPS, passed `wavesrc lint --download`, and confirmed repeat publication left all manifest/icon bytes unchanged. Real GitHub test requires repo cutover, `v1`, source token and an authorized signed mod. Charge's token prerequisite was removed in P `906d109`; the original full 20-APK check passed at that revision (6m28s Gradle, 8m11s complete). `latest` remains; AppDrawer stays for the programmable key. The follow-up retirement of Installer and Updater (`93cd68c`) was verified by an 18-APK build with no retired manifest entries.
 
 - **09 (partial; original done-when remains pending):** Device guide, adb
-  transport, grounded protocol replays, Rescue for already-rooted devices,
-  and local backup verification in `40caab3`; public staging in `7bee2da`.
-  Two independent EDL reads of the test phone's stock `boot` matched SHA-256
-  `489269c42090f3505394cd062cd9d95eed981bbdb837d491faa7803f65979455`.
-  Both copies and `SHA256SUMS` are in the owner's backup directory outside Git.
-  The same JS adb protocol passed auth, `shell_v2`, and push/pull over libusb
-  with an existing authorized key. No partition writes or automatic root
-  grants; the phone booted stock Android again. Browser rooting, boot writes,
-  and byte-for-byte stock restoration have not been performed. See
-  [verification and platform limits](../jailbreak.md#verification).
-- **14 done:** spec `spec/setup-payload.md` with `setup-payload.schema.json` and `setup-descriptor.schema.json` (descriptor fields include `alternatives` and `direct: false` for command-center-only apps). In P: `common/core` `SetupSpec` and `Config` (parse, never echoing values; QR chunks), `common/ui` `Setup` and `SetupActivity` (P `common/SETUP.md`: On this phone only, Import setup file from `Android/data/<pkg>/files`, Choose a file…, Type it in…, Command center…, Sign out; the file is deleted after import). Six apps lost `bundled()` and gained a direct backend behind the same interface as Delta: Places 1.7.0 (e57d0c5, Maps key), Mail 1.5.0 (e353a43, Gmail OAuth refresh token), Charge 1.1.0 (906d109+1efe2e3, Tesla refresh token, no Delta), Authenticator 1.2.0 (c69f4f7, local-only vault), Flashcards 1.14.0 (4da3ea9, local, no sync), Canvas 1.8.0 (d46d965, access token or cookie service, or the Delta relay). Older installs carry their saved login over once. For the site agent: descriptors are `<app>/android/app/src/main/assets/wave-setup.json` in P. All six phone-verified with .wavetest packages (setup screen on first launch, import with the file deleted after, Setup… from the app, Sign out; Authenticator added an account on the phone alone and kept it across a restart; Canvas and Flashcards also took a command center setup). QR scanning stays open (`../decisions.md` open item 1). Flashcards can no longer make a first pairing without a setup (its SPEC open question 3). Flashcards keeps one deck collection, so decks made on the phone alone sync up once a command center is set up. Every shipped app built on common got a patch bump for the shared changes (P 375e34e), along with a review pass of the setup library (P 375e34e, 60ccb2e).
+  transport (native JS, no Tango: no bundler or transitive packages), Rescue for
+  rooted phones and the local Restore verifier are public (`40caab3`, `7bee2da`).
+  **Read-only browser backup over EDL** (Sahara, Firehose, pinned programmer,
+  two reads compared, image plus manifest) is implemented and verified end to
+  end in Chromium on the XP3800, but is **off by default**: build it with
+  `python3 site/scripts/build.py --with-device-backup DIR` (site agent declined
+  to stage an EDL transport). Evidence: two desktop reads and the browser's
+  download all SHA-256 `489269c42090f3505394cd062cd9d95eed981bbdb837d491faa7803f65979455`,
+  copies in `~/Documents/wave-phone-backups/8516067e/` (not in Git); 14 tests
+  pass; the phone returned to stock Android each time. Not done: on-phone
+  patching proof, boot write and byte-for-byte Restore over EDL (the owner
+  approved rooting later, but only the read path was built), automatic root
+  grants, native chooser and rooted Rescue checks, Windows and macOS. The phone
+  is still unrooted, so root-dependent checks in other briefs stay pending.
+  See [jailbreak.md](../jailbreak.md).
