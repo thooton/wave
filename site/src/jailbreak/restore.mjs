@@ -8,7 +8,7 @@ if (globalThis.crypto?.subtle) {
   button.disabled = false;
   status.textContent = 'Choose a backup and, if available, enter the SHA-256 recorded when it was made.';
 }
-for (const id of ['stock', 'expected', 'second']) $(''+id).addEventListener('input', () => {
+for (const id of ['stock', 'expected', 'second']) $(id).addEventListener('input', () => {
   output.hidden = true;
   status.textContent = 'The selection changed. Run the check again.';
   status.removeAttribute('data-error');

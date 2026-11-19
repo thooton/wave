@@ -34,4 +34,3 @@ export function problem(error) {
   if (['SecurityError', 'NetworkError'].includes(error?.name)) return 'The browser could not claim the USB interface. Close other USB tools and check the USB guide.';
   return error?.message || 'The device operation failed.';
 }
-

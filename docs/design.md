@@ -297,6 +297,15 @@ it over EDL, verify, then install the Magisk app and Wave and grant Wave
 root. The user's stock boot image is saved to their computer. Steps, checks
 and the platform caveats are in `jailbreak.md`.
 
+**Implementation status (brief 09):** The site provides a guided device check
+and recovery, adb over WebUSB, module Rescue on already-rooted phones, and
+local stock backup/readback verification. A read-only EDL backup was verified
+using a separate desktop tool; the browser package does not include an EDL
+programmer. Automated boot patching, partition writes, app setup and root
+grants are not implemented. Owners use their own service procedure for any
+boot-image changes and review Magisk prompts on the phone. See `jailbreak.md`
+for hardware and browser validation limits.
+
 The same site hosts the landing page and the QR setup generator (section 8).
 
 ## 7. Publishing: from a push to a phone

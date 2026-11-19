@@ -19,6 +19,11 @@ moving; resolve open questions when the relevant brief has evidence.
    link to the binary. Binaries are downloaded on demand.
 4. **Fetching**: git's smart HTTP protocol in plain Java, shallow.
 5. **Jailbreak**: a WebUSB page in Chrome, Magisk 24.0 over EDL.
+   This is the target, not the current implementation. Brief 09 delivers a
+   read-only diagnostic guide, adb over WebUSB, root-consent-gated module
+   Rescue, and local stock backup/readback verification. EDL reads were
+   verified outside the deployed site; the public build does not include
+   automated patch, flash, or authorization changes. See `jailbreak.md`.
 6. **Root is required.** No unrooted mode. Wave installs through `su`;
    Installer and Updater are retired.
 7. **Mods ship as full patched APKs in a Magisk module zip**, one binary for

@@ -91,3 +91,15 @@ Four agents can work without touching the same files: one on the app's core
 
 - **12 (local complete, device pending):** P commits `34d9eba`, `8a6d346`, `eb0a3bc`, `7279e37`. All three renamed builds and host suites pass from a fresh clone; tray rename and preference fallback have host regression tests. Launcher and Music hooks regenerate from stock tags; Messages' committed hooks renamed by script. No old-mod/device handover test without authorized signed APKs and a recoverable test phone.
 - **13 (local implementation, remote validation pending):** P `34a553b`, `7279e37`. Workflow passes actionlint; release gate unit tests verify versions, same-version drift and nonempty generated credentials. Built and signature-checked Books and AppDrawer, generated the legacy manifest, published Books plus a synthetic module fixture into a scratch source over HTTPS, passed `wavesrc lint --download`, and confirmed repeat publication left all manifest/icon bytes unchanged. Real GitHub test requires repo cutover, `v1`, source token and an authorized signed mod. Full clean APK build also depends on task 14's Charge token-prerequisite removal. `latest` remains; AppDrawer stays for the programmable key.
+
+- **09 (partial; original done-when remains pending):** Device guide, adb
+  transport, grounded protocol replays, Rescue for already-rooted devices,
+  and local backup verification in `40caab3`; public staging in `7bee2da`.
+  Two independent EDL reads of the test phone's stock `boot` matched SHA-256
+  `489269c42090f3505394cd062cd9d95eed981bbdb837d491faa7803f65979455`.
+  Both copies and `SHA256SUMS` are in the owner's backup directory outside Git.
+  The same JS adb protocol passed auth, `shell_v2`, and push/pull over libusb
+  with an existing authorized key. No partition writes or automatic root
+  grants; the phone booted stock Android again. Browser rooting, boot writes,
+  and byte-for-byte stock restoration have not been performed. See
+  [verification and platform limits](../jailbreak.md#verification).
