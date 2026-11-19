@@ -18,7 +18,7 @@
 <noscript><p>JavaScript is required for the USB check. Read the model, Android version and build directly in Settings instead.</p></noscript>
 </section>
 <h2>1. Back up before making changes</h2>
-<p>Back up contacts, messages and other personal data separately. A boot image is not a copy of your files. Charge the phone above 40% and record its serial and full firmware build with your backup.</p>
+<p>Back up contacts, messages and other personal data separately. A boot image is not a copy of your files. Charge the phone to at least 40% and record its serial and full firmware build with your backup.</p>
 <p>Use a trusted service tool to <em>read</em> the GPT and locate the single <code>boot</code> partition by name. Read that partition twice and compare the full 32 MiB copies. A stock XP3800 image starts with <code>ANDROID!</code>. Save both copies offline with their original SHA-256. Never use another phone’s image, even for the same model and carrier.</p>
 <p class="actions"><a href="../restore/#verify">Verify your boot backup</a></p>
 <h2>2. Know what service mode looks like</h2>
@@ -26,9 +26,9 @@
 <h2>3. Patch on the phone, not on a computer</h2>
 <p>The community procedure for the XP3800 uses <a href="https://github.com/topjohnwu/Magisk/tree/v24.0">Magisk 24.0</a> and the stock image from that same phone. PC-side patching can produce an image that shows the Sonim logo and immediately black-screens. Avoid substituting a downloaded boot image or a different Magisk version. No patching or flashing is done by this site.</p>
 <p>If servicing the phone, verify any write byte for byte before restarting. A patched image can be shorter than the partition; compare the bytes actually written. For a stock restore, compare the entire partition. Do not write to <code>/system</code> or try to edit bootloader flags.</p>
-<h2>4. Check Android before installing Wave</h2>
-<p>Wait for Android to finish booting, then check that Magisk reports a working installation. Magisk handles superuser access. Review prompts on the phone and grant only to apps you trust. If the shell is denied after installing Magisk’s app, check its Superuser access setting; denial alone does not mean the boot image is broken.</p>
-<p>Once root works, install a Wave build from <a href="https://github.com/thooton/wave/releases">Wave releases</a> when available, then open it from the launcher. Wave will ask for root. The site does not grant root privileges or change Magisk settings.</p>
+<h2>4. Install Wave and check root only if you need mods</h2>
+<p>After any service work, wait for Android to finish booting. If the phone already uses Magisk, check that its app reports a working installation. A denied Shell request can be a Magisk Superuser access setting rather than a broken boot image.</p>
+<p>Install a Wave build from <a href="https://github.com/thooton/wave/releases">Wave releases</a> when available, then open it from the launcher. Ordinary APKs can use Android’s Installer without root. For system mods on an already-rooted phone, choose <strong>Wave → Root for System Mods → Check Again</strong> and review the Magisk prompt on the phone. The site does not grant root privileges or change Magisk settings.</p>
 <p class="notice">If Android still answers adb but a module broke the launcher, try <a href="../rescue/">Rescue</a>. If Android does not start, use the <a href="../restore/">stock Restore guide</a>.</p>
 <h2>Credits</h2><p>XP3800 community research by anonymousfliphones and flipphoneguy on JTech Forums. <a href="https://github.com/flipphoneguy/root-sonim-xp3800">Community project</a> and <a href="https://github.com/topjohnwu/Magisk/tree/v24.0">Magisk source</a> (GPL-3.0).</p>
 </main><footer><div class="wrap foot"><span>Wave for the Sonim XP3800</span><a href="https://github.com/thooton/wave/issues">Report a problem ↗</a></div></footer></body></html>
