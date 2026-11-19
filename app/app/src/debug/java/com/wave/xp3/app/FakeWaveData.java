@@ -25,7 +25,7 @@ import java.util.Map;
  * - errors: a source that won't refresh, and Launcher Improved turned off.
  * - offline: nothing fetched and no network.
  * - uptodate: as browse, with no updates.
- * - big: as browse, plus Big Source with 500 packages (long lists).
+ * - big: as browse, plus Big Source with 500 packages (long lists) and 3 that can't be read.
  * - noroot: as browse, without root.
  * Getting Mail always fails its check, to show the queue's alert.
  *
@@ -174,7 +174,9 @@ public final class FakeWaveData implements WaveData {
                 refreshing, "errors".equals(fixture) ? "gitlab.com answered 404" : null, false));
         }
         if ("big".equals(fixture)) {
-            sources.add(new Src("bulk", "Big Source", "https://github.com/example/big-source", null, false, "example", now, 500, refreshing, null, false));
+            sources.add(new Src("bulk", "Big Source", "https://github.com/example/big-source", null, false, "example", now, 500, refreshing, null, false,
+                3, Arrays.asList("tools/clock: \"version\" isn't dot-separated numbers", "games/snake: same id as games/snake-97",
+                    "media/radio: package.json is over 64 KB"), Arrays.asList("office/notes: icon.png isn't a PNG")));
         }
         Map<String, Shelf> bySource = new LinkedHashMap<>();
         List<Pkg> featured = Arrays.asList(pkgs.get("messages_improved"), pkgs.get("com.mail.xp3"));
