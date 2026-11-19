@@ -1,7 +1,5 @@
 // XP3800 USB transports. Only the selected vendor-specific bulk interface is claimed.
 export const SONIM_ADB_FILTER = { vendorId: 0x1d9c, classCode: 0xff, subclassCode: 0x42, protocolCode: 1 };
-export const QUALCOMM_EDL_FILTER = { vendorId: 0x05c6, productId: 0x9008 };
-export const QUALCOMM_DUMP_FILTER = { vendorId: 0x05c6, productId: 0x900e };
 
 export function pickDevice(filters) {
   if (!globalThis.isSecureContext || !globalThis.navigator?.usb) {

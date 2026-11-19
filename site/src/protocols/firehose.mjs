@@ -1,5 +1,6 @@
 import { exact } from './webusb.mjs';
-import { checkBootImage, findXp3800Boot, readGptHeader, sectorBytes } from './gpt.mjs';
+import { checkBootImage } from './boot-image.mjs';
+import { findXp3800Boot, readGptHeader, sectorBytes } from './gpt.mjs';
 
 const encoder = new TextEncoder();
 const xml = element => encoder.encode(`<?xml version="1.0" encoding="UTF-8" ?><data>${element}</data>`);

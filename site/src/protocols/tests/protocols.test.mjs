@@ -3,10 +3,12 @@ import { readFileSync } from 'node:fs';
 import { constants, createHash, generateKeyPairSync, publicDecrypt } from 'node:crypto';
 import test from 'node:test';
 import { adbHeader, Adb } from '../adb.mjs';
+import { install, pull, push } from '../adb-sync.mjs';
 import { adbCredential } from '../adb-credential.mjs';
 import { checkProgrammer, saharaExchange } from '../sahara.mjs';
 import { FirehoseBootReader } from '../firehose.mjs';
-import { bootBytes, checkBootImage, findXp3800Boot, readGptHeader } from '../gpt.mjs';
+import { bootBytes, checkBootImage } from '../boot-image.mjs';
+import { findXp3800Boot, readGptHeader } from '../gpt.mjs';
 
 const read = name => JSON.parse(readFileSync(new URL(name, import.meta.url)));
 const b = hex => new Uint8Array(Buffer.from(hex, 'hex'));
@@ -43,8 +45,8 @@ test('XP3800 capture: ADB handshake, shell_v2 status and sync push/pull', async 
   const adb = await Adb.connect(link, { credential: { sign: () => new Uint8Array(256) } });
   assert.deepEqual(await adb.shell('printf wave; printf test >&2; exit 7'), { code: 7, stdout: 'wave', stderr: 'test' });
   const file = '/data/local/tmp/wave-usb-transport-test.txt';
-  await adb.push(file, text('Wave transport\n'), 0);
-  assert.deepEqual(await adb.pull(file), text('Wave transport\n'));
+  await push(adb, file, text('Wave transport\n'), 0);
+  assert.deepEqual(await pull(adb, file), text('Wave transport\n'));
   assert.equal(index, frames.length);
   await adb.close();
   assert.equal(didClose, true);
@@ -67,10 +69,20 @@ test('the ADB AUTH signature encodes a raw SHA-1 digest, not its double hash', (
 test('install checks pm result and removes the staged temporary APK', async () => {
   const calls = [];
   const mock = {
-    async push(path) { calls.push(path); },
+    async runService(name, action) {
+      assert.equal(name, 'sync:');
+      await action({
+        async send(packet) {
+          const data = new TextDecoder().decode(packet);
+          if (data.startsWith('SEND')) calls.push(data.slice(8).split(',')[0]);
+        },
+        async take() { return text('OKAY\0\0\0\0'); },
+        async drain() {},
+      });
+    },
     async shell(command) { calls.push(command); return { code: 1, stdout: 'Failure [not an APK]' }; },
   };
-  await assert.rejects(Adb.prototype.install.call(mock, new Uint8Array(4)), /not an APK/);
+  await assert.rejects(install(mock, new Uint8Array(4)), /not an APK/);
   assert.match(calls[0], /^\/data\/local\/tmp\/wave-install-[0-9a-f-]+\.apk$/);
   assert.equal(calls[1], `pm install -r '${calls[0]}'`);
   assert.equal(calls[2], `rm -f '${calls[0]}'`);

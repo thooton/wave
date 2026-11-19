@@ -8,7 +8,6 @@ const version = 0x01000001;
 const AUTH_TOKEN = 1, AUTH_SIGNATURE = 2, AUTH_RSAPUBLICKEY = 3;
 const empty = new Uint8Array();
 const view = data => new DataView(data.buffer, data.byteOffset, data.byteLength);
-const ascii = data => String.fromCharCode(...data);
 const commandWord = name => view(text.encode(name)).getUint32(0, true);
 const commands = new Map(['CNXN', 'AUTH', 'OPEN', 'OKAY', 'WRTE', 'CLSE'].map(name => [commandWord(name), name]));
 const decode = bytes => new TextDecoder().decode(bytes);
@@ -20,13 +19,6 @@ export function adbHeader(name, arg0, arg1, payload, checksum = true) {
   const command = commandWord(name);
   [command, arg0, arg1, payload.length, checksum ? sum(payload) : 0, command ^ -1]
     .forEach((value, i) => fields.setUint32(i * 4, value, true));
-  return header;
-}
-
-function syncHeader(tag, size) {
-  const header = new Uint8Array(8);
-  header.set(text.encode(tag));
-  view(header).setUint32(4, size, true);
   return header;
 }
 
@@ -179,7 +171,7 @@ export class Adb {
     this.#trace?.('in', command, arg0, arg1, payload);
     return { command, arg0, arg1, payload };
   }
-  async #run(service, use, { announceOpen } = {}) {
+  async runService(service, use, { announceOpen } = {}) {
     if (this.#busy) throw new Error('An ADB operation is already running.');
     this.#busy = true;
     try {
@@ -199,7 +191,7 @@ export class Adb {
   async shell(command, limit = maxOutput) {
     if (!this.features.has('shell_v2')) throw new Error('Phone does not report shell_v2; cannot check the exit status.');
     if (!command || text.encode(command).length > 2048 || command.includes('\0')) throw new Error('Invalid ADB shell command.');
-    return this.#run(`shell,v2,raw:${command}`, async stream => {
+    return this.runService(`shell,v2,raw:${command}`, async stream => {
       let code, total = 0;
       const stdout = new TextDecoder(), stderr = new TextDecoder();
       let out = '', err = '';
@@ -216,76 +208,10 @@ export class Adb {
       return { code, stdout: out + stdout.decode(), stderr: err + stderr.decode() };
     });
   }
-  async #syncStart(stream, mode, path) {
-    if (!path.startsWith('/') || path.includes('\0') || path.includes(',') || text.encode(path).length > 900) throw new Error('Invalid ADB sync path.');
-    const arg = text.encode(mode === 'SEND' ? `${path},33188` : path);
-    const request = new Uint8Array(8 + arg.length);
-    request.set(syncHeader(mode, arg.length));
-    request.set(arg, 8);
-    await stream.send(request);
-  }
-  async #syncReply(stream) {
-    const header = await stream.take(8);
-    const tag = ascii(header.subarray(0, 4)), size = view(header).getUint32(4, true);
-    if (tag === 'FAIL') {
-      if (size > 4096) throw new Error('Invalid ADB sync failure frame.');
-      throw new Error(`ADB sync: ${decode(await stream.take(size))}`);
-    }
-    return { tag, size };
-  }
-  async #syncEnd(stream) {
-    await stream.send(syncHeader('QUIT', 0));
-    await stream.drain();
-  }
-  async push(path, data, seconds = Math.floor(Date.now() / 1000)) {
-    if (!(data instanceof Uint8Array) || data.length > 128 * 1024 ** 2) throw new Error('Unsupported ADB push data or size.');
-    return this.#run('sync:', async stream => {
-      await this.#syncStart(stream, 'SEND', path);
-      for (let offset = 0; offset < data.length; offset += 65536) {
-        const part = data.subarray(offset, offset + 65536);
-        const packet = new Uint8Array(8 + part.length);
-        packet.set(syncHeader('DATA', part.length));
-        packet.set(part, 8);
-        await stream.send(packet);
-      }
-      await stream.send(syncHeader('DONE', seconds));
-      const { tag, size } = await this.#syncReply(stream);
-      if (tag !== 'OKAY' || size !== 0) throw new Error('Unexpected ADB push acknowledgement.');
-      await this.#syncEnd(stream);
-    });
-  }
-  async pull(path, maxBytes = 64 * 1024 ** 2) {
-    return this.#run('sync:', async stream => {
-      const chunks = [];
-      let total = 0;
-      await this.#syncStart(stream, 'RECV', path);
-      while (true) {
-        const { tag, size } = await this.#syncReply(stream);
-        if (tag === 'DONE' && size === 0) break;
-        if (tag !== 'DATA' || size < 1 || size > 65536 || (total += size) > maxBytes) throw new Error('Unexpected or oversized ADB pull data.');
-        chunks.push(await stream.take(size));
-      }
-      await this.#syncEnd(stream);
-      const all = new Uint8Array(total);
-      let offset = 0;
-      for (const chunk of chunks) { all.set(chunk, offset); offset += chunk.length; }
-      return all;
-    });
-  }
-  async install(apk) {
-    const path = `/data/local/tmp/wave-install-${crypto.randomUUID()}.apk`;
-    try {
-      await this.push(path, apk);
-      const result = await this.shell(`pm install -r ${quoteShell(path)}`);
-      if (result.code !== 0 || !result.stdout.trim().endsWith('Success')) throw new Error(result.stderr || result.stdout || 'APK install failed.');
-    } finally {
-      await this.shell(`rm -f ${quoteShell(path)}`).catch(() => {});
-    }
-  }
   async reboot() {
     let opened = false;
     try {
-      await this.#run('reboot:', stream => stream.drain(), { announceOpen: () => { opened = true; } });
+      await this.runService('reboot:', stream => stream.drain(), { announceOpen: () => { opened = true; } });
     } catch (error) {
       if (!opened || error.name !== 'NotFoundError') throw error;
     } finally {

@@ -1,4 +1,4 @@
-import { bootBytes, checkBootImage } from '../protocols/gpt.mjs';
+import { bootBytes, checkBootImage } from '../protocols/boot-image.mjs';
 
 const $ = id => document.getElementById(id);
 const button = $('verify-backup'), status = $('verify-status'), output = $('verification');

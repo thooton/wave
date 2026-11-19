@@ -45,8 +45,9 @@ other partitions. Nothing in this site touches `/system`.
 The site uses native ES modules without npm. A small adb client was chosen
 instead of Tango so the allowlisted static build does not need a bundler or
 transitive packages. It implements USB bulk transport, RSA authorization,
-`shell_v2` with separate stdout/stderr and exit code, SYNC push/pull, APK
-install via Android’s package manager, and Android reboot. A browser-only
+`shell_v2` with separate stdout/stderr and exit code, and Android reboot.
+Development-only ADB SYNC push/pull and APK install via Android’s package
+manager are tested separately and are excluded from the public artifact. A browser-only
 ADB key stays in memory, so don’t select “Always allow” on the debugging
 prompt. The public guide only uses read-only shell checks; the Rescue page
 additionally performs the root operations described above.
@@ -80,6 +81,9 @@ Sahara/Firehose references are bkerler/edl and commaai/qdl.js.
   new RSA authorization prompt were not verified live. APK install was
   tested with a mocked package-manager failure, not on the phone through
   WebUSB.
+- **Chromium, staged Restore page:** checked both 33,554,432-byte backups
+  entirely in the browser, confirmed the known hash and byte-for-byte
+  equality, and verified that the page refuses a different expected hash.
 - **Sahara:** the implementation transferred the pinned programmer on the
   stock device and got the successful handoff response. Verification of the
   Firehose client over live USB is pending. The complete read-only operation
