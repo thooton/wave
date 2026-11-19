@@ -21,6 +21,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -97,7 +98,8 @@ def read(path):
 
 
 def run_as(device, script, data=None, timeout=15):
-    result = subprocess.run(device.prefix + ['shell', 'run-as', run.PACKAGE, 'sh', '-c', script],
+    # adb joins its arguments into one string for the device's shell, so quote the script once more.
+    result = subprocess.run(device.prefix + ['shell', 'run-as', run.PACKAGE, 'sh', '-c', shlex.quote(script)],
                             input=data, capture_output=True, timeout=timeout)
     return result
 
