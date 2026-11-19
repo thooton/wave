@@ -1,69 +1,46 @@
-# AGENTS.md
+# AGENTS.md (the Wave app)
 
-A small, dependency-free Android app for the Sonim XP3 that keeps the other
-apps in this repository up to date from GitHub. A sibling of `../list`,
-`../source` and the rest, under the same constraints: 240x320 mdpi, d-pad
-driven, no AndroidX or third-party libraries, `:core` plain Java
-`--release 8` running on API 27.
+The Wave Android app, `com.wave.xp3`: a package manager for the Sonim XP3
+(240x320 mdpi, d-pad only, Android 8.1 / API 27). Built from the Updater in
+`wave_packages/updater` and, for now (brief 04), still behaves exactly as
+the Updater does: one screen listing the apps in the rolling `latest`
+release of thooton/sonim. Briefs 05 to 08 change where the data comes from
+and add the other tabs, root and the boot watchdog; see `../docs/design.md`
+sections 3 to 5. What the screen does is in `SPEC.md`.
 
-## How it works
+Same constraints as every app in `wave_packages`: no AndroidX or
+third-party libraries in the app or its tests, Java 8 language level,
+nothing above API 27, `:core` plain Java compiled with `--release 8`.
 
-CI publishes every app to the rolling `latest` release of thooton/sonim as
-`<app>.apk`, beside `manifest.json`, which says everything about each app:
-version, package, label, the APK's size and SHA-256, and its newest commits
-(see `../.github/manifest.py` and `../AGENTS.md`; `core/Catalog` reads it).
-On opening, the Updater fetches only that file from
-`https://github.com/thooton/sonim/releases/download/latest/` and lists each
-app as (each request on a connection of its own, at a URL with a query
-never used before, so Check Again sees a release made a moment ago just as
-reopening the app does):
+## Modules
 
-- **Update**: on the phone with an older `versionName` (compared part by
-  part, numbers as numbers: `core/Version`).
-- **Not installed**: no app with that package on the phone.
-- **Up to date**, or **newer than** the release (a hand-installed build).
+- `core` (`:app:core`, `com.wave.xp3.core`): plain Java, tested on a
+  desktop JVM. Today: `Version`, `Catalog` (manifest.json), `Status`,
+  `Notes` (what's new, the App Store's dates), `Releases` (fetch and
+  download over HttpURLConnection). The git client goes in
+  `com.wave.xp3.core.git` (brief 03). Tests are `src/test/java`, run by
+  `com.wave.xp3.SelfTest` with `com.xp3.common.Check` (from
+  `:common:core`'s test fixtures); no test framework.
+- `app` (`:app:app`, `com.wave.xp3`): `MainActivity` (the list, keys, menu,
+  What's New, install queue), `AppAdapter`, `ProgressRing`, `Icons`,
+  `ApkProvider` (serves a downloaded APK to the installer).
+- `../common/`: a copy of `wave_packages/common`. Never edit it here; change
+  it upstream and run `../tools/sync-common.sh` (writes `common/UPSTREAM`).
 
-The screen is drawn as the App Store's Updates page (see "Updater: as the App
-Store shows it" in `../DESIGN.md`): groups Available, Not Installed and
-Installed, each row with its icon, the date of its newest change, an UPDATE,
-OPEN or GET capsule and what's new, all from the manifest. An app whose
-manifest entry has no notes shows its version in place of a date.
-
-OK presses the row's capsule (UPDATE and GET queue the app, OPEN launches
-it, the ring of an app still waiting takes it out of the line). Rows show
-the start of what's new; the whole of it is What's New in the menu. Update All is on the bar, Up from the
-top row. When a check answers (on opening or Check Again) the list goes back
-to its top row, so updates it found are in view rather than below. Menu or holding OK opens the stock context menu beside the app (as
-in List): Update, Get, Open, Reinstall, What's New, Update All and Check
-Again. Chosen apps go one at a time: download to
-`files/apks/<app>.apk`, check it against the manifest's size and SHA-256, check that the APK is the package the release names,
-signed with the phone's copy's key and not older than it, then hand it to
-Installer (`../installer`) through `ApkProvider` with `package` set, so
-Installer refuses any other package. Without Installer it falls back to the
-system installer, which the XP3 refuses for anything not Sonim-signed.
-
-Installer goes after the other apps and the Updater itself last, because
-Android stops an app to replace it. Installer replacing itself never answers,
-so a result with no message is settled by looking at the phone's copy
-(`lastUpdateTime` and `versionName`) a moment later. Back while working only
-sends the task to the back, so a download keeps going.
-
-- `android/core`: `Version`, `Catalog` (manifest.json), `Status`, `Notes`
-  (what's new, and the App Store's dates),
-  `Releases` (fetches and downloads over HttpURLConnection, following
-  GitHub's redirect to its file host). Tests in `src/test` run via
-  `:core:selfTest`, including a download through a local server.
-- `android/app`: `MainActivity` (the list, its keys, the menu, What's New
-  and the install queue), `AppAdapter` (rows), `ProgressRing` (the download
-  ring), `Icons` (rounded app icons), `ApkProvider` (serves a downloaded
-  APK read-only to the installer).
+Installs still go to Installer (`com.installer.xp3`) through its
+signature-only permission, which Wave holds because it is signed with the
+same shared key (`../signing/`). Brief 06 replaces that path with root.
 
 ## Build and validation
 
 ```bash
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :updater:core:selfTest
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :updater:app:assembleRelease
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:core:selfTest :app:app:assembleRelease
 ```
 
+JDK 21 (Gradle 8.9 does not run on newer JDKs). `local.properties` with
+`sdk.dir=` your Android SDK (gitignored). CI (`../.github/workflows/build.yml`)
+runs the same and uploads `wave.apk`.
+
 There are no UI automation tests; key, focus and install changes need manual
-checks on the handset. Bump the version with every change (`../AGENTS.md`).
+checks on the handset (d-pad keyevents over adb, `screencap`). Every change
+bumps `versionName` and `versionCode` in `app/build.gradle`.

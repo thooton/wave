@@ -1,19 +1,15 @@
-# Updater
+# Wave
 
 ## Purpose
 
-Keeps the other apps in this repository (and itself) up to date on the
-user's Sonim XP3, from the rolling `latest` release of thooton/sonim on
-GitHub. The user opens it when they choose, sees what has changed, and
-presses UPDATE or GET with one thumb. Nothing updates by itself: the phone
-only changes when the user asks the Updater to.
-
-It must stay one quick screen: open, see what's new, update, leave. It is
-drawn as the App Store's Updates page, because that is the screen people
-know for this. It reads only `manifest.json` from the release and the APKs
-it names. It must never become a store with search or categories, a
-settings screen, a background service that updates or polls on its own, or
-a client of anything but that release. No libraries, no accounts, no login.
+Wave is the package manager for the Sonim XP3 (see `../docs/design.md`).
+This file says how the app behaves today, and changes with it. At 0.1.0
+(brief 04) Wave is the Updater under a new name: one screen, drawn as the
+App Store's Updates page, listing the apps in the rolling `latest` release
+of thooton/sonim, with UPDATE, GET and OPEN. That screen becomes the
+Installed tab; briefs 05 to 07 change where its data comes from (sources),
+not how it looks. Nothing updates by itself: the phone only changes when
+the user asks.
 
 ## Not wanted
 
@@ -21,16 +17,17 @@ a client of anything but that release. No libraries, no accounts, no login.
   What's New lives in the menu only.
 - Asking the GitHub API for release notes (dropped in 1.3.0); everything
   comes from `manifest.json`. `versions.txt`/`packages.txt` exist only for
-  Updaters older than 1.3.0.
+  Updaters older than 1.3.0, and Wave ignores them.
 - Any text telling the user which key to press, or explaining the screen
-  (DESIGN.md rule 7).
+  (`wave_packages` DESIGN.md rule 7).
 - Caching the release: Check Again must see a release made a minute ago.
 - Using the XP3's own installer as the normal path: it refuses anything not
-  Sonim-signed, so APKs go to Installer (`../installer`).
+  Sonim-signed, so APKs go to Installer (`wave_packages/installer`) until brief 06
+  installs through root.
 
 ## Screens
 
-### The list (the only screen)
+### The list (the only screen until brief 07)
 
 **Bar** (near-white, grey hairline under it): "Updates" centred. On the
 right, **Update All**, shown only while at least one app is in Available
@@ -84,7 +81,7 @@ when it applies):
 
 - **Get**: app not installed, not queued.
 - **Update**: app in Available, not queued.
-- **Open**: app installed, and it isn't the Updater itself.
+- **Open**: app installed, and it isn't Wave itself.
 - **Reinstall**: app up to date or newer, not queued.
 - **What's New**: always.
 - **Update All (n)**: when more than one app is in Available and not queued;
@@ -124,7 +121,7 @@ named no version). Up/Down scroll when it is longer than the screen. OK on
 
 ## Behaviour
 
-**The release.** On opening, the Updater fetches only
+**The release.** On opening, Wave fetches only
 `https://github.com/thooton/sonim/releases/download/latest/manifest.json`.
 Every request uses its own connection and a never-before-used query, so
 Check Again sees a release made seconds ago just as reopening does. Only
@@ -144,7 +141,7 @@ no list shows the message screen; with a list already showing, the list
 stays and a toast says "Couldn't check: <reason>".
 
 **Updating.** Queued apps go one at a time, in the order chosen, except
-that Installer goes after all other apps and the Updater itself last. For
+that Installer goes after all other apps and Wave itself last. For
 each:
 
 1. Download `<app>.apk` into the app's own `files/apks/` (through a
@@ -158,7 +155,7 @@ each:
    release's X is older than the phone's Y.").
 4. Hand it to Installer with `package` set, so Installer refuses any other
    package. Without Installer, fall back to the system installer. Before
-   updating itself, the Updater toasts "The Updater closes to update itself".
+   updating itself, Wave toasts "Wave closes to update itself".
 5. On success, toast "Updated <app> to <v>", "Installed <app> <v>" or
    "Reinstalled <app> <v>"; the row moves to Installed with OPEN.
 
@@ -166,7 +163,7 @@ A failure in steps 1–4 shows an alert titled "<app> wasn't updated" (or
 "wasn't installed" / "wasn't reinstalled") with the reason, and the next
 queued app starts. A cancelled install with no reason is a toast with the
 same title. When Installer gives no answer (as when it replaces itself),
-the Updater looks at the phone's copy about 2.5 s later and counts it a
+Wave looks at the phone's copy about 2.5 s later and counts it a
 success if it now has the release's version. No installer at all: toast
 "No installer on this phone".
 
@@ -185,7 +182,7 @@ user started.
 
 ## Look
 
-DESIGN.md's "Updater: as the App Store shows it" governs, and sets aside
+`wave_packages` DESIGN.md's "Updater: as the App Store shows it" governs, and sets aside
 the family rules where they differ (bold headings, Apple's greys and blue
 `#007AFF`, "Updates" in the bar). In addition: the screen is portrait only,
 and the status bar matches the near-white bar with dark icons.
@@ -195,7 +192,7 @@ and the status bar matches the near-white bar with dark icons.
 1. The downloading ring shows the App Store's stop square, but OK on the
    app that is downloading does nothing; there is no way to cancel a
    download in progress. Should OK there stop it?
-2. The Updater's own row, when up to date, shows OPEN, but OK on it does
+2. Wave's own row, when up to date, shows OPEN, but OK on it does
    nothing (it is already open) and the menu leaves Open out. Should its
    capsule show something else, or nothing?
 3. Update All is on the bar whenever one app has an update, but in the menu

@@ -26,7 +26,7 @@ rules.
 | 01 | [Create and rename the repos](01-repos.md) | all | | [x] |
 | 02 | [wavesrc: lint and publish](02-wavesrc.md) | W | | [ ] |
 | 03 | [The git client](03-git-client.md) | W | 04 | [ ] |
-| 04 | [App foundation from the Updater](04-app-foundation.md) | W | | [ ] |
+| 04 | [App foundation from the Updater](04-app-foundation.md) | W | | [x] |
 | 05 | [Sources, index and search](05-sources-index.md) | W | 03, 04 | [ ] |
 | 06 | [Root and the install engine](06-root-install.md) | W | 04 | [ ] |
 | 07 | [The app's screens](07-app-screens.md) | W | 00, 05, 06 | [ ] |
@@ -67,3 +67,8 @@ Four agents can work without touching the same files: one on the app's core
   `app/app/build/outputs/apk/release/app-release.apk`.
 
 - **01 (local complete, remote blocked):** Verified final local origins in W/P/R, kept active worktrees in place. No authenticated GitHub changes or redirect check; see [owner cutover checklist](01-owner-checklist.md).
+- **04 done** except CI: Wave 0.1.0 (code 1) builds, `:app:core:selfTest` 59 passed; installed by adb
+  on 8516067e beside `com.updater.xp3`, showed the Updater's list (Installed: Authenticator, Books, ...)
+  once Wi-Fi was on, then uninstalled and Wi-Fi turned back off. `common/` copied by
+  `tools/sync-common.sh` from `../sonim` at ab210e6 (`common/UPSTREAM`). CI green is **pending**:
+  `.github/workflows/build.yml` is written but nothing can be pushed from here.
