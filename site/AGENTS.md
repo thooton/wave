@@ -38,4 +38,5 @@ from shipped/tested behavior.
 
 Build with `python3 site/scripts/build.py NEW_OUTPUT_DIRECTORY`. Preview
 with `python3 -m http.server --directory NEW_OUTPUT_DIRECTORY 8000`.
-Tests run with `node --test site/tests/*.test.mjs` (Node 22).
+Tests run with `node --test site/tests/*.test.mjs site/src/protocols/tests/*.test.mjs`
+(Node 22; pass the files, since a bare directory is not run).

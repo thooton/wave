@@ -18,7 +18,7 @@ The checked-in Gradle wrapper uses network access on its first run to fetch
 Gradle and dependencies; no sibling checkout is required to build Wave.
 
 ```sh
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:core:selfTest :app:app:assembleRelease
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:core:selfTest :common:core:selfTest :app:app:assembleRelease
 ```
 
 Set `JAVA_HOME` to your installed JDK 21 path if it differs. The APK is

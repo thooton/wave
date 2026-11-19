@@ -23,7 +23,7 @@ work locally. The packages build. The default source is empty.
 | Git client ([03](tasks/03-git-client.md)) | Git v2 smart HTTP, depth-1 fetch, packs and deltas | Host tests; live fetches from GitHub, GitLab, Codeberg and sourcehut; 1,000 packages in 1 s at a 32 MiB heap | Nothing outstanding |
 | Sources, index, search ([05](tasks/05-sources-index.md)) | Preview and trust, transactional refresh, sections, merged candidates, search | Host tests; on the phone: adding a source over HTTPS, browsing it, search ([first phone](first-phone.md)); adding, refreshing and removing a `wavesrc`-published source ([first install](first-install.md)) | Only against local sources; the public source has never been fetched, because it isn't hosted. A private source has never been fetched from the phone |
 | Tabs and screens ([07](tasks/07-app-screens.md), open) | Wave, Sources, Installed, Search; details, queue, no-root screen; `app/SPEC.md` | Phone QA (`tools/qa`, debug fixtures) on 0.7.6: tabs, browsing to Confirm, search, Installed, the watchdog alert, a failing source, the reboot dialog and offline Sources all pass; on 0.7.12 the default answers (Later, Cancel) and no stale queue alert ([work notes](tasks/README.md#work-notes)) | 0.7.13 onward have no phone QA report. Not every mockup frame has a phone screenshot yet, which is 07's done-when. Installing over the Updater-derived build isn't rechecked |
-| Install engine ([06](tasks/06-root-install.md)) | Plans with deps and conflicts, resumable download with size and SHA-256, receipts; apps without root go through Installer (`StockApps`); a private source's sign-in sent to its own downloads only (Bearer for its GitHub release assets, Basic on its own host, never past a redirect to another host) | 673 self-tests pass today (`:app:core:selfTest`), including whole plans run through a fake `su` and the sign-in rules against local servers. On the stock phone, from a `wavesrc`-published local HTTPS source: GET, UPDATE, a refused bad hash and Remove of a test app, installed silently through Installer ([first-install.md](first-install.md)) | Against a hosted source (none is published). A real private asset downloaded on a phone (decisions open item 4). Anything through root |
+| Install engine ([06](tasks/06-root-install.md)) | Plans with deps and conflicts, resumable download with size and SHA-256, receipts; apps without root go through Installer (`StockApps`); a private source's sign-in sent to its own downloads only (Bearer for its GitHub release assets, Basic on its own host, never past a redirect to another host) | 719 self-tests pass today (`:app:core:selfTest`), including whole plans run through a fake `su` and the sign-in rules against local servers. On the stock phone, from a `wavesrc`-published local HTTPS source: GET, UPDATE, a refused bad hash and Remove of a test app, installed silently through Installer ([first-install.md](first-install.md)) | Against a hosted source (none is published). A real private asset downloaded on a phone (decisions open item 4). Anything through root |
 | Root (06) | Opt-in: `su` opens only on a user action | Host tests; on the phone, the no-root path: mods refused before download, guide shown. On the rooted phone (Magisk 24.0), all of [ROOT-TESTING.md](../app/ROOT-TESTING.md) 06: the su prompt (deny, then grant), `pm` installs and removals through root, modules across reboots, Wave's self-update, root removal from Installed | 06.5 (out of space) can't run on this phone |
 | Watchdog ([08](tasks/08-boot-watchdog.md)) | Boot watchdog v4, safe-mode handling, launch dialogs | Pretend boots in host tests and against Magisk 24.0's own busybox (`app/root-tests/magisk`). On the rooted phone, ROOT-TESTING.md 08: a hung boot rebooted once and the mod turned off, the alert, Turn On, Remove It, a cut boot (watchdog 4), Magisk's safe mode through its property, a clean restart keeping the mod | The safe-mode key and a real battery pull, which need a person at the phone |
 
@@ -31,7 +31,7 @@ work locally. The packages build. The default source is empty.
 
 | Area | Implemented | Verified | Not verified, and why |
 | :--- | :--- | :--- | :--- |
-| Landing ([10](tasks/10-site-pages.md), open) | Landing, USB platform notes, Pages build; no JavaScript, 27 kB | Strict HTML parse, link and size checks; keyboard-only and 240x320 in Chromium; `node --test` 14 pass | Not hosted: Pages must be enabled by the owner |
+| Landing ([10](tasks/10-site-pages.md), open) | Landing, USB platform notes, Pages build; no JavaScript, 27 kB | Strict HTML parse, link and size checks; keyboard-only and 240x320 in Chromium; `node --test site/tests/*.test.mjs site/src/protocols/tests/*.test.mjs` 14 pass | Not hosted: Pages must be enabled by the owner |
 | Setup generator (10) | Setup files for all six apps, made in the browser | Downloads for all six parse in the apps' `Config.parse`; `sync_setup.py --check` agrees with P's descriptors | A generated file imported on the phone. Each app was phone-tested with hand-made files of the same format (brief [14](tasks/14-app-setup-codes.md)) |
 | Guide ([09](tasks/09-site-jailbreak.md), open) | Device guide, Rescue for already-rooted phones, adb over WebUSB | adb protocol over libusb with an authorized key ([jailbreak.md](jailbreak.md#verification)) | Browser rooting, boot writes and restore were never done. The browser's device picker and first RSA prompt weren't seen live. Windows driver binding is open (decisions open item 5) |
 | Backup | Read and check the boot partition over EDL in the browser; **left out of the public build** (`build.py --with-device-backup` adds it) | Headless Chromium on the real phone read all of `boot`, and its SHA-256 matched two desktop EDL reads; the Restore page checks a backup | Linux and Chromium only. Writing it back has not been tried |
@@ -40,9 +40,9 @@ work locally. The packages build. The default source is empty.
 
 | Area | Implemented | Verified | Not verified, and why |
 | :--- | :--- | :--- | :--- |
-| `wavesrc lint`, `publish` ([02](tasks/02-wavesrc.md)) | Standard-library CLI, two composite Actions, [publishing guide](publishing.md) | 25 tests pass today; published the real List APK and retried a concurrent update against a local Git repo | The Actions on GitHub |
-| `wavesrc verify` | Audits asset URLs, size and SHA-256 pins | Its tests (in the 25) | `lint --download` against real remote assets: there are none yet |
-| Phone QA (`tools/qa`) | D-pad scenarios, screenshots, HTML report, the shared phone lock | 7 tests pass; used for the 07 runs above | Nothing outstanding |
+| `wavesrc lint`, `publish` ([02](tasks/02-wavesrc.md)) | Standard-library CLI, two composite Actions, [publishing guide](publishing.md) | 28 tests pass today; published the real List APK and retried a concurrent update against a local Git repo | The Actions on GitHub |
+| `wavesrc verify` | Audits asset URLs, size and SHA-256 pins | Its tests (in the 28) | `lint --download` against real remote assets: there are none yet |
+| Phone QA (`tools/qa`) | D-pad scenarios, screenshots, HTML report, the shared phone lock | 25 host tests pass; used for the 07 runs above | Nothing outstanding |
 
 ## The repos
 
@@ -70,7 +70,7 @@ work locally. The packages build. The default source is empty.
   phones, and waiting on the owner.
 - **Versions.** Every app on common has an unpublished patch bump (P
   `375e34e` and later). Publishing needs the cutover first. W's `common/`
-  copy is synced to P `a361464` (`common/UPSTREAM`).
+  copy is synced to P `d905f90` (`common/UPSTREAM`).
 - **First phone, end to end ([17](tasks/17-first-phone.md)).** Only the
   stock pass ([first-phone.md](first-phone.md)) and an install, update and
   remove cycle from a local source ([first-install.md](first-install.md))
