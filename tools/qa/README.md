@@ -9,6 +9,7 @@ python3 tools/qa/run.py --dry-run
 python3 tools/qa/run.py --apk /path/to/wave.apk --scenario tools/qa/scenarios/07-stock.json
 python3 tools/qa/run.py --apk app/app/build/outputs/apk/debug/app-debug.apk \
   --fixture browse --scenario tools/qa/scenarios/07-browse-preview.json
+python3 tools/qa/suite.py --apk app/app/build/outputs/apk/debug/app-debug.apk   # every fixture scenario
 python3 -m unittest discover -s tools/qa -v   # no device needed
 ```
 
@@ -61,3 +62,15 @@ refuses to run a fixture if the app is not debuggable or lacks `FakeWaveData`.
 Typing a search phrase would require the number keys or a preseeded test
 query; this harness deliberately exposes only the listed d-pad/menu keys. No package installs, source edits, or reboots belong
 in these UI scenarios.
+
+Scenario files may also carry `"fixture"` (one of `browse`, `reboot`, `errors`,
+`offline`, `noroot`, `uptodate`) and, with a fixture, `"query"` (letters and digits
+only, seeds the Search field). `--fixture` and `--fixture-query` override them.
+`suite.py` runs every `07-*.json` that names a fixture, one report each, plus an
+index. Add `--wait-lock SECONDS` to `run.py` to queue for the phone lock instead of
+failing (the suite waits up to 10 minutes per scenario). Unknown key names are
+rejected before any phone access, with the accepted names listed.
+
+Accessibility caveat: Android reports only what is on screen. A row below the fold
+is not in the hierarchy until focus scrolls it into view, so assert text after the
+key that reveals it.

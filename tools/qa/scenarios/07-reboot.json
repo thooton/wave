@@ -1,0 +1,35 @@
+{
+  "name": "Reboot to Finish row and its dialog (07, reboot fixture; the dialog's Reboot is never pressed)",
+  "fixture": "reboot",
+  "steps": [
+    {
+      "name": "Wave Home with a pending reboot",
+      "action": "launch",
+      "wait_ms": 800,
+      "text_all": [
+        "Reboot to Finish",
+        "Messages Improved"
+      ]
+    },
+    {
+      "name": "Open the reboot question",
+      "key": "ENTER",
+      "before_text": [
+        "Reboot to Finish"
+      ],
+      "text_all": [
+        "Reboot Now?",
+        "Later"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Leave it with Back",
+      "key": "BACK",
+      "text_all": [
+        "Reboot to Finish"
+      ],
+      "changed": true
+    }
+  ]
+}

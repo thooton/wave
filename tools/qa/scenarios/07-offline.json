@@ -1,0 +1,33 @@
+{
+  "name": "Offline Sources (07, offline fixture)",
+  "fixture": "offline",
+  "steps": [
+    {
+      "name": "Wave Home offline",
+      "action": "launch",
+      "wait_ms": 800,
+      "text_all": [
+        "Welcome to Wave"
+      ]
+    },
+    {
+      "name": "Sources says why",
+      "key": "DPAD_RIGHT",
+      "text_all": [
+        "Cannot Load Sources",
+        "No network",
+        "Try Again"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Right to Installed",
+      "key": "DPAD_RIGHT",
+      "text_all": [
+        "Installed",
+        "Charge"
+      ],
+      "changed": true
+    }
+  ]
+}

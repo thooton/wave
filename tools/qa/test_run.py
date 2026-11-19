@@ -127,6 +127,28 @@ class Safety(unittest.TestCase):
             for key in run.KEYS:
                 self.assertIn(key, message)
 
+    def test_scenario_fixture_and_query_are_validated(self):
+        steps = [{'name': 'Launch', 'action': 'launch'}]
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 's.json'
+            for extra, ok in (({'fixture': 'browse'}, True), ({'fixture': 'browse', 'query': 'mus'}, True),
+                              ({'fixture': 'nope'}, False), ({'query': 'mus'}, False),
+                              ({'fixture': 'browse', 'query': 'a b'}, False), ({'surprise': 1}, False)):
+                path.write_text(json.dumps({'name': 'x', 'steps': steps, **extra}), encoding='utf-8')
+                if ok:
+                    run.read_scenario(path)
+                else:
+                    with self.assertRaises(run.HarnessError):
+                        run.read_scenario(path)
+
+    def test_lock_wait_times_out_with_the_holder_named(self):
+        with tempfile.TemporaryDirectory() as temp, patch('run.LOCK', Path(temp) / 'phone.lock'):
+            run.LOCK.mkdir()
+            (run.LOCK / 'owner').write_text('someone else\n', encoding='utf-8')
+            with self.assertRaisesRegex(run.HarnessError, 'someone else'):
+                with run.phone_lock(wait=0):
+                    pass
+
 
 if __name__ == '__main__':
     unittest.main()

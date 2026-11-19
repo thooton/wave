@@ -1,10 +1,47 @@
 {
   "name": "Four Wave tabs (07; fixture APK)",
+  "fixture": "browse",
   "steps": [
-    {"name": "Wave Home", "action": "launch", "wait_ms": 2500, "text_all": ["Welcome to Wave"]},
-    {"name": "Sources tab", "key": "DPAD_RIGHT", "text_all": ["All Sources", "Refresh"], "changed": true},
-    {"name": "Installed tab", "key": "DPAD_RIGHT", "text_all": ["Installed"], "changed": true},
-    {"name": "Search tab and its empty field", "key": "DPAD_RIGHT", "text_all": ["Names and descriptions"], "changed": true},
-    {"name": "Return to Installed", "key": "DPAD_LEFT", "text_all": ["Installed"], "changed": true}
+    {
+      "name": "Wave Home",
+      "action": "launch",
+      "wait_ms": 2500,
+      "text_all": [
+        "Welcome to Wave"
+      ]
+    },
+    {
+      "name": "Sources tab",
+      "key": "DPAD_RIGHT",
+      "text_all": [
+        "All Sources",
+        "Refresh"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Installed tab",
+      "key": "DPAD_RIGHT",
+      "text_all": [
+        "Installed"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Search tab and its empty field",
+      "key": "DPAD_RIGHT",
+      "text_all": [
+        "Names and descriptions"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Return to Installed",
+      "key": "DPAD_LEFT",
+      "text_all": [
+        "Installed"
+      ],
+      "changed": true
+    }
   ]
 }

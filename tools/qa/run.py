@@ -45,8 +45,14 @@ class CheckFailed(RuntimeError):
 
 def read_scenario(path):
     doc = json.loads(path.read_text(encoding='utf-8'))
-    if not isinstance(doc, dict) or set(doc) != {'name', 'steps'} or not isinstance(doc['name'], str):
-        raise HarnessError('Scenario needs a name and steps array.')
+    if (not isinstance(doc, dict) or not {'name', 'steps'} <= set(doc) <= {'name', 'steps', 'fixture', 'query'}
+            or not isinstance(doc['name'], str)):
+        raise HarnessError('Scenario needs a name and steps array, and may add fixture and query.')
+    if 'fixture' in doc and doc['fixture'] not in FIXTURES:
+        raise HarnessError('Scenario fixture must be one of: ' + ', '.join(FIXTURES) + '.')
+    if 'query' in doc and (not isinstance(doc['query'], str) or 'fixture' not in doc
+                           or not re.fullmatch('[a-zA-Z0-9]{1,24}', doc['query'])):
+        raise HarnessError('Scenario query needs a fixture and at most 24 letters or digits.')
     steps = doc['steps']
     if not isinstance(steps, list) or not 1 <= len(steps) <= 60:
         raise HarnessError('A scenario needs 1 to 60 steps.')
@@ -137,16 +143,21 @@ def inspect_apk(path, fixture):
 
 
 @contextmanager
-def phone_lock():
+def phone_lock(wait=0):
     LOCK.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        LOCK.mkdir()
-    except FileExistsError as e:
+    deadline = time.monotonic() + wait
+    while True:
         try:
-            holder = (LOCK / 'owner').read_text(encoding='utf-8').strip()
-        except OSError:
-            holder = '(owner unavailable)'
-        raise HarnessError(f'Phone reserved by {holder}. Retry when released.') from e
+            LOCK.mkdir()
+            break
+        except FileExistsError as e:
+            if time.monotonic() >= deadline:
+                try:
+                    holder = (LOCK / 'owner').read_text(encoding='utf-8').strip()
+                except OSError:
+                    holder = '(owner unavailable)'
+                raise HarnessError(f'Phone reserved by {holder}. Retry when released.') from e
+            time.sleep(5)
     owner = LOCK / 'owner'
     token = f'wave-qa pid={os.getpid()} {uuid.uuid4().hex}'
     try:
@@ -387,8 +398,8 @@ def run_steps(device, scenario, output, frames):
         previous = current
 
 
-def device_run(device, apk, scenario, output, frames, notes):
-    with phone_lock():
+def device_run(device, apk, scenario, output, frames, notes, wait=0):
+    with phone_lock(wait):
         device.check_device()
         if device.present():
             raise HarnessError('Wave is already installed. The harness never replaces an existing install.')
@@ -459,12 +470,16 @@ def main():
     choice.add_argument('--scenario', type=Path, help='run a reviewed local JSON scenario')
     parser.add_argument('--fixture', choices=FIXTURES, help='use mock data in a debug-only WaveActivity build')
     parser.add_argument('--fixture-query', help='preload a synthetic Search query (debug fixture only)')
+    parser.add_argument('--wait-lock', type=int, default=0, metavar='SECONDS',
+                        help='wait this long for another agent to release the phone lock (default: fail at once)')
     parser.add_argument('--out', type=Path, help='new report folder (default .oak/tmp/wave-qa/<UTC>_<id>)')
     args = parser.parse_args()
     if args.fixture and not args.scenario:
         parser.error('--fixture requires an explicit --scenario')
-    if args.fixture_query and (not args.fixture or not re.fullmatch('[a-zA-Z0-9]{1,24}', args.fixture_query)):
-        parser.error('--fixture-query requires --fixture and at most 24 letters/digits')
+    if args.fixture_query and not re.fullmatch('[a-zA-Z0-9]{1,24}', args.fixture_query):
+        parser.error('--fixture-query takes at most 24 letters/digits')
+    if not 0 <= args.wait_lock <= 3600:
+        parser.error('--wait-lock must be 0 to 3600 seconds')
     path = args.scenario.resolve() if args.scenario else None
     run_id = f'{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}_{uuid.uuid4().hex[:8]}'
     output = (args.out or ROOT / '.oak/tmp/wave-qa' / run_id).resolve()
@@ -477,21 +492,26 @@ def main():
         adb = shutil.which('adb')
         if not adb:
             raise HarnessError('adb not found on PATH.')
+        scenario = read_scenario(path) if path else None
+        fixture = args.fixture or (scenario or {}).get('fixture')
+        query = args.fixture_query or (scenario or {}).get('query')
+        if query and not fixture:
+            raise HarnessError('A seeded query needs a debug fixture.')
         # A sibling build can replace Gradle's artifact while a run is in flight.
         # Inspect and install the same private snapshot; never retain it in the report.
         with tempfile.TemporaryDirectory(prefix='apk-', dir=output) as temp:
             apk = Path(temp) / 'wave.apk'
             shutil.copyfile(args.apk.resolve(strict=True), apk)
-            metadata, activity = inspect_apk(apk, args.fixture)
-            if path is None:
+            metadata, activity = inspect_apk(apk, fixture)
+            if scenario is None:
                 path = HERE / 'scenarios' / ('07-launch.json' if activity.endswith('.WaveActivity') else 'foundation-smoke.json')
-            scenario = read_scenario(path)
+                scenario = read_scenario(path)
             title = scenario['name']
-            if args.fixture:
-                metadata += f', debug fixture {args.fixture}'
-            if args.fixture_query:
-                metadata += ', seeded search query ' + args.fixture_query
-            device_run(Device(adb, activity, args.fixture, args.fixture_query), apk, scenario, output, frames, notes)
+            if fixture:
+                metadata += f', debug fixture {fixture}'
+            if query:
+                metadata += ', seeded search query ' + query
+            device_run(Device(adb, activity, fixture, query), apk, scenario, output, frames, notes, args.wait_lock)
     except CheckFailed as e:
         status = 'FAIL'
         notes.append(str(e))
