@@ -1,0 +1,6 @@
+id=wave_test_ok
+name=Wave Test OK
+version=VERSION
+versionCode=CODE
+author=wave
+description=Harmless test module for Wave's install engine and boot watchdog. Changes nothing; leaves a marker in /data/adb when Magisk mounts it.

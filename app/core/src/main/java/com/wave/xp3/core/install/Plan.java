@@ -63,6 +63,8 @@ public final class Plan {
         public int minSdk;
         /** Devices it runs on (ro.product.device or model); empty for any. */
         public final List<String> devices = new ArrayList<>();
+        /** The source it comes from, for its receipt; null to use the engine's. */
+        public String source;
 
         public Package(String id, Kind kind, String name, String version, String url, long size, String sha256) {
             this.id = id;

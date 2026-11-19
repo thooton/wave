@@ -531,6 +531,7 @@ final class InstallTests {
             lib.replaces.add("old_mod");
             Plan.Package app = serve(server, "com.a.xp3", Plan.Kind.APK, "1.0", apk("com.a.xp3", "1.0", 3));
             app.depends.add(new Plan.Dep("lib", null));
+            lib.source = "https://example.com/other";
             Plan.Package wave = serve(server, "com.wave.xp3", Plan.Kind.APK, "0.2.0", apk("com.wave.xp3", "0.2.0", 2));
             Plan.Package gone = pkg("com.gone.xp3", Plan.Kind.APK, "1");
 
@@ -586,6 +587,7 @@ final class InstallTests {
             check.same("app receipt", "1.0", after.get("com.a.xp3").version);
             check.same("app source", "https://example.com/source", after.get("com.a.xp3").source);
             check.same("module receipt", Plan.Kind.MODULE, after.get("lib").kind);
+            check.same("package's own source", "https://example.com/other", after.get("lib").source);
             check.same("replaced forgotten", null, after.get("old_mod"));
 
             // Wave's own update ran detached; it finishes and starts Wave again.

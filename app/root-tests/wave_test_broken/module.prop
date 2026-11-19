@@ -1,0 +1,6 @@
+id=wave_test_broken
+name=Wave Test Broken
+version=VERSION
+versionCode=CODE
+author=wave
+description=Deliberately stops one boot from completing, to test Wave's boot watchdog. Does nothing unless /data/adb/wave_test_broken.armed exists, and disarms itself first.

@@ -108,7 +108,8 @@ public final class Engine {
     private volatile String watchdogNote;
 
     /**
-     * `source` is recorded in the receipts (null when unknown); `self` is
+     * `source` is recorded in the receipts of packages whose own
+     * {@link Plan.Package#source} is null (null when unknown); `self` is
      * Wave's own package name.
      */
     public Engine(Plan plan, Shell shell, Platform platform, Receipts receipts, Listener listener, String source,
@@ -317,14 +318,14 @@ public final class Engine {
                 } catch (IOException ignored) {
                     // Left to Android's own background compile.
                 }
-                receipts.record(new Receipts.Receipt(s.id, s.kind, p.version, source, p.sha256,
+                receipts.record(new Receipts.Receipt(s.id, s.kind, p.version, p.source != null ? p.source : source, p.sha256,
                     System.currentTimeMillis()));
             } else {
                 Shell.Result r = shell.run(Scripts.installModule(file.getAbsolutePath(), s.id), INSTALL_MS);
                 if (!r.ok()) return fail(item, moduleFailure(r.output));
                 rebootNeeded = true;
                 item.message = "Takes effect when the phone restarts.";
-                receipts.record(new Receipts.Receipt(s.id, s.kind, p.version, source, p.sha256,
+                receipts.record(new Receipts.Receipt(s.id, s.kind, p.version, p.source != null ? p.source : source, p.sha256,
                     System.currentTimeMillis()));
             }
             item.phase = Phase.DONE;

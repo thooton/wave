@@ -23,8 +23,10 @@ import java.util.stream.Stream;
  * under `props/` and count ticks so a test can script a boot. Every fake
  * appends what it was asked to `calls`.
  *
- * Runs the scripts with the host's /bin/sh (dash on CI, like the busybox ash
- * Magisk uses: POSIX, not bash).
+ * Runs the scripts with the host's /bin/sh (dash on CI: POSIX, not bash), or
+ * with WAVE_TEST_SH when set, such as "/path/to/busybox ash", the shell
+ * Magisk runs boot scripts with. A `sh` in `bin` stands for it, so scripts
+ * that start `sh` themselves get it too.
  */
 final class Sandbox implements AutoCloseable {
 
@@ -67,7 +69,9 @@ final class Sandbox implements AutoCloseable {
     }
 
     private void fakes() throws IOException {
-        fake("su", "exec /bin/sh");
+        String shell = System.getenv("WAVE_TEST_SH");
+        fake("sh", "exec " + (shell == null || shell.isEmpty() ? "/bin/sh" : shell) + " \"$@\"");
+        fake("su", "exec \"$(dirname \"$0\")/sh\"");
         fake("id", "echo \"id $*\" >> \"$FAKE_LOG\"\n"
             + "if [ -f \"$FAKE/deny\" ]; then echo 'uid=2000(shell) gid=2000(shell)'; else echo 'uid=0(root) gid=0(root) context=u:r:magisk:s0'; fi");
         fake("pm", "echo \"pm $*\" >> \"$FAKE_LOG\"\n"
@@ -165,7 +169,7 @@ final class Sandbox implements AutoCloseable {
     Ran sh(String script, Map<String, String> extra) throws IOException, InterruptedException {
         File f = new File(root, "script-" + System.nanoTime() + ".sh");
         write(f, script);
-        ProcessBuilder b = new ProcessBuilder("/bin/sh", f.getAbsolutePath()).redirectErrorStream(true);
+        ProcessBuilder b = new ProcessBuilder(new File(bin, "sh").getAbsolutePath(), f.getAbsolutePath()).redirectErrorStream(true);
         b.environment().putAll(env());
         if (extra != null) b.environment().putAll(extra);
         Process p = b.start();
