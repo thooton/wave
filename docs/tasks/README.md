@@ -28,9 +28,9 @@ rules.
 | 03 | [The git client](03-git-client.md) | W | 04 | [x] |
 | 04 | [App foundation from the Updater](04-app-foundation.md) | W | | [x] |
 | 05 | [Sources, index and search](05-sources-index.md) | W | 03, 04 | [x] |
-| 06 | [Root and the install engine](06-root-install.md) | W | 04 | [ ] |
+| 06 | [Root and the install engine](06-root-install.md) | W | 04 | [x] |
 | 07 | [The app's screens](07-app-screens.md) | W | 00, 05, 06 | [ ] |
-| 08 | [The boot watchdog](08-boot-watchdog.md) | W | 06 | [ ] |
+| 08 | [The boot watchdog](08-boot-watchdog.md) | W | 06 | [x] |
 | 09 | [The jailbreak page](09-site-jailbreak.md) | W | | [ ] |
 | 10 | [Landing page and setup-code generator](10-site-pages.md) | W | 14 for the generator | [ ] |
 | 11 | [Import the mods into wave_packages](11-mods-import.md) | P | 01 | [x] |
@@ -82,6 +82,23 @@ Four agents can work without touching the same files: one on the app's core
   once Wi-Fi was on, then uninstalled and Wi-Fi turned back off. `common/` copied by
   `tools/sync-common.sh` from `../sonim` at ab210e6 (`common/UPSTREAM`). CI green is **pending**:
   `.github/workflows/build.yml` is written but nothing can be pushed from here.
+
+- **06 (host complete, device pending):** W `bc7f21d`, `9c34668`, `f846c64`, `60f1abd` (Wave 0.6.0).
+  `core/root` (scripts, framing, `ProcessShell`, pm/module/facts parsers) and `core/install`
+  (`Plan` with deps/conflicts/replaces/downgrades/cycles/requires, resumable `Download` with
+  size+SHA-256, `Verify`, `Receipts`, `Engine`); `:app` `RootShell`, `Phone`, `EngineService`,
+  `StockApps` (no-root APKs through Installer). Root is opt-in: `su` opens only on a user action;
+  the design's "pre-grant" was dropped (decision 16). 470 self-tests, including whole plans run
+  end to end through a fake `su` on a pretend `/data/adb`, pass under bash and busybox ash
+  (`WAVE_TEST_SH`). **Pending:** every on-phone check, since the test phone isn't rooted: run
+  [app/ROOT-TESTING.md](../../app/ROOT-TESTING.md) section 06 once `adb shell su -c id` works.
+- **08 (host complete, device pending):** watchdog scripts in
+  `app/core/src/main/resources/com/wave/xp3/core/root/`, installed by the engine before the first
+  module; tested through pretend boots (good, never-completing, restarted mid-boot, framework
+  restarting, clean user restart, no forced-reboot loop). Wave's launch dialogs (`AfterBoot`):
+  Remove / Try Again / Leave Off, and safe mode's "every mod is off". Test modules
+  `app/root-tests/` (`wave_test_broken` breaks at most one boot, disarmed first).
+  **Pending:** ROOT-TESTING.md section 08 on a rooted phone, including the XP3's safe-mode key timing.
 
 - **11 (local complete):** See [import record](11-import-record.md). All ten dex SHA-256 digests match committed upstream baselines; five unsigned requests preserve stock resources and manifest. Verified launcher/Music link checks. Installable zips require genuine OEM signatures; no signing material is available.
 
