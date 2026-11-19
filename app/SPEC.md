@@ -218,13 +218,16 @@ The Installed tab includes APKs found through a known package ID, Wave itself,
 and still-installed packages with Wave receipts, even if their source has
 been removed. The phone decides if a package is installed. Pending module
 changes and watchdog-disabled modules are read from the existing Magisk
-state; acknowledgment does not enable a module. An unavailable root shell
-leaves the app in the no-root state; Wave never grants itself root.
+state; acknowledgment does not enable a module. Root is opt-in. Wave does
+not open an unapproved `su` shell at startup and can browse sources without
+root.
 
 A queue preview is made from the current index and installed inventory. An
 incompatible winner cannot be used as a dependency or action target. Confirm
 accepts only the latest preview from the current index and sends it to
-`EngineService`, which owns progress independently of the open screen.
+`EngineService`, which owns progress independently of the open screen. APK
+plans also work through the Android Installer on stock; plans to change a
+Magisk module require approved root.
 
 ## Look
 

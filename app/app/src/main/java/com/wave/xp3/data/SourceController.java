@@ -125,7 +125,7 @@ public final class SourceController implements WaveData {
         state.free = Formatter.formatFileSize(context, new StatFs(context.getFilesDir().getPath()).getAvailableBytes());
         boolean granted = false;
         String label = "Not available";
-        if (explicit || RootShell.known(context) || availableSu()) {
+        if (explicit || RootShell.known(context)) {
             try {
                 // This only checks permission. Obtaining root remains the user's choice in their root manager.
                 Shell.Result result = root(Scripts.whoami());
@@ -174,18 +174,11 @@ public final class SourceController implements WaveData {
             inventory = state; catalog = model; shown = currentIndex;
             if (shown != null && shown.sources().stream().anyMatch(s -> s.manifest != null)) firstLoadError = null;
             render();
-            if (haveRoot && store != null && !startedRefresh) {
+            if (store != null && !startedRefresh) {
                 startedRefresh = true;
                 refreshAll();
             }
         });
-    }
-
-    private static boolean availableSu() {
-        // A stock phone has no su. PATH may include a provisioned root manager on a development phone.
-        String path = System.getenv("PATH");
-        if (path != null) for (String dir : path.split(":")) if (!dir.isEmpty() && new File(dir, "su").canExecute()) return true;
-        return false;
     }
 
     private static final class Inventory {
@@ -265,14 +258,16 @@ public final class SourceController implements WaveData {
         CatalogModel model = catalog;
         Inventory here = inventory;
         List<String> wanted = new ArrayList<>(ids);
-        if (root != Root.OK || source == null || model == null) { callback.failed("Wave needs root before installing packages"); return; }
-        request(worker, () -> makePlan(wanted, action, source, model, here), new Result<PlanView>() {
+        if (source == null || model == null) { callback.failed("The Wave package list isn't ready yet"); return; }
+        boolean rootGranted = root == Root.OK;
+        request(worker, () -> makePlan(wanted, action, source, model, here, rootGranted), new Result<PlanView>() {
             @Override public void ok(PlanView value) { proposed = (Pending) value.token; callback.ok(value); }
             @Override public void failed(String reason) { callback.failed(reason); }
         });
     }
 
-    private PlanView makePlan(List<String> ids, Action action, Index index, CatalogModel model, Inventory here) throws Plan.Refused {
+    private PlanView makePlan(List<String> ids, Action action, Index index, CatalogModel model, Inventory here,
+                              boolean rootGranted) throws Plan.Refused {
         Map<String, Plan.Package> offerings = new LinkedHashMap<>();
         for (Index.Entry entry : index.all()) {
             if (Compat.of(entry, compatibility).fits) {
@@ -298,6 +293,7 @@ public final class SourceController implements WaveData {
             installed.put(mod.id, new Plan.Installed(mod.id, Plan.Kind.MODULE, mod.version, mod.state == Modules.State.PENDING_REMOVAL));
         }
         Plan plan = Plan.make(requests, offerings, installed, Phone.device(), context.getPackageName());
+        if (plan.needsReboot() && !rootGranted) throw new Plan.Refused("System mods need root access in Wave");
         List<PlanItem> items = new ArrayList<>();
         long bytes = 0;
         for (Plan.Step step : plan.steps) {
@@ -312,8 +308,10 @@ public final class SourceController implements WaveData {
     @Override public void confirm(PlanView preview) {
         Pending pending = proposed;
         proposed = null;
-        if (closed || preview == null || pending == null || pending != preview.token || root != Root.OK || shown != pending.index) {
+        if (closed || preview == null || pending == null || pending != preview.token || shown != pending.index) {
             actionError = "The package list changed. Review the plan again.";
+        } else if (pending.plan.needsReboot() && root != Root.OK) {
+            actionError = "System mods need root access in Wave";
         } else if (!EngineService.start(context, pending.plan, null)) {
             actionError = "Wave is already installing a plan";
         } else {
