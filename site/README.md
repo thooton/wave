@@ -5,7 +5,9 @@ It has no server-side component. `site/AGENTS.md` describes its layout,
 local preview and tests. Pages must be enabled with **GitHub Actions** as the
 source; no deployment is needed for a local preview.
 
-## Release checks
+Run these commands from the repository root with Node 22 and Python 3.
+Output must be a new directory. Neither the site build nor the tests require
+an npm install or sibling checkout.
 
 ```sh
 node --test site/tests/*.test.mjs site/src/protocols/tests/*.test.mjs

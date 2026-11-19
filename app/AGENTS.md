@@ -2,11 +2,9 @@
 
 The Wave Android app, `com.wave.xp3`: a package manager for the Sonim XP3
 (240x320 mdpi, d-pad only, Android 8.1 / API 27). Built from the Updater in
-`wave_packages/updater` and, for now (brief 04), still behaves exactly as
-the Updater does: one screen listing the apps in the rolling `latest`
-release of thooton/sonim. Briefs 05 to 08 change where the data comes from
-and add the other tabs, root and the boot watchdog; see `../docs/design.md`
-sections 3 to 5. What the screen does is in `SPEC.md`.
+`wave_packages/updater`; its four tabs now use the Git source index and
+install plans. See [SPEC.md](SPEC.md) and [design](../docs/design.md) sections
+3–5 for source, install and watchdog behavior.
 
 Same constraints as every app in `wave_packages`: no AndroidX or
 third-party libraries in the app or its tests, Java 8 language level,
@@ -29,9 +27,10 @@ nothing above API 27, `:core` plain Java compiled with `--release 8`.
   Tests are `src/test/java`, run by
   `com.wave.xp3.SelfTest` with `com.xp3.common.Check` (from
   `:common:core`'s test fixtures); no test framework.
-- `app` (`:app:app`, `com.wave.xp3`): `MainActivity` (the list, keys, menu,
-  What's New, install queue), `AppAdapter`, `ProgressRing`, `Icons`,
-  `ApkProvider` (serves a downloaded APK to the installer); `RootShell`,
+- `app` (`:app:app`, `com.wave.xp3`): launcher `app.WaveActivity` and its
+  d-pad screens, plus `data.SourceController` for the catalog and plans.
+  `MainActivity` is the legacy Updater screen, no longer on the launcher.
+  `ApkProvider` serves a downloaded APK to the installer. `RootShell`,
   `Phone` (what's installed; the engine's platform), `EngineService` (runs
   a plan in the foreground), `StockApps` (apps through Installer without
   root), `AfterBoot` (self-update result and watchdog notices on launch).
@@ -51,10 +50,12 @@ permission, which Wave holds because it is signed with the same shared key
 JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:core:selfTest :app:app:assembleRelease
 ```
 
-JDK 21 (Gradle 8.9 does not run on newer JDKs). `local.properties` with
-`sdk.dir=` your Android SDK (gitignored). CI (`../.github/workflows/build.yml`)
-runs the same and uploads `wave.apk`.
+Run from the repository root with JDK 21 (Gradle 8.9 does not run on newer
+JDKs) and the Android SDK's platform 35 and Build Tools 35.0.1. Set
+`ANDROID_HOME` or use an ignored root `local.properties` with
+`sdk.dir=/path/to/android-sdk`. CI (`../.github/workflows/build.yml`) runs the
+same checks and uploads `wave.apk`.
 
-There are no UI automation tests; key, focus and install changes need manual
-checks on the handset (d-pad keyevents over adb, `screencap`). Every change
-bumps `versionName` and `versionCode` in `app/build.gradle`.
+Use [the handset QA harness](../tools/qa/README.md) for d-pad/focus checks on a
+reserved phone. Every app change bumps `versionName` and `versionCode` in
+`app/app/build.gradle` (relative to the repository root).

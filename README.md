@@ -1,28 +1,46 @@
 # Wave
 
-A package manager and modding framework for the Sonim XP3800 flip phone, in
-the spirit of Cydia. Jailbreak the phone from a web page, and Wave appears on
-the launcher: add sources, browse and search them, install apps and system
-mods, and keep them up to date.
+Wave is a Cydia-style package manager for the Sonim XP3800 flip phone. Browse
+and search Git sources, inspect package details, and plan installs and updates.
+System mods require a rooted phone and explicit approval in Magisk. The web
+[device guide](docs/jailbreak.md) does not root the phone for you.
 
-Status: design and scaffold. Nothing here runs yet.
+The app and site build locally. See the [first phone record](docs/first-phone.md)
+for what ran on stock hardware and the [owner checklist](docs/tasks/01-owner-checklist.md)
+for pending GitHub setup.
 
-- [The design](docs/design.md)
-- [The source format](docs/source-format.md): how to publish packages for Wave
-- [The jailbreak](docs/jailbreak.md)
-- [Decisions and open questions](docs/decisions.md)
-- [The work, as briefs](docs/tasks/README.md)
+## Build and test
 
-| Folder | What |
-| :--- | :--- |
-| `app/` | The Wave Android app |
-| `common/` | Shared Android code, copied from `wave_packages` |
-| `site/` | The website: landing page, jailbreak, setup-code generator |
-| `spec/` | JSON Schemas for the source format and an example source |
-| `tools/` | `wavesrc`: checks a source and publishes packages into one |
-| `docs/` | Design, specs, briefs |
+Run from this repository's root. The app needs JDK 21 and the Android SDK
+with platform 35 and build-tools 35.0.1. Set `ANDROID_HOME` to your SDK or
+write `sdk.dir=/path/to/android-sdk` in the ignored `local.properties` file.
+The checked-in Gradle wrapper uses network access on its first run to fetch
+Gradle and dependencies; no sibling checkout is required to build Wave.
 
-Related repositories: [wave_packages](https://github.com/thooton/wave_packages)
-(the code of the packages in the default source) and
-[wave_repository](https://github.com/thooton/wave_repository) (the default
-source).
+```sh
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:core:selfTest :app:app:assembleRelease
+```
+
+Set `JAVA_HOME` to your installed JDK 21 path if it differs. The APK is
+`app/app/build/outputs/apk/release/app-release.apk`.
+
+With Python 3 and Git (and Android SDK `aapt2` for the APK integration test):
+
+```sh
+python3 -m unittest discover -s tools/wavesrc
+./tools/wavesrc/wavesrc lint spec/example-source
+```
+
+The example source contains deliberate placeholder downloads; it is not an
+installable source. Use `wavesrc verify` on a checkout containing real assets.
+See [publishing](docs/publishing.md), the [site build](site/README.md), and
+[handset QA](tools/qa/README.md) for more checks.
+
+## Repositories and design
+
+- [Design](docs/design.md), [source format](docs/source-format.md),
+  [decisions](docs/decisions.md), and [work briefs](docs/tasks/README.md).
+- [wave_packages](https://github.com/thooton/wave_packages) holds the package
+  code and the upstream `common/` library. Wave builds from a checked-in copy.
+- [wave_repository](https://github.com/thooton/wave_repository) is the default
+  source, with generated package manifests and icons.

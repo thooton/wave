@@ -289,7 +289,7 @@ built (decisions open item 4). Until it is, steps 4 and 5 below would
 leave both apps uninstallable from the private source. Steps 1 to 3 are
 safe to do early.
 
-1. **Review the history.** Review `../wave_private_packages` (`2262590`)
+1. **Review the history.** Review `../wave_private_packages` (`bd56fd0`)
    for bundled credentials. An automated scan found none, which is not a
    guarantee. Rotate anything that ever shipped inside an APK.
 2. **Create the repo.** Create `thooton/wave_private_packages` as

@@ -1,7 +1,8 @@
 # AGENTS.md
 
 Wave: a Cydia-like package manager and modding framework for the Sonim
-XP3800 (Android 8.1, API 27, 240x320, d-pad only, rooted with Magisk 24.0).
+XP3800 (Android 8.1, API 27, 240x320, d-pad only). System mods require
+root; the app and source browsing can run on a stock phone.
 Read `docs/design.md` before anything else, then the brief for your task in
 `docs/tasks/`.
 
@@ -10,21 +11,21 @@ Read `docs/design.md` before anything else, then the brief for your task in
 ```
 docs/design.md          the whole design
 docs/source-format.md   what a source is (normative; spec/ has the schemas)
-docs/jailbreak.md       the WebUSB jailbreak
+docs/jailbreak.md       the device guide and recovery scope
 docs/decisions.md       decided, assumed, open
 docs/tasks/             one brief per piece of work; README.md has the order
 spec/                   JSON Schemas and example-source/ (also the test fixture)
-app/                    the Wave app (Gradle: :core plain Java, :app Android)
+app/                    the Wave app (Gradle: :app:core plain Java, :app:app Android)
 common/                 copy of wave_packages/common (don't edit here; sync it)
-site/                   the website (jailbreak, landing, setup-code generator)
-tools/wavesrc/          lint and publish for sources
+site/                   landing page, device guide and setup-file generator
+tools/wavesrc/          lint, verify and publish for sources
 cydia_images/           screenshots of Cydia, the reference for the app's screens
 ```
 
-Sibling repositories on this machine: `../sonim` (becomes `wave_packages`),
-`../messages_argon`, `../launcher_argon`, `../music_argon` (become
-`wave_packages/mods/*`), and `../rphone` (the rooting notes and files). This
-folder is `sonim_wave` locally and `thooton/wave` on GitHub.
+On this machine use `../sonim` for `wave_packages`, `../wave_repository` for
+its default source and `../wave_private_packages` for the separate private
+source. A new clone may use the GitHub name `../wave_packages` instead.
+This checkout is `wave` locally and `thooton/wave` on GitHub.
 
 ## Rules
 

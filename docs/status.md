@@ -46,7 +46,7 @@ work locally. The packages build. The default source is empty.
 | Area | Implemented | Verified | Not verified, and why |
 | :--- | :--- | :--- | :--- |
 | Default source ([15](tasks/15-default-source.md)) | `../wave_repository` at `a3c0049`, deliberately empty | Lints; a disposable copy took the real Wave APK and linted; the phone fetched this exact commit locally | Hosting, branch protection, first real publications. Nothing points at the mutable `latest` release |
-| Private source ([16](tasks/16-private-source.md), open) | `../wave_private_packages` (`2262590`): Source and Tablet with filtered history | 290 host checks; built, admitted and published to a disposable source; history scan found no credentials | The private host, authenticated downloads in Wave (decisions open item 4), an update on a migration phone. The owner still has to review the history. Both apps stay on P's legacy channel |
+| Private source ([16](tasks/16-private-source.md), open) | `../wave_private_packages` (`bd56fd0`): Source and Tablet with filtered history | 305 host checks; built, admitted and published to a disposable source; history scan found no credentials | The private host, authenticated downloads in Wave (decisions open item 4), an update on a migration phone. The owner still has to review the history. Both apps stay on P's legacy channel |
 
 ## The packages (P `../sonim`)
 
