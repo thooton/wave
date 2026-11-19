@@ -276,6 +276,25 @@ The source screens can use `com.wave.xp3.core.sources` without Android calls:
   initial tile. Decode icons at display size, not at the source's pixel size.
   The catalog's URL is safe to display; `sources.json` can contain Basic-auth
   credentials and must be excluded from backup.
+- **Private sources' downloads.** A source added as
+  `https://user:token@host/owner/repo` signs in to its downloads too.
+  `SourceStore.credential(id)` gives the plan's packages a
+  `core.install.Credential` (`Plan.Package.credential`, in memory only), and
+  `Download` sends it only where it applies, judged per request. A GitHub
+  release asset of the same repository through the API
+  (`https://api.github.com/repos/OWNER/REPO/releases/assets/ID`) gets
+  `Authorization: Bearer <token>` and `Accept: application/octet-stream`. Any
+  address on the source's own scheme, host and port gets `Authorization:
+  Basic`, as Git refresh does. Everything else gets nothing. Redirects are
+  followed by hand (at most 5, https only), so GitHub's CDN and any other host
+  never see the token. The credential is never in a manifest (a download
+  address with a user name or password is refused), and never in a receipt,
+  the queue's text, a message, a log or a displayed address. Refusals (401
+  or 403) say: without a sign-in, "This source needs a sign-in. Add it again
+  with a user name and token in its address."; with a rejected one, "The
+  source didn't accept its sign-in. Check the token in its address."; on a
+  host it doesn't cover, "The download needs a sign-in, and Wave only signs in
+  to the source's own host."
 
 ### Android data wiring (brief 07)
 

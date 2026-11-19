@@ -150,6 +150,13 @@ public final class SourcesSelfTest {
             check.ok("first refresh changed", store.refresh(added.id).changed);
             check.same("no known HEAD on first fetch", null, known.get());
             check.same("private URL used only on fetch", privateUrl, requested.get());
+            com.wave.xp3.core.install.Credential signIn = store.credential(added.id);
+            check.ok("private source has a sign-in for downloads", signIn != null
+                && "Basic dXNlcjp0b2tlbg==".equals(signIn.headersFor("https://example.org/source/files/a.apk")[1]));
+            check.ok("the sign-in never shows", !String.valueOf(signIn).contains("token")
+                && !added.url.contains("token") && !added.id.contains("token") && !added.name.contains("token"));
+            check.same("an unknown source has no sign-in", null, store.credential("no-such-source"));
+            check.same("a public source has no sign-in", null, store.credential(store.sources().get(0).id));
             check.same("committed tree", HEAD_A, store.index().source(added.id).info.commit);
             check.same("got real package", APP_ID, store.index().get(APP_ID).manifest.id);
             check.ok("good package icon available", store.index().get(APP_ID).icon.isFile());

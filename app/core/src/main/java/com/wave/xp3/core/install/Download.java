@@ -22,6 +22,11 @@ import java.util.Locale;
  * `.part`, and the next try asks only for the rest (`Range`); every other
  * failure (wrong size or hash, no space, stopped) deletes it, so nothing is
  * left behind. The engine deletes any `.part` still there when its run ends.
+ *
+ * A private source's packages come with its {@link Credential}, which is sent
+ * only to the addresses it covers; redirects are followed here, one at a time,
+ * so each hop is judged by itself (a CDN's signed address never gets it), and
+ * none may leave https.
  */
 public final class Download {
 
@@ -66,8 +71,17 @@ public final class Download {
         }
     }
 
+    /** Redirects followed per request, as HttpURLConnection would. */
+    static final int REDIRECTS = 5;
+
     public static void fetch(String url, long size, String sha256, File to, Progress progress, Cancel cancel)
             throws IOException {
+        fetch(url, size, sha256, to, progress, cancel, null);
+    }
+
+    /** As above, signing in with `credential` (null for none) where it applies. */
+    public static void fetch(String url, long size, String sha256, File to, Progress progress, Cancel cancel,
+            Credential credential) throws IOException {
         checkUrl(url);
         if (size < 0 || size > MAX) throw new IOException("The source gives a size Wave won't download.");
         if (sha256 == null || !sha256.matches("[0-9a-f]{64}")) {
@@ -88,10 +102,10 @@ public final class Download {
             for (int attempt = 1; ; attempt++) {
                 long before = part.isFile() ? part.length() : 0;
                 try {
-                    if (!get(url, size, part, before, progress, cancel)) {
+                    if (!get(url, size, part, before, progress, cancel, credential)) {
                         // The server ignored or refused the range: start again.
                         part.delete();
-                        get(url, size, part, 0, progress, cancel);
+                        get(url, size, part, 0, progress, cancel, credential);
                     }
                     break;
                 } catch (Discard | Stopped e) {
@@ -129,17 +143,48 @@ public final class Download {
      * One request, appending to `part` from `from`. False when a range was
      * asked for and the answer wasn't the rest of the file.
      */
-    private static boolean get(String url, long size, File part, long from, Progress progress, Cancel cancel)
-            throws IOException {
+    private static boolean get(String url, long size, File part, long from, Progress progress, Cancel cancel,
+            Credential credential) throws IOException {
         if (from > 0 && from == size) return true;
-        HttpURLConnection c = open(url);
-        try {
+        HttpURLConnection c = null;
+        boolean signedIn = false;
+        String at = url;
+        int status;
+        for (int hop = 0; ; hop++) {
+            c = open(at);
             if (from > 0) c.setRequestProperty("Range", "bytes=" + from + "-");
-            int status = c.getResponseCode();
+            String[] headers = credential == null ? null : credential.headersFor(at);
+            signedIn = headers != null;
+            if (headers != null) {
+                for (int i = 0; i < headers.length; i += 2) c.setRequestProperty(headers[i], headers[i + 1]);
+            }
+            try {
+                status = c.getResponseCode();
+            } catch (IOException e) {
+                c.disconnect();
+                throw e;
+            }
+            if (!redirect(status)) break;
+            String location = c.getHeaderField("Location");
+            c.disconnect();
+            if (location == null || hop >= REDIRECTS) throw new Discard("The source's file can't be reached: too many redirects.");
+            try {
+                at = new java.net.URI(at).resolve(location.trim()).toString();
+            } catch (java.net.URISyntaxException | IllegalArgumentException e) {
+                throw new Discard("The source's file can't be reached: a bad redirect.");
+            }
+            try {
+                checkUrl(at);
+            } catch (IOException e) {
+                throw new Discard("The source's file can't be reached: a redirect away from https.");
+            }
+        }
+        try {
             if (status >= 500) {
                 // The server's trouble, not the file's: keep what arrived.
                 throw new IOException("The server answered " + status + ". Try again later.");
             }
+            if (status == 401 || status == 403) throw new Discard(signInProblem(credential, signedIn));
             if (from > 0) {
                 if (status == 416 || status == 200) return false;
                 if (status != 206 || !rangeStartsAt(c.getHeaderField("Content-Range"), from)) return false;
@@ -184,11 +229,25 @@ public final class Download {
         return v.startsWith("bytes " + from + "-");
     }
 
+    private static boolean redirect(int status) {
+        return status == 301 || status == 302 || status == 303 || status == 307 || status == 308;
+    }
+
+    /** What a refused download says, by whether a sign-in went with it. */
+    static String signInProblem(Credential credential, boolean signedIn) {
+        if (credential == null) {
+            return "This source needs a sign-in. Add it again with a user name and token in its address.";
+        }
+        if (signedIn) return "The source didn't accept its sign-in. Check the token in its address.";
+        return "The download needs a sign-in, and Wave only signs in to the source's own host.";
+    }
+
     private static HttpURLConnection open(String url) throws IOException {
         HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
         c.setConnectTimeout(CONNECT_TIMEOUT_MS);
         c.setReadTimeout(READ_TIMEOUT_MS);
-        c.setInstanceFollowRedirects(true);
+        // Followed in get(), so a sign-in never rides a redirect to another host.
+        c.setInstanceFollowRedirects(false);
         c.setUseCaches(false);
         c.setRequestProperty("User-Agent", "Wave");
         c.setRequestProperty("Accept-Encoding", "identity");
@@ -199,6 +258,15 @@ public final class Download {
     static void checkUrl(String url) throws IOException {
         if (url == null) throw new IOException("The source gives no download.");
         String u = url.toLowerCase(Locale.US);
+        int scheme = u.indexOf("://");
+        if (scheme > 0) {
+            int end = scheme + 3;
+            while (end < u.length() && "/?#".indexOf(u.charAt(end)) < 0) end++;
+            // A sign-in belongs to the phone's copy of the source's address, never in a manifest.
+            if (u.substring(scheme + 3, end).indexOf('@') >= 0) {
+                throw new IOException("The source's download address carries a sign-in, which Wave won't use.");
+            }
+        }
         if (u.startsWith("https://")) return;
         if (u.startsWith("http://127.0.0.1:") || u.startsWith("http://localhost:")) return;
         throw new IOException("Wave only downloads over https.");

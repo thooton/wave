@@ -301,6 +301,9 @@ public final class SourceController implements WaveData {
             if (Compat.of(entry, compatibility).fits) {
                 Plan.Package candidate = Packages.of(entry.manifest);
                 candidate.source = entry.source.url;
+                // A private source's sign-in, for its downloads only (never shown or kept).
+                SourceStore sources = store;
+                candidate.credential = sources == null ? null : sources.credential(entry.source.id);
                 offerings.put(candidate.id, candidate);
             }
         }

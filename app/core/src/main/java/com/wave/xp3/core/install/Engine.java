@@ -319,7 +319,7 @@ public final class Engine {
                     item.percent = percent;
                     changed();
                 }
-            }, () -> stop);
+            }, () -> stop, p.credential);
             item.phase = Phase.CHECKING;
             item.percent = -1;
             changed();

@@ -140,6 +140,15 @@ public final class SourceStore {
         return Collections.unmodifiableList(new ArrayList<>(sources.values()));
     }
 
+    /**
+     * The sign-in in a source's own address, for downloading its packages; null
+     * for a public source or an unknown id. Only for a plan's packages, in memory.
+     */
+    public synchronized com.wave.xp3.core.install.Credential credential(String id) {
+        Source source = id == null ? null : sources.get(id);
+        return source == null ? null : com.wave.xp3.core.install.Credential.of(source.fetchUrl);
+    }
+
     /** Fetches an untrusted source for the confirmation dialog, without changing disk or the index. */
     public Preview preview(String url) throws IOException {
         Source prospective = new Source(url, "", "", 0);

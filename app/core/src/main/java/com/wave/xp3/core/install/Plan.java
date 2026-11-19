@@ -65,6 +65,11 @@ public final class Plan {
         public final List<String> devices = new ArrayList<>();
         /** The source it comes from, for its receipt; null to use the engine's. */
         public String source;
+        /**
+         * Its source's sign-in, for a private source's download; null for none.
+         * In memory only: never written down, shown or put in a receipt.
+         */
+        public Credential credential;
 
         public Package(String id, Kind kind, String name, String version, String url, long size, String sha256) {
             this.id = id;

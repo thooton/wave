@@ -176,9 +176,16 @@ moving; resolve open questions when the relevant brief has evidence.
    (task 16). CI emits credential-free HTTPS API URLs pointing at immutable
    GitHub release asset IDs; no credential or signed redirect
    belongs in a manifest. Git refresh and binary download authenticate
-   separately. Wave still needs the scoped private asset request and a
-   migration-device verification before cutover; see the
-   [owner checklist](tasks/01-owner-checklist.md#source-and-tablet-private-cutover).
+   separately. *Download side done (Wave 0.7.14):* a source added with
+   `user:token@` in its address signs in to its own downloads. A GitHub API
+   asset URL of the same repository gets `Bearer` and `Accept:
+   application/octet-stream`, and the source's own host gets `Basic`. Each
+   redirect hop is judged again, so the CDN never gets the token. Nothing the
+   phone keeps or shows carries the credential. A 401 or 403 says the source
+   needs a sign-in, or that its sign-in was refused. Host tests cover it
+   (`Install: private source sign-in`). Still open: a real private
+   repository's asset fetched on the migration device before cutover; see
+   the [owner checklist](tasks/01-owner-checklist.md#source-and-tablet-private-cutover).
 5. **Windows.** For the intended browser flow, the required WinUSB driver
    binding might warrant a helper. The current device guide explains the
    driver requirements; the site does not install any drivers.

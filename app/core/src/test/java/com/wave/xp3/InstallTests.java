@@ -2,6 +2,7 @@ package com.wave.xp3;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import com.wave.xp3.core.install.Credential;
 import com.wave.xp3.core.install.Download;
 import com.wave.xp3.core.install.Engine;
 import com.wave.xp3.core.install.Plan;
@@ -41,6 +42,7 @@ final class InstallTests {
     static void run(Check check) {
         check.run("Install: plan", () -> plan(check));
         check.run("Install: download", () -> download(check));
+        check.run("Install: private source sign-in", () -> signIn(check));
         check.run("Install: verify", () -> verify(check));
         check.run("Install: receipts", () -> receipts(check));
         check.run("Install: packages", () -> packages(check));
@@ -303,6 +305,184 @@ final class InstallTests {
             return s.toString();
         } catch (Exception e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    /** A host that may want a sign-in, may send elsewhere, and notes what each request carried. */
+    static final class Host implements AutoCloseable {
+        final HttpServer server;
+        final Map<String, byte[]> files = Collections.synchronizedMap(new HashMap<String, byte[]>());
+        /** Path -> the Authorization it needs (else 401). */
+        final Map<String, String> needs = Collections.synchronizedMap(new HashMap<String, String>());
+        /** Path -> where it redirects (302). */
+        final Map<String, String> moved = Collections.synchronizedMap(new HashMap<String, String>());
+        /** "path Authorization Accept" per request ("-" for none). */
+        final List<String> seen = Collections.synchronizedList(new ArrayList<String>());
+        volatile int refuseWith = 401;
+
+        Host() throws IOException {
+            server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+            server.createContext("/", this::serve);
+            server.start();
+        }
+
+        String base() {
+            return "http://127.0.0.1:" + server.getAddress().getPort();
+        }
+
+        private void serve(HttpExchange ex) throws IOException {
+            String path = ex.getRequestURI().getPath();
+            String auth = ex.getRequestHeaders().getFirst("Authorization");
+            String accept = ex.getRequestHeaders().getFirst("Accept");
+            seen.add(path + " " + (auth == null ? "-" : auth) + " " + (accept == null || accept.contains("*/*") ? "-" : accept));
+            String need = needs.get(path);
+            if (need != null && !need.equals(auth)) {
+                ex.sendResponseHeaders(refuseWith, -1);
+                ex.close();
+                return;
+            }
+            String to = moved.get(path);
+            if (to != null) {
+                ex.getResponseHeaders().add("Location", to);
+                ex.sendResponseHeaders(302, -1);
+                ex.close();
+                return;
+            }
+            byte[] body = files.get(path);
+            if (body == null) {
+                ex.sendResponseHeaders(404, -1);
+                ex.close();
+                return;
+            }
+            ex.sendResponseHeaders(200, body.length);
+            try (OutputStream out = ex.getResponseBody()) {
+                out.write(body);
+            }
+        }
+
+        @Override
+        public void close() {
+            server.stop(0);
+        }
+    }
+
+    private static void signIn(Check check) throws Exception {
+        // Where a source's sign-in goes, and where it never does.
+        check.same("no sign-in in a public address", null, Credential.of("https://github.com/thooton/wave"));
+        check.same("nor in a broken one", null, Credential.of("not an address"));
+        Credential gh = Credential.of("https://thooton:ghp_SECRET@github.com/thooton/Wave_Private_Packages.git");
+        check.ok("named by its host only", !gh.toString().contains("SECRET") && gh.toString().contains("github.com"));
+        check.same("GitHub asset of its repository: Bearer and the binary",
+            "[Authorization, Bearer ghp_SECRET, Accept, application/octet-stream]",
+            Arrays.toString(gh.headersFor("https://api.github.com/repos/thooton/wave_private_packages/releases/assets/123")));
+        check.same("another repository's asset gets nothing", null,
+            gh.headersFor("https://api.github.com/repos/thooton/other/releases/assets/123"));
+        check.same("another API call gets nothing", null,
+            gh.headersFor("https://api.github.com/repos/thooton/wave_private_packages/contents/x"));
+        check.same("an asset address with a query gets nothing", null,
+            gh.headersFor("https://api.github.com/repos/thooton/wave_private_packages/releases/assets/1?x=1"));
+        check.same("GitHub's CDN gets nothing", null,
+            gh.headersFor("https://objects.githubusercontent.com/github-production-release-asset/1?X-Amz-Signature=s"));
+        check.same("a look-alike host gets nothing", null,
+            gh.headersFor("https://api.github.com.evil.test/repos/thooton/wave_private_packages/releases/assets/1"));
+        check.same("plain http to the same host gets nothing", null,
+            gh.headersFor("http://github.com/thooton/wave_private_packages/releases/download/v1/a.apk"));
+        check.same("the source's own host: Basic, as Git", "[Authorization, Basic dGhvb3RvbjpnaHBfU0VDUkVU]",
+            Arrays.toString(gh.headersFor("https://GitHub.com:443/thooton/wave_private_packages/releases/download/v1/a.apk")));
+        check.same("a token alone is the user name", "[Authorization, Bearer ghp_ALONE, Accept, application/octet-stream]",
+            Arrays.toString(Credential.of("https://ghp_ALONE@github.com/thooton/p").headersFor(
+                "https://api.github.com/repos/thooton/p/releases/assets/9")));
+        Credential self = Credential.of("https://u:t@git.example.org/team/apps");
+        check.same("another port is another host", null, self.headersFor("https://git.example.org:8443/team/apps/a.apk"));
+        check.same("another host gets nothing", null, self.headersFor("https://cdn.example.org/team/apps/a.apk"));
+        check.same("not GitHub: no API rule", null, self.headersFor("https://api.github.com/repos/team/apps/releases/assets/1"));
+
+        Download.backoffMs = 10;
+        File dir = Files.createTempDirectory("wave-sign-in").toFile();
+        try (Host source = new Host(); Host cdn = new Host()) {
+            final byte[] data = bytes(5000, 3);
+            String basic = "Basic " + java.util.Base64.getEncoder().encodeToString("alice:s3cret".getBytes(StandardCharsets.UTF_8));
+            Credential alice = Credential.of(source.base().replace("http://", "http://alice:s3cret@") + "/team/apps");
+            final File to = new File(dir, "a.apk");
+
+            // The source's own host wants it, and gets it.
+            source.files.put("/files/a.apk", data);
+            source.needs.put("/files/a.apk", basic);
+            Download.fetch(source.base() + "/files/a.apk", data.length, sha(data), to, null, null, alice);
+            check.ok("signed in and saved", Arrays.equals(data, Files.readAllBytes(to.toPath())));
+            check.same("sent once, to the source", "[/files/a.apk " + basic + " -]", source.seen.toString());
+
+            // It sends the download on to another host: that hop goes without it.
+            to.delete();
+            source.seen.clear();
+            source.moved.put("/files/b.apk", cdn.base() + "/blob/b?sig=1");
+            source.needs.put("/files/b.apk", basic);
+            cdn.files.put("/blob/b", data);
+            Download.fetch(source.base() + "/files/b.apk", data.length, sha(data), to, null, null, alice);
+            check.ok("followed the redirect", Arrays.equals(data, Files.readAllBytes(to.toPath())));
+            check.same("the source got the sign-in", "[/files/b.apk " + basic + " -]", source.seen.toString());
+            check.same("the other host didn't", "[/blob/b - -]", cdn.seen.toString());
+
+            // Refusals say what to do.
+            to.delete();
+            check.fails("no sign-in", "This source needs a sign-in",
+                () -> Download.fetch(source.base() + "/files/a.apk", data.length, sha(data), to, null, null, null));
+            Credential wrong = Credential.of(source.base().replace("http://", "http://alice:old@") + "/team/apps");
+            check.fails("a wrong token", "didn't accept its sign-in",
+                () -> Download.fetch(source.base() + "/files/a.apk", data.length, sha(data), to, null, null, wrong));
+            source.refuseWith = 403;
+            check.fails("403 is the same", "didn't accept its sign-in",
+                () -> Download.fetch(source.base() + "/files/a.apk", data.length, sha(data), to, null, null, wrong));
+            cdn.needs.put("/blob/c", "Basic x");
+            check.fails("another host wanting one", "only signs in to the source's own host",
+                () -> Download.fetch(cdn.base() + "/blob/c", data.length, sha(data), to, null, null, alice));
+            check.ok("no part left", !new File(dir, "a.apk.part").exists());
+
+            // A manifest can't carry one, and redirects can't leave https or go on forever.
+            check.fails("sign-in in a manifest's address", "carries a sign-in",
+                () -> Download.fetch("https://bob:pw@example.com/a.apk", data.length, sha(data), to, null, null, null));
+            source.moved.put("/files/plain", "http://example.com/a.apk");
+            check.fails("redirect off https", "away from https",
+                () -> Download.fetch(source.base() + "/files/plain", data.length, sha(data), to, null, null, null));
+            source.moved.put("/files/loop", "/files/loop");
+            check.fails("redirect loop", "too many redirects",
+                () -> Download.fetch(source.base() + "/files/loop", data.length, sha(data), to, null, null, null));
+
+            // Through the engine: signed in, and the token is nowhere it keeps.
+            source.needs.clear();
+            source.moved.clear();
+            source.refuseWith = 401;
+            byte[] apk = apk("com.p.xp3", "1", 1);
+            source.files.put("/files/p.apk", apk);
+            source.needs.put("/files/p.apk", basic);
+            Plan.Package p = new Plan.Package("com.p.xp3", Plan.Kind.APK, "P", "1", source.base() + "/files/p.apk",
+                apk.length, sha(apk));
+            p.source = source.base() + "/team/apps";
+            p.credential = alice;
+            try (Sandbox box = new Sandbox()) {
+                FakePlatform platform = new FakePlatform(new File(box.root, "cache/downloads"));
+                File receiptsFile = new File(box.root, "r.json");
+                ProcessShell none = new ProcessShell(Arrays.asList(new File(box.root, "no-su").getPath()), null);
+                Engine e = new Engine(Plan.make(ask(Plan.Op.INSTALL, "com.p.xp3"), offer(p), phone(), null, "com.wave.xp3"),
+                    none, platform, Receipts.load(receiptsFile), null, null, "com.wave.xp3")
+                    .apps(new Engine.Apps() {
+                        @Override
+                        public com.wave.xp3.core.root.PmResult install(File file, String pkg, boolean self) {
+                            return com.wave.xp3.core.root.PmResult.success();
+                        }
+
+                        @Override
+                        public com.wave.xp3.core.root.PmResult uninstall(String pkg) {
+                            return com.wave.xp3.core.root.PmResult.success();
+                        }
+                    });
+                e.run();
+                check.ok("installed from a private source: " + e.items(), e.succeeded());
+                String kept = new String(Files.readAllBytes(receiptsFile.toPath()), StandardCharsets.UTF_8);
+                check.ok("receipt names the source: " + kept, kept.contains("/team/apps"));
+                check.ok("receipt has no sign-in", !kept.contains("s3cret") && !kept.contains("alice") && !kept.contains("Basic"));
+                check.ok("nor does what the queue shows", !String.valueOf(e.items()).contains("s3cret"));
+            }
         }
     }
 
