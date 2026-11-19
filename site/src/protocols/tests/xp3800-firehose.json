@@ -1,5 +1,6 @@
 {
   "configure": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?><data><response value=\"ACK\" MinVersionSupported=\"1\" MemoryName=\"eMMC\" MaxPayloadSizeFromTargetInBytes=\"4096\" MaxPayloadSizeToTargetInBytes=\"1048576\" MaxPayloadSizeToTargetInBytesSupported=\"1048576\" MaxXMLSizeInBytes=\"4096\" Version=\"1\" TargetName=\"8909\" /></data>",
+  "postConfigureLog": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?><data><log value=\"logbuf@0x08057EB8 fh@0x08054D20\" /></data>",
   "rawStart": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?><data><response value=\"ACK\" rawmode=\"true\" /></data>",
   "rawEnd": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?><data><response value=\"ACK\" rawmode=\"false\" /></data>",
   "geometry": [

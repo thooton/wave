@@ -8,7 +8,7 @@ import { adbCredential } from '../adb-credential.mjs';
 import { checkProgrammer, saharaExchange } from '../sahara.mjs';
 import { FirehoseBootReader } from '../firehose.mjs';
 import { bootBytes, checkBootImage } from '../boot-image.mjs';
-import { findXp3800Boot, readGptHeader } from '../gpt.mjs';
+import { parseXp3800Gpt, readGptHeader } from '../gpt.mjs';
 
 const read = name => JSON.parse(readFileSync(new URL(name, import.meta.url)));
 const b = hex => new Uint8Array(Buffer.from(hex, 'hex'));
@@ -126,9 +126,9 @@ test('XP3800 capture: eMMC configure, CRC-checked GPT and raw read phases', asyn
   const d = read('./xp3800-firehose.json');
   const data = image();
   const jobs = [
-    ['<configure ', [text(d.configure)]],
-    ['<getstorageinfo ', d.geometry.map(text)],
+    ['<configure ', [text(d.configure), text(d.postConfigureLog)]],
     ['start_sector="1"', [text(d.rawStart), b(d.header), new Uint8Array(), text(d.rawEnd)]],
+    ['<getstorageinfo ', d.geometry.map(text)],
     ['start_sector="2"', [text(d.rawStart), b(d.table), text(d.rawEnd)]],
     ['start_sector="281696"', [text(d.rawStart), data, text(d.rawEnd)]],
     ['<power value="reset"', [text(d.geometry.at(-1))]],
@@ -155,13 +155,17 @@ test('XP3800 capture: eMMC configure, CRC-checked GPT and raw read phases', asyn
     async close() { closed = true; },
   });
   await client.configure();
+  const gpt = await client.readGpt();
+  assert.deepEqual(gpt.boot, { start: 281696, sectors: 65536 });
+  assert.deepEqual(gpt.partitions[4], { name: 'boot', ...gpt.boot });
+  assert.equal(gpt.partitions.length, 36);
   assert.deepEqual(await client.readBoot(), data);
   await client.reset();
   assert.ok(closed);
   assert.equal(jobs.length, 0);
   const table = b(d.table);
   table[40] ^= 1;
-  assert.throws(() => findXp3800Boot(readGptHeader(b(d.header)), table), /CRC mismatch/);
+  assert.throws(() => parseXp3800Gpt(readGptHeader(b(d.header)), table), /CRC mismatch/);
   data[0] = 0;
   assert.throws(() => checkBootImage(data), /ANDROID!/);
 });

@@ -31,7 +31,7 @@ export function readGptHeader(bytes) {
   return { entryLba: Number(entryLba), count, stride, sectors, min, max, tableCrc: view.getUint32(88, true) };
 }
 
-export function findXp3800Boot(gpt, table) {
+export function parseXp3800Gpt(gpt, table) {
   if (table.length !== gpt.sectors * sectorBytes || crc(table.subarray(0, gpt.count * gpt.stride)) !== gpt.tableCrc) {
     throw new Error('GPT partition array CRC mismatch.');
   }
@@ -53,5 +53,11 @@ export function findXp3800Boot(gpt, table) {
       || entries.has('boot_a') || entries.has('boot_b') || entries.has('vbmeta')) {
     throw new Error('GPT is not the recognized single-slot XP3800 layout.');
   }
-  return { start: boot.start, sectors: bootBytes / sectorBytes };
+  // Expose named geometry without publishing per-phone/disk identifiers.
+  return Object.freeze({
+    boot: Object.freeze({ start: boot.start, sectors: bootBytes / sectorBytes }),
+    partitions: Object.freeze([...entries].map(([name, entry]) => Object.freeze({
+      name, start: entry.start, sectors: entry.end - entry.start + 1,
+    }))),
+  });
 }

@@ -1,6 +1,6 @@
 import { exact } from './webusb.mjs';
 import { checkBootImage } from './boot-image.mjs';
-import { findXp3800Boot, readGptHeader, sectorBytes } from './gpt.mjs';
+import { parseXp3800Gpt, readGptHeader, sectorBytes } from './gpt.mjs';
 
 const encoder = new TextEncoder();
 const xml = element => encoder.encode(`<?xml version="1.0" encoding="UTF-8" ?><data>${element}</data>`);
@@ -24,10 +24,12 @@ export class FirehoseBootReader {
   #configured = false;
   #busy = false;
   #limit = 4096;
+  #header;
+  #catalog;
   #decoder = new TextDecoder('utf-8', { fatal: true });
   constructor(link) { this.#link = link; }
 
-  async #response(rawmode) {
+  async #response(rawmode, configureLog = false) {
     let logs = [];
     for (let i = 0; i < 100; i++) {
       const end = this.#xml.indexOf('</data>');
@@ -51,6 +53,10 @@ export class FirehoseBootReader {
           response = attrs;
         } else logs.push(attrs.value ?? '');
         content = content.slice(element[0].length).trimStart();
+      }
+      if (configureLog) {
+        if (response || !logs.some(line => line.startsWith('logbuf@'))) throw new Error('Expected the MSM8909 post-configure log.');
+        return { logs };
       }
       if (response) {
         if (response.value !== 'ACK' || (rawmode !== undefined && response.rawmode !== rawmode)) {
@@ -80,6 +86,13 @@ export class FirehoseBootReader {
         throw new Error('Unexpected eMMC Firehose target or packet size.');
       }
       this.#limit = limit;
+      // The signed MSM8909 programmer sends a second log after its configure
+      // ACK. Drain it before OUT; otherwise the device can block the next OUT
+      // while it waits for us to consume its pending IN transfer.
+      await this.#response(undefined, true);
+      // Match the desktop reference: initialize the selected eMMC LUN by
+      // reading its GPT header before requesting storage information.
+      this.#header = readGptHeader(await this.#readSectors(1, 1));
       await this.#link.write(xml('<getstorageinfo physical_partition_number="0"/>'));
       const { logs } = await this.#response();
       if (!logs.includes('SECTOR_SIZE_IN_BYTES=512')) throw new Error('The target did not report 512-byte sectors.');
@@ -88,7 +101,7 @@ export class FirehoseBootReader {
   }
 
   async #readSectors(start, count) {
-    await this.#link.write(xml(`<read SECTOR_SIZE_IN_BYTES="512" num_partition_sectors="${count}" physical_partition_number="0" start_sector="${start}"/>`));
+    await this.#link.write(encoder.encode(`<?xml version="1.0" ?><data><read SECTOR_SIZE_IN_BYTES="512" num_partition_sectors="${count}" physical_partition_number="0" start_sector="${start}"/>\n</data>`));
     await this.#response('true');
     if (this.#xml.trim()) throw new Error('Unexpected XML before raw Firehose data.');
     const data = await exact(this.#link, count * sectorBytes, this.#limit);
@@ -96,12 +109,22 @@ export class FirehoseBootReader {
     return data;
   }
 
+  async #diskLayout() {
+    const { entryLba, sectors } = this.#header;
+    this.#catalog ??= parseXp3800Gpt(this.#header, await this.#readSectors(entryLba, sectors));
+    return this.#catalog;
+  }
+
+  async readGpt() {
+    if (!this.#configured) throw new Error('Firehose eMMC has not been configured.');
+    return this.#exclusive(() => this.#diskLayout());
+  }
+
   async readBoot() {
     if (!this.#configured) throw new Error('Firehose eMMC has not been configured.');
     return this.#exclusive(async () => {
       // The only storage reads exposed by this tool are the GPT and boot.
-      const header = readGptHeader(await this.#readSectors(1, 1));
-      const { start, sectors } = findXp3800Boot(header, await this.#readSectors(header.entryLba, header.sectors));
+      const { boot: { start, sectors } } = await this.#diskLayout();
       const image = await this.#readSectors(start, sectors);
       checkBootImage(image);
       return image;
