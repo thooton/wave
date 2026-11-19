@@ -7,7 +7,8 @@ import shutil
 SITE = Path(__file__).resolve().parents[1]
 FILES = (
     'index.html', 'assets/site.css', 'assets/wave.svg', 'assets/handset.svg',
-    'platforms/index.html', 'setup/index.html',
+    'platforms/index.html', 'setup/index.html', 'setup/generator.mjs',
+    'setup/descriptors.mjs', 'setup/payload.mjs',
 )
 
 

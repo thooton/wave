@@ -2,8 +2,33 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
-<title>App setup | Wave</title><link rel="icon" href="../assets/wave.svg"><link rel="stylesheet" href="../assets/site.css"></head>
+<title>App setup | Wave</title><link rel="icon" href="../assets/wave.svg"><link rel="stylesheet" href="../assets/site.css"><script type="module" src="generator.mjs"></script></head>
 <body><a class="skip" href="#main">Skip to content</a>
 <header><div class="wrap top"><a class="brand" href="../" aria-label="Wave home"><img src="../assets/wave.svg" width="32" height="32" alt="">Wave</a><nav aria-label="Main"><a href="../platforms/">USB guide</a><a aria-current="page" href="../setup/">App setup</a><a href="https://github.com/thooton/wave">GitHub ↗</a></nav></div></header>
-<main id="main" class="wrap guide"><a class="crumb" href="../">Wave / App setup</a><p class="kicker">04 <span>/</span> UTILITIES</p><h1>App setup.</h1><p class="lead">Setup files let you enter account details on a computer instead of the XP3 keypad. The file generator is waiting for the apps’ shared setup format.</p><p>Never share account setup files, paste them into support messages or store them on a shared drive.</p></main>
+<main id="main" class="wrap guide">
+<a class="crumb" href="../">Wave / App setup</a>
+<p class="kicker">04 <span>/</span> UTILITIES</p>
+<h1>Set up a Wave app.</h1>
+<p class="lead">Enter your account details here instead of typing them on the XP3 keypad. The page builds a file on this computer and sends nothing over the network.</p>
+<section class="box setup-box" aria-label="Setup file generator">
+<form id="generator" autocomplete="off" novalidate hidden>
+<label for="app">App</label><select id="app" required autocomplete="off"><option value="">Choose an app</option></select>
+<p id="about" class="setting-help"></p>
+<div id="app-fields" hidden>
+<details id="managed" hidden><summary>Already have a managed server?</summary><label class="toggle"><input id="use-managed" type="checkbox" autocomplete="off"> Use managed setup</label></details>
+<div id="settings"></div>
+<ul id="limits" class="setting-help" hidden></ul>
+<div id="output" hidden><label for="nickname">Setup label <span>Optional</span></label><input id="nickname" autocomplete="off" maxlength="60" aria-describedby="label-help"><small id="label-help">A name to show on the phone. Do not put passwords or tokens here.</small>
+<div class="actions"><button type="submit">Download setup file</button><button class="secondary" type="button" id="clear">Clear fields</button></div></div>
+</div>
+<p id="status" class="status" role="status"></p>
+</form>
+<p id="loading">Preparing the setup form…</p>
+<noscript>This tool needs JavaScript to generate the file locally.</noscript>
+</section>
+<p class="notice"><strong>The download may contain live credentials in plain text.</strong> Don’t share it or sync it to a shared drive. Delete your computer’s copy after the import.</p>
+<h2>Import on the phone</h2>
+<ol><li>Open the app once to find its setup screen. Use a version that supports setup-file import.</li><li>Connect the phone in File transfer mode and copy the download to <strong>Download</strong><span id="folder-wrap" hidden> or <code id="folder"></code></span>.</li><li>In the app’s setup screen, choose the file and confirm the import. If the app couldn’t delete the source file, remove it from shared storage yourself.</li></ol>
+<p>This version uses files, not QR codes.</p>
+</main>
 <footer><div class="wrap foot"><span>Wave for the Sonim XP3800</span><a href="https://github.com/thooton/wave/issues">Report a problem ↗</a></div></footer></body></html>
