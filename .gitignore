@@ -1,0 +1,8 @@
+.oak/
+.gradle/
+build/
+local.properties
+node_modules/
+site/dist/
+__pycache__/
+*.pyc

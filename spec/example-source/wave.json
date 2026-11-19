@@ -1,0 +1,12 @@
+{
+  "wave": 1,
+  "name": "Example Source",
+  "description": "A small valid source: the fixture for wavesrc and the app's tests.",
+  "maintainer": "thooton",
+  "homepage": "https://github.com/thooton/wave",
+  "sections": {
+    "applications": "Applications",
+    "system": "System"
+  },
+  "featured": ["com.list.xp3"]
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/thooton/wave/spec/wave.schema.json",
+  "title": "wave.json: a Wave source, format version 1",
+  "description": "See docs/source-format.md. Unknown fields are allowed and ignored.",
+  "type": "object",
+  "required": ["wave", "name"],
+  "properties": {
+    "wave": { "type": "integer", "minimum": 1, "description": "Format version. 1." },
+    "name": { "type": "string", "minLength": 1, "maxLength": 40 },
+    "description": { "type": "string", "maxLength": 200 },
+    "maintainer": { "type": "string", "maxLength": 60 },
+    "homepage": { "type": "string", "pattern": "^https://" },
+    "sections": {
+      "type": "object",
+      "description": "Section folder -> display name. Key order is display order.",
+      "propertyNames": { "pattern": "^[a-z0-9][a-z0-9-]*$" },
+      "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 30 }
+    },
+    "featured": {
+      "type": "array",
+      "items": { "$ref": "package.schema.json#/$defs/id" },
+      "maxItems": 10
+    }
+  }
+}
