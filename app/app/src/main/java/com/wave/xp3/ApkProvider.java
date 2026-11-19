@@ -34,7 +34,12 @@ public final class ApkProvider extends ContentProvider {
     }
 
     static Uri uri(Catalog.Entry entry) {
-        return new Uri.Builder().scheme("content").authority(AUTHORITY).appendPath(entry.apk()).build();
+        return uri(entry.apk());
+    }
+
+    /** A file in {@link #folder} by name; the name must pass Catalog.validName. */
+    static Uri uri(String fileName) {
+        return new Uri.Builder().scheme("content").authority(AUTHORITY).appendPath(fileName).build();
     }
 
     @Override

@@ -58,6 +58,16 @@ public final class EngineService extends Service {
         LISTENERS.remove(listener);
     }
 
+    /**
+     * Whether `plan` would go through root: any module, or root has worked
+     * here before. Otherwise apps go through Installer (StockApps), and
+     * Wave never opens `su` by itself.
+     */
+    public static boolean usesRoot(Context context, Plan plan) {
+        for (Plan.Step step : plan.steps) if (step.kind == Plan.Kind.MODULE) return true;
+        return RootShell.known(context);
+    }
+
     /** Starts `plan`; false when a run is already going. */
     public static synchronized boolean start(Context context, Plan plan, String source) {
         if (busy() || pending != null) return false;
@@ -91,6 +101,7 @@ public final class EngineService extends Service {
         final Receipts receipts = Receipts.load(new File(getFilesDir(), "receipts.json"));
         final Engine engine = new Engine(plan, RootShell.get(), phone, receipts, this::changed, source,
             getPackageName());
+        if (!usesRoot(this, plan)) engine.apps(new StockApps(this));
         current = engine;
         Thread worker = new Thread(() -> {
             engine.run();

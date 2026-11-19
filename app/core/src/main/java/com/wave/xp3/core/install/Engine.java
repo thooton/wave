@@ -42,6 +42,22 @@ public final class Engine {
         String selfActivity();
     }
 
+    /**
+     * How apps are installed when not through root: on a phone without it,
+     * the app hands them to Android's (or the Updater's) installer and waits
+     * for its answer. Modules always need root.
+     */
+    public interface Apps {
+        /**
+         * Installs `apk` and returns the answer; blocks until there is one.
+         * For Wave itself (`self`) it may never return, as Android stops
+         * Wave to replace it.
+         */
+        PmResult install(File apk, String packageName, boolean self) throws IOException;
+
+        PmResult uninstall(String packageName) throws IOException;
+    }
+
     /** An APK as the platform read it. */
     public static final class Apk {
         /** Null when the file couldn't be read as an app. */
@@ -101,6 +117,7 @@ public final class Engine {
     private final String source;
     private final String self;
     private final List<Item> items = new ArrayList<>();
+    private Apps apps;
     private volatile boolean stop;
     private volatile boolean finished;
     private volatile boolean rebootNeeded;
@@ -121,6 +138,15 @@ public final class Engine {
         this.source = source;
         this.self = self;
         for (Plan.Step step : plan.steps) items.add(new Item(step));
+    }
+
+    /**
+     * Installs and removes apps through `apps` instead of root; null (the
+     * default) uses root. Set before {@link #run}.
+     */
+    public Engine apps(Apps apps) {
+        this.apps = apps;
+        return this;
     }
 
     public List<Item> items() {
@@ -254,8 +280,13 @@ public final class Engine {
         item.phase = Phase.REMOVING;
         changed();
         if (s.kind == Plan.Kind.APK) {
-            Shell.Result r = shell.run(Scripts.uninstallApk(s.id), INSTALL_MS);
-            PmResult pm = PmResult.parse(r.output, r.exit);
+            PmResult pm;
+            if (apps != null) {
+                pm = apps.uninstall(s.id);
+            } else {
+                Shell.Result r = shell.run(Scripts.uninstallApk(s.id), INSTALL_MS);
+                pm = PmResult.parse(r.output, r.exit);
+            }
             if (!pm.ok) return fail(item, pm.message);
         } else {
             Shell.Result r = shell.run(Scripts.removeModule(s.id), QUICK_MS);
@@ -301,7 +332,23 @@ public final class Engine {
 
             item.phase = Phase.INSTALLING;
             changed();
-            if (s.kind == Plan.Kind.APK && s.id.equals(self)) {
+            if (s.kind == Plan.Kind.APK && apps != null) {
+                boolean me = s.id.equals(self);
+                if (me) {
+                    selfUpdating = true;
+                    item.message = "Wave closes to update itself.";
+                    changed();
+                }
+                PmResult pm = apps.install(file, s.id, me);
+                if (!pm.ok) {
+                    selfUpdating = false;
+                    return fail(item, pm.message);
+                }
+                if (!me) {
+                    receipts.record(new Receipts.Receipt(s.id, s.kind, p.version, p.source != null ? p.source : source,
+                        p.sha256, System.currentTimeMillis()));
+                }
+            } else if (s.kind == Plan.Kind.APK && s.id.equals(self)) {
                 Shell.Result r = shell.run(Scripts.selfUpdate(file.getAbsolutePath(), file.length(), self,
                     platform.selfActivity()), QUICK_MS);
                 if (!r.ok()) return fail(item, "Couldn't start updating Wave: " + last(r.output));

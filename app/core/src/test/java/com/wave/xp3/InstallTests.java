@@ -46,6 +46,7 @@ final class InstallTests {
         check.run("Install: packages", () -> packages(check));
         check.run("Install: engine end to end", () -> engine(check));
         check.run("Install: engine failures", () -> failures(check));
+        check.run("Install: engine without root", () -> noRoot(check));
     }
 
     // ------------------------------------------------------------------
@@ -613,6 +614,58 @@ final class InstallTests {
         engine.run();
         shell.close();
         return engine;
+    }
+
+    /** Apps through a stand-in for Installer, and no `su` at all. */
+    private static void noRoot(Check check) throws Exception {
+        try (Sandbox box = new Sandbox(); Files2 server = new Files2()) {
+            FakePlatform platform = new FakePlatform(new File(box.root, "cache/downloads"));
+            Plan.Package a = serve(server, "com.a.xp3", Plan.Kind.APK, "1", apk("com.a.xp3", "1", 1));
+            Plan.Package b = pkg("com.b.xp3", Plan.Kind.APK, "1");
+            Plan plan = Plan.make(ask(Plan.Op.REMOVE, "com.b.xp3", Plan.Op.INSTALL, "com.a.xp3"), offer(a, b),
+                phone(new Plan.Installed("com.b.xp3", Plan.Kind.APK, "1", false)), null, "com.wave.xp3");
+            final List<String> did = new ArrayList<>();
+            ProcessShell none = new ProcessShell(Arrays.asList(new File(box.root, "no-su").getPath()), null);
+            File receiptsFile = new File(box.root, "r.json");
+            Engine e = new Engine(plan, none, platform, Receipts.load(receiptsFile), null, "src", "com.wave.xp3")
+                .apps(new Engine.Apps() {
+                    @Override
+                    public com.wave.xp3.core.root.PmResult install(File apk, String pkg, boolean self) {
+                        did.add("install " + pkg + " " + apk.isFile() + " " + self);
+                        return com.wave.xp3.core.root.PmResult.success();
+                    }
+
+                    @Override
+                    public com.wave.xp3.core.root.PmResult uninstall(String pkg) {
+                        did.add("uninstall " + pkg);
+                        return com.wave.xp3.core.root.PmResult.success();
+                    }
+                });
+            e.run();
+            check.ok("done: " + e.items(), e.succeeded());
+            check.same("through the stand-in", "[uninstall com.b.xp3, install com.a.xp3 true false]", did.toString());
+            check.same("receipt", "1", Receipts.load(receiptsFile).get("com.a.xp3").version);
+            check.ok("nothing left", platform.downloads.listFiles().length == 0);
+
+            Plan.Package m = serve(server, "mod_a", Plan.Kind.MODULE, "1.0",
+                Files.readAllBytes(moduleZip(box.root, "mod_a", "1.0").toPath()));
+            Engine e2 = new Engine(Plan.make(ask(Plan.Op.INSTALL, "mod_a"), offer(m), phone(), null, "com.wave.xp3"),
+                none, platform, Receipts.load(receiptsFile), null, null, "com.wave.xp3")
+                .apps(new Engine.Apps() {
+                    @Override
+                    public com.wave.xp3.core.root.PmResult install(File apk, String pkg, boolean self) {
+                        return com.wave.xp3.core.root.PmResult.failure("X", "Refused.");
+                    }
+
+                    @Override
+                    public com.wave.xp3.core.root.PmResult uninstall(String pkg) {
+                        return com.wave.xp3.core.root.PmResult.failure("X", "Refused.");
+                    }
+                });
+            e2.run();
+            check.ok("modules still need root", e2.items().get(0).phase == Engine.Phase.FAILED
+                && e2.items().get(0).message.contains("no root"));
+        }
     }
 
     private static void failures(Check check) throws Exception {

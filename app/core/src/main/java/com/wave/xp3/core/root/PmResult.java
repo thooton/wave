@@ -20,6 +20,15 @@ public final class PmResult {
         this.message = message;
     }
 
+    public static PmResult success() {
+        return new PmResult(true, null, null);
+    }
+
+    /** A failure from somewhere other than pm, such as Installer's answer. */
+    public static PmResult failure(String code, String message) {
+        return new PmResult(false, code, message);
+    }
+
     public static PmResult parse(String output, int exit) {
         String failure = null;
         String error = null;
