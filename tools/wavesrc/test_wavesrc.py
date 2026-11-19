@@ -377,6 +377,101 @@ fi
             artifact.verify_download(data, aapt2)
 
 
+class VerifyTest(Fixtures):
+    def setUp(self):
+        super().setUp()
+        self.data = b"fixture bytes streamed without aapt2"
+        self.download = {"url": "https://example.invalid/releases/list-1.0.0/list.apk",
+                         "size": len(self.data), "sha256": hashlib.sha256(self.data).hexdigest()}
+        self.mutate(LIST, lambda p: p.update(download=self.download))
+        self.mutate(MODULE, lambda p: p.update(download={
+            **self.download, "url": "https://example.invalid/sha256/item-9f06f2"}))
+
+    def verify(self):
+        return self.cli("verify", self.source)
+
+    def test_streams_all_assets_without_an_sdk(self):
+        with mock.patch("artifact.urllib.request.build_opener") as opener, \
+                mock.patch("artifact.identity", side_effect=AssertionError("verify must not inspect the APK")):
+            open_ = opener.return_value.open
+            open_.side_effect = lambda *a, **kw: io.BytesIO(self.data)
+            status, output = self.verify()
+            self.assertEqual(0, status, output)
+            self.assertEqual([mock.call(self.download["url"], timeout=30),
+                              mock.call("https://example.invalid/sha256/item-9f06f2", timeout=30)],
+                             open_.call_args_list)
+
+    def test_reports_unreachable_assets_and_keeps_checking(self):
+        with mock.patch("artifact.urllib.request.build_opener") as opener:
+            opener.return_value.open.side_effect = [
+                urllib.error.HTTPError(self.download["url"], 404, "Not found", {}, None),
+                urllib.error.URLError("name resolution failed")]
+            status, output = self.verify()
+        self.assertEqual(1, status)
+        self.assertIn(f"{self.source / LIST}: download failed: HTTP 404", output)
+        self.assertIn(f"{self.source / MODULE}: download failed: name resolution failed", output)
+
+    def test_reports_wrong_size_and_hash(self):
+        self.mutate(MODULE, lambda p: p["download"].update(sha256="0" * 64))
+        with mock.patch("artifact.urllib.request.build_opener") as opener:
+            opener.return_value.open.side_effect = [io.BytesIO(self.data + b"!"), io.BytesIO(self.data)]
+            status, output = self.verify()
+        self.assertEqual(1, status)
+        self.assertIn(f"{self.source / LIST}: download size exceeds", output)
+        self.assertIn(f"{self.source / MODULE}: download SHA-256 is", output)
+
+    def test_does_not_fetch_http_or_moving_urls(self):
+        self.mutate(LIST, lambda p: p["download"].update(url="http://example.invalid/list.apk"))
+        self.mutate(MODULE, lambda p: p["download"].update(
+            url="https://github.com/acme/apps/releases/download/latest/mod.zip"))
+        with mock.patch("artifact.urllib.request.build_opener") as opener:
+            status, output = self.verify()
+            opener.assert_not_called()
+        self.assertEqual(1, status)
+        self.assertIn(f"{self.source / LIST}: download.url must match an https:// URL", output)
+        self.assertIn(f"{self.source / MODULE}: mutable download URL selector 'latest'", output)
+        self.assertEqual(1, self.cli("lint", self.source)[0])
+        self.mutate(LIST, lambda p: p["download"].update(url=self.download["url"]))
+        self.assertEqual(0, self.cli("lint", self.source)[0])  # verify opts into the extra policy
+
+    def test_pinned_url_policy(self):
+        for url in (
+            "https://github.com/acme/apps/releases/latest/download/list.apk",
+            "https://example.invalid/DL/%4cATEST/list.apk",
+            "https://example.invalid/list-nightly.apk",
+            "https://example.invalid/snapshots/latest.zip",
+            "https://example.invalid/dl?id=7&VERSION=stable",
+            "https://example.invalid/dl?ref=refs%2Fheads%2Ffeature",
+            "https://example.invalid/dl?branch=experimental",
+            "https://github.com/acme/apps/archive/refs/heads/feature.zip",
+        ):
+            with self.subTest(url=url), self.assertRaisesRegex(Invalid, "mutable download URL"):
+                artifact.require_pinned_url(url)
+        for url in (
+            "https://github.com/latest/main/releases/download/list-1.2.3/list.apk",
+            "https://example.invalid/releases/nightly-2026-11-19/list.apk",
+            "https://example.invalid/dl?ref=refs%2Ftags%2Fv1.2.3",
+            "https://api.github.com/repos/owner/source/releases/assets/123456",
+            "https://assets.example.invalid/objects/72a229a?X-Amz-Signature=abc",
+        ):
+            with self.subTest(url=url):
+                artifact.require_pinned_url(url)
+        with self.assertRaisesRegex(Invalid, "must not contain credentials"):
+            artifact.require_pinned_url("https://user:token@example.invalid/list.apk")
+
+    def test_redirect_policy_keeps_https_and_rejects_moving_targets(self):
+        handler = artifact.HttpsRedirect(pinned=True)
+        req = urllib.request.Request(self.download["url"])
+        for url, message in (
+            ("http://example.invalid/current/list.apk", "redirect must use https://"),
+            ("https://example.invalid/current/list.apk", "download redirect: mutable download URL"),
+        ):
+            with self.subTest(url=url), self.assertRaisesRegex(Invalid, message):
+                handler.redirect_request(req, None, 302, "Found", {}, url)
+        cdn = "https://assets.example.invalid/objects/72a229a?X-Amz-Signature=abc"
+        self.assertEqual(cdn, handler.redirect_request(req, None, 302, "Found", {}, cdn).full_url)
+
+
 class DownloadTest(Fixtures):
     def test_download_lint_checks_size_hash_and_identity(self):
         (self.source / LIST).unlink()

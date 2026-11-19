@@ -3,17 +3,19 @@
 import argparse
 from pathlib import Path
 
-from artifact import verify_download
+from artifact import verify_asset, verify_download
 from release import publish
 from source import Report, lint
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(prog="wavesrc", description="Lint or publish a Wave source.")
+    parser = argparse.ArgumentParser(prog="wavesrc", description="Lint, verify or publish a Wave source.")
     commands = parser.add_subparsers(dest="command", required=True)
     check = commands.add_parser("lint", help="check a source checkout")
     check.add_argument("source", type=Path)
     check.add_argument("--download", action="store_true", help="download and verify every binary")
+    verify = commands.add_parser("verify", help="audit asset URLs, availability, size and SHA-256")
+    verify.add_argument("source", type=Path)
     put = commands.add_parser("publish", help="generate one package manifest in a source checkout")
     for field in ("source", "meta", "icon", "binary", "changes-from", "changes-path"):
         put.add_argument(f"--{field}", required=True, type=Path)
@@ -27,6 +29,8 @@ def main(argv=None):
     if args.command == "lint":
         lint(args.source, report,
              verify_binary=(lambda manifest: verify_download(manifest, args.aapt2)) if args.download else None)
+    elif args.command == "verify":
+        lint(args.source, report, verify_binary=verify_asset)
     else:
         publish(args, report)
     return int(bool(report.errors))

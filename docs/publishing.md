@@ -59,6 +59,15 @@ The second command downloads the assets, requires HTTPS even on redirects,
 and verifies their size, hash and binary identity. References to packages not
 in the source are warnings; those packages may be in another source.
 
+For a periodic link and pin audit, use `wavesrc verify ../my-source`. It
+streams every asset without keeping an APK or requiring the Android SDK,
+checks the declared size and SHA-256, and rejects moving download URLs such
+as GitHub's `/releases/latest/`, a `releases/download/latest/` tag, or a
+`version=latest` selector. Redirects must stay on HTTPS and avoid these
+aliases as well. A pass proves the bytes match **now**, not that a server
+can never replace them. Use immutable releases or content-addressed storage;
+keep `lint --download` for APK/module identity checks.
+
 ## Publish from GitHub Actions
 
 The calling workflow checks out the package repo with `fetch-depth: 0`, builds

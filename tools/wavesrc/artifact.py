@@ -11,6 +11,7 @@ import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
+from urllib.parse import parse_qsl, unquote, urlsplit
 
 from source import Invalid, LIMIT, https_url
 
@@ -105,15 +106,61 @@ def copy_and_digest(stream, dest=None, expected=None):
     return size, digest.hexdigest()
 
 
+# Conventional moving names, not a claim about a host's storage policy.
+MOVING = {"latest", "current", "stable", "nightly", "snapshot", "rolling", "head", "master", "main"}
+MOVING_FILENAME = re.compile(r"(?:^|[-_.])(?:" + "|".join(sorted(MOVING)) + r")(?=\.[a-z0-9]+$)")
+SELECTORS = {"ref", "tag", "version", "channel", "branch"}
+
+
+def require_pinned_url(url):
+    if not https_url(url):
+        raise Invalid("download URL must use https://")
+    parts = urlsplit(url)
+    if parts.username is not None:
+        raise Invalid("download URL must not contain credentials")
+    path = unquote(parts.path).lower()
+    segments = [segment for segment in path.split("/") if segment]
+    if parts.hostname == "github.com":
+        segments = segments[2:]  # owner and repository are not asset selectors
+    selector = next((part for part in segments if part in MOVING), None)
+    if selector is None and segments:
+        match = MOVING_FILENAME.search(segments[-1])
+        if match:
+            selector = match[0].lstrip("-_.")
+    if selector is None and "/refs/heads/" in path:
+        selector = "refs/heads/"
+    if selector is None:
+        for key, value in parse_qsl(parts.query):
+            key, value = key.lower(), value.lower().strip()
+            if (key == "branch" and value) or (key in SELECTORS and
+                    (value in MOVING or value.startswith("refs/heads/"))):
+                selector = key
+                break
+    if selector is not None:
+        raise Invalid(f"mutable download URL selector {selector!r}; use a versioned release or content-addressed asset")
+
+
 class HttpsRedirect(urllib.request.HTTPRedirectHandler):
+    def __init__(self, *, pinned=False):
+        self.pinned = pinned
+
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         if not https_url(newurl):
+            if fp is not None:
+                fp.close()
             raise Invalid("download redirect must use https://")
+        if self.pinned:
+            try:
+                require_pinned_url(newurl)
+            except Invalid as exc:
+                if fp is not None:
+                    fp.close()
+                raise Invalid(f"download redirect: {exc}") from exc
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def fetch(url, dest, expected):
-    opener = urllib.request.build_opener(HttpsRedirect())
+def fetch(url, dest, expected, *, pinned=False):
+    opener = urllib.request.build_opener(HttpsRedirect(pinned=pinned))
     try:
         with opener.open(url, timeout=30) as stream:
             return copy_and_digest(stream, dest, expected)[1]
@@ -125,15 +172,22 @@ def fetch(url, dest, expected):
         raise Invalid(f"download failed: {reason}") from exc
 
 
-def verify_download(manifest, aapt2=None):
+def verify_asset(manifest, *, pinned=True, dest=None):
+    """Stream and verify size/hash, optionally copying for identity inspection."""
     download = manifest["download"]
+    if pinned:
+        require_pinned_url(download["url"])
+    digest = fetch(download["url"], dest, int(download["size"]), pinned=pinned)
+    if digest != download["sha256"]:
+        raise Invalid(f"download SHA-256 is {digest}, expected {download['sha256']}")
+
+
+def verify_download(manifest, aapt2=None):
     suffix = ".apk" if manifest["type"] == "apk" else ".zip"
     with tempfile.TemporaryDirectory(prefix="wavesrc-") as scratch:
         file = Path(scratch) / ("download" + suffix)
         with file.open("wb") as dest:
-            digest = fetch(download["url"], dest, int(download["size"]))
-        if digest != download["sha256"]:
-            raise Invalid(f"download SHA-256 is {digest}, expected {download['sha256']}")
+            verify_asset(manifest, pinned=False, dest=dest)
         binary_id, binary_version = identity(file, manifest["type"], aapt2)
         if binary_id != manifest["id"]:
             raise Invalid(f"binary id {binary_id!r} does not match manifest id {manifest['id']!r}")
