@@ -78,7 +78,7 @@ take a moment).
 5. **Out of space.** `p no-space`: FAILED, "Not enough space: it needs
    505 MB." (the XP3 has less free). Nothing left in the cache.
 6. **A module, and the watchdog put in place.** `p module-install`: expect
-   `Boot watchdog 1 installed.`, `reboot=true`, and:
+   `Boot watchdog 2 installed.`, `reboot=true`, and:
    ```sh
    adb -s $S shell su -c 'ls -l /data/adb/post-fs-data.d /data/adb/service.d; cat /data/adb/wave/pending; ls /data/adb/modules_update /data/adb/modules/wave_test_ok'
    ```
@@ -103,7 +103,7 @@ take a moment).
 ## 08: the boot watchdog
 
 Before this, the watchdog is in place from step 6 above (`d facts` shows
-`watchdogPfd=1`, `watchdogService=1`).
+`watchdogPfd=2`, `watchdogService=2`).
 
 1. **A broken mod is turned off.** `p broken-install`, then arm it and
    reboot:
