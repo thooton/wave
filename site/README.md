@@ -1,8 +1,6 @@
-# site
+# Wave on the web
 
-The website, served from GitHub Pages: the landing page, the jailbreak
-(WebUSB: adb, Sahara, Firehose), Rescue and Restore, and the setup-code
-generator. Empty until `docs/tasks/09-site-jailbreak.md`.
-
-Design: `docs/jailbreak.md`. This is the one part of the repo where
-third-party JavaScript is allowed.
+The public site includes the XP3800 landing page, platform notes and app setup.
+It has no server-side component. `site/AGENTS.md` describes its layout,
+local preview and tests. Pages must be enabled with **GitHub Actions** as the
+source; no deployment is needed for a local preview.
