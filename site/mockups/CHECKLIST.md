@@ -124,7 +124,7 @@ lands on a focus shown in a frame above. "Menu > X" is Menu, Down to X, OK.
 | Retry with no network | OK (Try Again) | error-network |
 | Fix a failing source | Menu on its row > Refresh / Remove Source | error-source |
 | Deal with a turned-off mod | Alert: OK, or Left > OK (Remove It); later Installed: Menu > Turn On / Remove | error-watchdog, error-watchdog-row |
-| Without root | OK (Check Again); Back closes | no-root |
+| Without root | OK (Check Again); Back goes back | no-root |
 | Leave Wave | Back on a tab's top screen | all tab tops |
 
 Result: **every action is reachable** with Left/Right, Up/Down, OK, Back and

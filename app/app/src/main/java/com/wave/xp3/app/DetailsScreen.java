@@ -97,8 +97,9 @@ final class DetailsScreen extends Screen {
         LinearLayout capLine = new LinearLayout(app);
         capLine.setGravity(android.view.Gravity.CENTER_VERTICAL);
         String word = word(p);
+        boolean greyed = greyed(p);
         if (word != null) {
-            capLine.addView(Kit.capsule(app, word, !Rows.unfit(p), Rows.unfit(p)));
+            capLine.addView(Kit.capsule(app, word, !greyed, greyed));
         } else if (p.state != State.NONE) {
             TextView done = Look.text(app, stateWord(p), 11.5f, Look.MUTED, Look.MEDIUM);
             capLine.addView(done);
@@ -120,6 +121,7 @@ final class DetailsScreen extends Screen {
         // What to know.
         if (p.unfitReason != null) column.addView(line(Glyph.WARN, Look.ORANGE, p.unfitReason, Look.RED));
         if (p.needsNewerWave) column.addView(line(Glyph.INFO, Look.MUTED, "Needs a newer Wave", Look.TEXT));
+        if (p.state == State.UPDATE && Rows.unfit(p)) column.addView(line(Glyph.INFO, Look.MUTED, "Version " + p.version + " can't be installed here", Look.TEXT));
         if (p.isModule) column.addView(line(Glyph.REBOOT, Look.BLUE, "System mod, needs a reboot", Look.TEXT));
         if (p.state == State.OFF) column.addView(line(Glyph.WARN, Look.ORANGE, "Turned off: the phone didn't finish starting with it", Look.RED));
         if (p.state == State.PENDING_INSTALL) column.addView(line(Glyph.REBOOT, Look.BLUE, "Starts after a reboot", Look.TEXT));
@@ -252,10 +254,18 @@ final class DetailsScreen extends Screen {
         return false;
     }
 
+    /** A GET or UPDATE this phone can't take: drawn grey, and OK does nothing. */
+    private static boolean greyed(Pkg p) {
+        return Rows.unfit(p) && (p.state == State.NONE || p.state == State.UPDATE);
+    }
+
     private void ok() {
         Pkg p = pkg;
-        if (Rows.unfit(p) && p.state == State.NONE) return;
-        if (word(p) != null) {
+        if (greyed(p)) return;
+        String word = word(p);
+        if ("OPEN".equals(word)) {
+            app.open(p);
+        } else if (word != null) {
             app.press(p);
         } else {
             // An installed mod: nothing to press, so OK opens the menu.

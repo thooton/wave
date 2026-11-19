@@ -1,6 +1,7 @@
 package com.wave.xp3.app;
 
 import android.view.View;
+import android.widget.TextView;
 
 import com.wave.xp3.data.WaveData;
 import com.wave.xp3.data.WaveData.Pkg;
@@ -46,7 +47,9 @@ final class InstalledScreen extends Screen {
 
     private View.OnClickListener press(final Pkg p) {
         return v -> {
-            if (Rows.capsuleWord(app, p) != null && p.state != WaveData.State.OFF) app.press(p);
+            String word = Rows.capsuleWord(app, p);
+            if ("OPEN".equals(word)) app.open(p);
+            else if (word != null && p.state != WaveData.State.OFF) app.press(p);
             else app.details(p, null);
         };
     }
@@ -74,7 +77,15 @@ final class InstalledScreen extends Screen {
             }
         }
         if (s.updates.isEmpty() && s.upToDate.isEmpty()) {
-            page.add(Kit.message(app, null, "Nothing Installed", "What Wave installs is listed here.", null, null));
+            boolean unread = SourcesScreen.nothingFetched(s);
+            View message = s.firstLoadError != null && unread
+                ? Kit.message(app, null, "Cannot Load Sources", s.firstLoadError, null, "Try Again")
+                : unread ? Kit.message(app, Ring.spinnerBox(app), null, null, null, null)
+                : Kit.message(app, null, "Nothing Installed", "What Wave installs is listed here.", null, null);
+            TextView retry = Kit.messageButton(message);
+            if (retry != null) retry.setOnClickListener(v -> app.data.refreshAll());
+            message.setLayoutParams(new android.widget.LinearLayout.LayoutParams(-1, 0, 1f));
+            page.add(message);
         }
         page.add(Kit.gap(app, 6));
         page.restore(mark, null);

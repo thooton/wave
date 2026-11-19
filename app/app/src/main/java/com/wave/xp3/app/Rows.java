@@ -79,6 +79,8 @@ final class Rows {
             case NONE:
                 return "GET";
             case UPDATE:
+                // An update this phone can't take: the row is as up to date as it can be.
+                if (unfit(p)) return app.canOpen(p) ? "OPEN" : null;
                 return "UPDATE";
             case INSTALLED:
             case NEWER:
@@ -138,7 +140,7 @@ final class Rows {
         int color = Look.MUTED;
         switch (p.state) {
             case OFF:
-                sub = "Turned off: boot failed";
+                sub = bootFailed(app, p.id) ? "Turned off: boot failed" : "Turned off";
                 color = Look.RED;
                 break;
             case PENDING_INSTALL:
@@ -160,6 +162,12 @@ final class Rows {
         Screen.keyed(row, "pkg:" + p.id);
         row.setContentDescription(p.name + ", " + sub);
         return row;
+    }
+
+    /** Whether the watchdog turned `id` off (rather than the user or Magisk's safe mode). */
+    static boolean bootFailed(WaveActivity app, String id) {
+        for (WaveData.TurnedOff off : app.snapshot.turnedOff) if (off.id.equals(id)) return true;
+        return false;
     }
 
     /** A row that opens something: an optional icon, a name, optional detail and count, a chevron. */

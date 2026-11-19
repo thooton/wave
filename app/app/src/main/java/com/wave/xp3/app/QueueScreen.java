@@ -90,7 +90,7 @@ final class QueueScreen extends Screen {
                 failuresShown.add(item.pkg.id);
                 String verb = item.text != null && item.text.toLowerCase().contains("remov") ? "Removed" : "Installed";
                 new AlertDialog.Builder(app)
-                    .setTitle(item.pkg.name + " Wasn't " + verb)
+                    .setTitle(item.pkg.name + " wasn't " + verb.toLowerCase(java.util.Locale.US))
                     .setMessage(item.failure != null ? item.failure : "Something went wrong.")
                     .setPositiveButton("OK", null)
                     .show();

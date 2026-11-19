@@ -24,6 +24,9 @@ import java.util.Map;
  * - reboot: as browse, with Messages Improved waiting for a reboot.
  * - errors: a source that won't refresh, and Launcher Improved turned off.
  * - offline: nothing fetched and no network.
+ * - uptodate: as browse, with no updates.
+ * - noroot: as browse, without root.
+ * Getting Mail always fails its check, to show the queue's alert.
  *
  * Plans come back as the mockups' (a dependency, a replaced package); Confirm
  * runs a pretend queue that changes nothing; Reboot only says so.
@@ -48,7 +51,9 @@ public final class FakeWaveData implements WaveData {
         app("com.authenticator.xp3", "Authenticator", "Two-factor codes, as Authy shows them", "1.6.0", null, State.INSTALLED, "applications");
         app("com.books.xp3", "Books", "EPUBs and audiobooks from your library", "3.2.1", null, State.INSTALLED, "applications");
         app("com.canvas.xp3", "Canvas", "Your school week, due dates and grades", "2.0.3", null, State.NONE, "applications");
-        put(new Pkg("com.teslacharge.xp3", "Charge", "Your Tesla's charge, climate and location", null, "2.4.0", "2.3.1", State.UPDATE,
+        boolean current = "uptodate".equals(fixture);
+        put(new Pkg("com.teslacharge.xp3", "Charge", "Your Tesla's charge, climate and location", null, "2.4.0", current ? "2.4.0" : "2.3.1",
+            current ? State.INSTALLED : State.UPDATE,
             null, false, false, new Change("2.4.0", today, "Set the charge limit from the climate page; show the time to full while charging."),
             "wave", "Wave", "Applications"));
         app("com.dictionary.xp3", "Dictionary", "Definitions, thesaurus and shorthand, offline", "1.9.2", null, State.INSTALLED, "applications");
@@ -66,7 +71,8 @@ public final class FakeWaveData implements WaveData {
         boolean errors = "errors".equals(fixture);
         put(new Pkg("launcher_improved", "Launcher Improved", "The home screen with an app drawer and a tray", null, "2.0.1", "2.0.1",
             errors ? State.OFF : State.INSTALLED, null, false, true, null, "wave", "Wave", "System"));
-        put(new Pkg("music_improved", "Music Improved", "The stock Music app, without its crashes", null, "1.0.4", "1.0.2", State.UPDATE,
+        put(new Pkg("music_improved", "Music Improved", "The stock Music app, without its crashes", null, "1.0.4", current ? "1.0.4" : "1.0.2",
+            current ? State.INSTALLED : State.UPDATE,
             null, false, true, new Change("1.0.4", "2026-11-16", "Keep the queue when the phone restarts."), "wave", "Wave", "System"));
         put(new Pkg("com.mkline.snake", "Snake 97", "The snake game, as the old Nokias had it", null, "1.1.0", null, State.NONE,
             null, false, false, null, "games", "XP3 Games", "Games"));
@@ -187,7 +193,7 @@ public final class FakeWaveData implements WaveData {
         changed();
         main.postDelayed(() -> {
             refreshing = false;
-            if ("offline".equals(fixture)) actionError = "Couldn't refresh: No network.";
+            if ("offline".equals(fixture) || "errors".equals(fixture)) actionError = "Couldn't refresh: No network.";
             changed();
             actionError = null;
         }, 2000);
@@ -270,12 +276,16 @@ public final class FakeWaveData implements WaveData {
                     } else if (t < start + 6) {
                         s = item.action == Action.REMOVE ? Step.REMOVING : Step.INSTALLING;
                         finished = false;
+                    } else if (item.pkg.id.equals("com.mail.xp3")) {
+                        s = Step.FAILED;
+                        text = "Not installed";
                     } else {
                         s = Step.DONE;
                         text = item.action == Action.REMOVE ? "Removed" : item.action == Action.UPDATE ? "Updated to " + item.pkg.version
                             : "Installed " + item.pkg.version;
                     }
-                    rows.add(new QueueItem(item.pkg, s, pct, pct < 0 ? 0 : pct * 41000L, 4100000, text, null));
+                    rows.add(new QueueItem(item.pkg, s, pct, pct < 0 ? 0 : pct * 41000L, 4100000, text,
+                        s == Step.FAILED ? "The download doesn't match the source. It was deleted; nothing on the phone changed." : null));
                 }
                 queue = new QueueView(rows, finished, finished && reboot);
                 changed();

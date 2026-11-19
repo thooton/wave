@@ -50,7 +50,11 @@ final class SourceScreen extends Screen {
         Mark mark = page.clear();
         Src src = source();
         if (sourceId != null && src == null) {
+            // Removed (from its menu): back to the list it was in.
             page.add(Kit.message(app, null, "Source Removed", null, null, null));
+            if (app.isShowing(this)) page.scroll.post(() -> {
+                if (app.isShowing(this)) app.pop();
+            });
             return;
         }
         if (src != null) {

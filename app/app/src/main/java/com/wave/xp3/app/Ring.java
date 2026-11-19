@@ -44,6 +44,13 @@ final class Ring extends View {
         return ring;
     }
 
+    /** The spinner alone in the middle of a page, as the Updater shows a first load. */
+    static Ring spinnerBox(Context context) {
+        Ring ring = spinner(context);
+        ring.setLayoutParams(new android.widget.LinearLayout.LayoutParams(Look.dp(context, 20), Look.dp(context, 20)));
+        return ring;
+    }
+
     /** 0 to 100, or -1 to spin. */
     void setPercent(int value) {
         percent = value;

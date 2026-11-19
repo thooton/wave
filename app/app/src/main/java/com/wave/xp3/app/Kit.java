@@ -292,11 +292,13 @@ final class Kit {
         if (top != null) {
             box.addView(top);
         }
-        TextView t = Look.text(c, title, 17, Look.TEXT, Look.BOLD);
-        t.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams tl = wrap();
-        if (top != null) tl.topMargin = dp(c, 12);
-        box.addView(t, tl);
+        if (title != null) {
+            TextView t = Look.text(c, title, 17, Look.TEXT, Look.BOLD);
+            t.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams tl = wrap();
+            if (top != null) tl.topMargin = dp(c, 12);
+            box.addView(t, tl);
+        }
         if (detail != null) {
             TextView d = Look.text(c, detail, 13, Look.MUTED, Look.REGULAR);
             d.setGravity(Gravity.CENTER);
