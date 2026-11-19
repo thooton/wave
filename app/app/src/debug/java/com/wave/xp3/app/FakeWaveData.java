@@ -198,7 +198,7 @@ public final class FakeWaveData implements WaveData {
     @Override
     public void preview(String url, Result<Preview> callback) {
         main.postDelayed(() -> {
-            if (url.contains("xp3-games")) callback.ok(new Preview("XP3 Games", "mkline", 12, null, url));
+            if (url.contains("games")) callback.ok(new Preview("XP3 Games", "mkline", 12, null, url));
             else callback.failed("github.com answered 404: no repository here.");
         }, 1500);
     }

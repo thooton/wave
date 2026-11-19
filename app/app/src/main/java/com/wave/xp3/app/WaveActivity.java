@@ -297,6 +297,8 @@ public final class WaveActivity extends Activity {
                 turnedOff();
             });
             dialog.show();
+            // OK is the safe answer; Remove It is never where the focus starts.
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).requestFocus();
             return;
         }
     }
