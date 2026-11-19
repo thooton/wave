@@ -154,6 +154,19 @@ moving; resolve open questions when the relevant brief has evidence.
    QR chunk format (`WS1/i/n/id8/part`) is specified and parsed by
    `Config.Chunks` in P `common/core`, with no scanner behind it yet;
    revisit once someone has tried aiming at a screen.
+   *Recommendation (agent 8, for the owner to decide):* keep setup files and
+   do not build a scanner now. Evidence: no scanning attempt has been made, so
+   there is nothing to weigh against the file path; the file path is
+   implemented and generator output parses in all six apps (`status.md`);
+   today's device work found that the d-pad phone's real friction was USB,
+   permissions and drivers, not the setup transfer; and a scanner would add a
+   camera permission and a chunk-assembly UI to six apps for a path that
+   needs a person aiming at a monitor. Revisit if all of these hold: someone
+   reads a real generated code off a monitor with the XP3800 camera, in at
+   least 10 of 10 tries in ordinary room light, using Authenticator's existing
+   decoder (no vendored library); the largest real payload splits into few
+   enough chunks to scan in under a minute; and owners report the file import
+   as the obstacle. A failure on the first condition ends the question.
 2. **SQLite upgrade (not shipping).** The original `argon_sqlite` work is
    not committed upstream and was excluded from the import. No module or
    NDK job; revisit only after the upstream code and API checks are ready.
@@ -169,6 +182,21 @@ moving; resolve open questions when the relevant brief has evidence.
 5. **Windows.** For the intended browser flow, the required WinUSB driver
    binding might warrant a helper. The current device guide explains the
    driver requirements; the site does not install any drivers.
+   *Recommendation (agent 8, for the owner to decide):* no helper for now;
+   keep the Zadig steps in the guide. Evidence: in EDL (`05c6:9008`) Windows
+   binds Qualcomm's serial driver, and WebUSB only reaches WinUSB-bound
+   interfaces, so a driver swap is unavoidable. Zadig does that for one device
+   ID with administrator approval and is undoable, so a helper would replace
+   one manual step with something Wave must sign, host and maintain, which
+   fits poorly with a site that ships no binaries and asks owners to trust
+   nothing they cannot read. The backup page is off by default and meant for
+   one-time use per phone. Nothing on Windows is tested: the guide's steps come
+   from documentation, and the only driver problem observed was on Linux (the
+   `qcserial` module holding the interface, which needed a detach). Revisit if
+   a Windows owner follows the guide on a real XP3800 and the Zadig step is
+   what fails or is not understood, or if the backup page becomes part of the
+   default site. A helper would then only need to bind WinUSB to that single
+   ID and offer the undo; it should not touch any other driver.
 6. **Local folder names (closed).** W is already `wave`; keep P at
    `../sonim` on this shared machine. GitHub uses `wave_packages`. A later
    fresh clone can use the remote name. See `tasks/01-owner-checklist.md`.
