@@ -141,8 +141,8 @@ moving; resolve open questions when the relevant brief has evidence.
 3. **Nightly QA.** Delta's nightly QA runs on `thooton/sonim`. It follows the
    rename, but should it cover the mods and Wave too?
 4. **Private asset access.** Source and Tablet use `wave_private_packages`
-   (task 16). CI emits unsigned-by-authentication HTTPS API URLs pointing at
-   immutable GitHub release asset IDs; no credential or signed redirect
+   (task 16). CI emits credential-free HTTPS API URLs pointing at immutable
+   GitHub release asset IDs; no credential or signed redirect
    belongs in a manifest. Git refresh and binary download authenticate
    separately. Wave still needs the scoped private asset request and a
    migration-device verification before cutover; see the
