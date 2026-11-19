@@ -8,7 +8,8 @@ export const descriptors = [
     "about": "Two-factor codes. Set up directly, the accounts are kept on this phone only; nothing needs to be imported.",
     "settings": [],
     "limits": [
-      "Kept on this phone only: a lost or reset phone loses the accounts, unless they were copied with adb backup."
+      "Kept on this phone only: a lost or reset phone loses the accounts, unless they were copied with adb backup.",
+      "The phone's own accounts and a command center's are kept apart: switching shows the other list, and nothing is copied between them."
     ],
     "delta": {
       "supported": true,
