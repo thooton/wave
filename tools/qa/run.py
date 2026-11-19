@@ -28,7 +28,7 @@ PACKAGE = 'com.wave.xp3'
 ACTIVITIES = {'com.wave.xp3.MainActivity', 'com.wave.xp3.app.WaveActivity'}
 FIXTURES = ('browse', 'reboot', 'errors', 'offline', 'uptodate', 'big', 'noroot')
 FIXTURE_DESCRIPTOR = b'Lcom/wave/xp3/app/FakeWaveData;'
-LOCK = ROOT / '.oak' / 'phone.lock'
+LOCK = Path(os.environ.get('PHONE_LOCK_DIR') or ROOT / '.oak' / 'phone.lock')
 KEYS = {'DPAD_UP', 'DPAD_DOWN', 'DPAD_LEFT', 'DPAD_RIGHT', 'ENTER', 'BACK', 'MENU'}
 REGION = (0, 25, WIDTH, 270)  # Omit status/navigation bars. Override for finer focus checks.
 STEP_FIELDS = {'action', 'key', 'name', 'wait_ms', 'before_text', 'text_all', 'text_any',
@@ -153,6 +153,18 @@ def inspect_apk(path, fixture):
 
 @contextmanager
 def phone_lock(wait=0):
+    held = os.environ.get('WAVE_PHONE_LOCK_TOKEN')
+    if held:
+        # tools/qa/phone-run.sh took the lock for this process; trust it only
+        # while its owner file still names that exact token.
+        try:
+            current = (LOCK / 'owner').read_text(encoding='utf-8').strip()
+        except OSError:
+            current = ''
+        if current != held:
+            raise HarnessError('The phone lock is no longer held by this phone-run session.')
+        yield
+        return
     LOCK.parent.mkdir(parents=True, exist_ok=True)
     deadline = time.monotonic() + wait
     while True:

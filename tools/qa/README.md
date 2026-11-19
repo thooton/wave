@@ -1,15 +1,43 @@
 # Wave handset QA
 
+## Rule 1: every adb command goes through `phone-run.sh`
+
+The phone is shared. `tools/qa/phone-run.sh` is the only supported way to touch
+it: it takes `.oak/phone.lock`, runs your command, and releases the lock when the
+command ends, fails, or is interrupted (SIGINT, SIGTERM, SIGHUP).
+
+```sh
+tools/qa/phone-run.sh --who "agent3 UI walk, ~8 min" -- python3 tools/qa/suite.py
+tools/qa/phone-run.sh --who "agent1 first install" --wait 1800 -- bash my-adb-script.sh
+```
+
+- It waits up to 20 minutes (`--wait SECONDS`, or `$PHONE_RUN_WAIT`) and prints
+  the holder while it waits. If the lock is still taken it exits **75 without
+  running your command**. A script must treat that as failure, never carry on.
+- `--who` is required and is shown to everyone else: your agent name and what you
+  are doing. Keep sessions short.
+- Anything that runs `adb` (your own scripts, `adb install`, `input`, `screencap`,
+  a one-off `adb shell`) goes inside it. Do not run adb on the phone outside it,
+  and do not `mkdir` the lock by hand.
+- It never steals or removes a lock it did not make. A holder that died without
+  releasing is not stolen: ask the manager.
+- `run.py` and `suite.py` recognise a session started this way and do not take the
+  lock a second time; run on their own they still take it themselves.
+- Exit codes: your command's own status, 75 lock timeout, 64 usage, 129/130/143
+  for HUP/INT/TERM. `PHONE_LOCK_DIR` moves the lock (tests only).
+
 Run from the repository root with Python 3.11+, `adb` on `PATH`, and Android
 SDK build-tools (`aapt` on `PATH` or under `ANDROID_HOME`). With XP3800
 `8516067e` awake and USB debugging authorized:
 
 ```sh
-python3 tools/qa/run.py --dry-run
-python3 tools/qa/run.py --apk /path/to/wave.apk --scenario tools/qa/scenarios/07-stock.json
-python3 tools/qa/run.py --apk app/app/build/outputs/apk/debug/app-debug.apk \
-  --fixture browse --scenario tools/qa/scenarios/07-browse-preview.json
-python3 tools/qa/suite.py --apk app/app/build/outputs/apk/debug/app-debug.apk   # every fixture scenario
+tools/qa/phone-run.sh --who "you, what" -- python3 tools/qa/run.py --dry-run
+tools/qa/phone-run.sh --who "you, what" -- python3 tools/qa/run.py --apk /path/to/wave.apk \
+  --scenario tools/qa/scenarios/07-stock.json
+tools/qa/phone-run.sh --who "you, what" -- python3 tools/qa/run.py \
+  --apk app/app/build/outputs/apk/debug/app-debug.apk --fixture browse --scenario tools/qa/scenarios/07-browse-preview.json
+tools/qa/phone-run.sh --who "you, what" -- python3 tools/qa/suite.py \
+  --apk app/app/build/outputs/apk/debug/app-debug.apk   # every fixture scenario
 python3 -m unittest discover -s tools/qa -v   # no device needed
 ```
 
