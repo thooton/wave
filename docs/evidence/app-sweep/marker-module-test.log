@@ -1,0 +1,53 @@
+phone-run: holding the phone as: agent6 harmless marker module test (wave_qa_marker): install, 2 reboots, remove (~8 min)
+[10:25:37] == precheck
+[10:25:38] su: uid=0(root) gid=0(root) groups=0(root) context=u:r:magisk:s0
+[10:25:38] boot_completed=1 boot_id=ee3f8efd-c6f8-44ec-b08f-5c4a49b764fb
+[10:25:39] modules before: 
+[10:25:40] == install
+/home/sam/Documents/wave/.oak/tmp/temp9/dev/marker-module/wave-qa-marker-1.0.1.zip: 1 file pushed, 0 skipped. 17.3 MB/s (1778 bytes in 0.000s)
+***************************
+ Wave QA marker (harmless) 
+ by thooton 
+***************************
+*******************
+ Powered by Magisk 
+*******************
+- Extracting module files
+- Done
+[10:25:43] install exit shown above
+[10:25:43] module dir:
+total 6
+drwxrwxrwx 2 root root u:object_r:system_file:s0 3488 2026-11-19 10:25 .
+drwxr-xr-x 3 root root u:object_r:system_file:s0 3488 2026-11-19 10:25 ..
+-rw-r--r-- 1 root root u:object_r:system_file:s0  192 2026-11-19 10:25 module.prop
+-rw-r--r-- 1 root root u:object_r:system_file:s0    0 2026-11-19 10:25 update
+[10:25:43] module.prop:
+id=wave_qa_marker
+name=Wave QA marker (harmless)
+version=1.0.1
+versionCode=2
+author=thooton
+description=Test fixture from the mods packager. Writes a log line at boot. Touches no system file.
+ls: /data/adb/modules/wave_qa_marker/system: No such file or directory
+[10:25:45] == reboot 1
+[10:27:28] boot completed, uptime: 94.23 208.51
+[10:27:29] modules after reboot 1: wave_qa_marker
+total 6
+drwxr-xr-x 2 root root 3488 1970-01-02 02:45 .
+drwxr-xr-x 3 root root 3488 1970-01-02 02:45 ..
+-rw-r--r-- 1 root root  192 2026-11-19 10:25 module.prop
+-rwxr-xr-x 1 root root  222 2026-11-19 10:25 service.sh
+[10:27:30] marker log:
+wave_qa_marker service.sh ran uid=0 at 121522 boot_completed=
+[10:27:32] su still works: uid=0(root) gid=0(root) groups=0(root) context=u:r:magisk:s0
+[10:27:32] == remove marker + reboot 2
+module.prop
+remove
+service.sh
+[10:29:16] boot completed, uptime: 94.78 210.24
+[10:29:16] modules after reboot 2: []
+[10:29:17] RESULT: module directory gone
+[10:29:17] marker log after removal (must have no new line):
+wave_qa_marker service.sh ran uid=0 at 121522 boot_completed=
+[10:29:19] su still works: uid=0(root) gid=0(root) groups=0(root) context=u:r:magisk:s0; boot_completed=1
+[10:29:19] == done

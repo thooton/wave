@@ -60,7 +60,7 @@ exists (see Known gaps).
 
 | Area | Implemented | Verified | Not verified, and why |
 | :--- | :--- | :--- | :--- |
-| Apps and CI ([13](tasks/13-packages-ci.md)) | Release workflow and gate; 18 APKs (hbsa, Installer and Updater retired) | actionlint; gate unit tests; a clean build signed and checked every APK and published into a scratch source; all 18 shipped apps launched and checked on the rooted phone (reported by the session that ran it; there is no per-app record in the repo) | A real CI run on GitHub |
+| Apps and CI ([13](tasks/13-packages-ci.md)) | Release workflow and gate; 18 APKs (hbsa, Installer and Updater retired) | actionlint; gate unit tests; a clean build signed and checked every APK and published into a scratch source; all 18 apps' code launched and drew correctly on the phone as side-by-side `.qa` builds, not over the owner's installed copies ([app-sweep.md](app-sweep.md)); that sweep found Flashcards' unreadable setup title, fixed in 1.14.3 and not re-run on the phone | A real CI run on GitHub |
 | Setup without a baked login ([14](tasks/14-app-setup-codes.md)) | Shared setup screen; Places, Mail, Charge, Authenticator, Flashcards and Canvas have direct backends | Self-tests per app, plus reviews of the setup library and the backends with fixes and tests; each app phone-tested as a `.wavetest` build | Only with fake or test logins: no real Gmail, Tesla or Canvas account was used. Charge's token test runs by hand (`charge/android/tests/tokenstore/run.sh`), not in CI |
 | Mods ([11](tasks/11-mods-import.md), [12](tasks/12-mods-rename.md)) | Launcher, Music and Messages imported and renamed to Wave | Dex digests match upstream; the renamed builds and host suites pass from a fresh clone. The module path itself (zip install, update, removal and watchdog across reboots) is proven on the rooted phone with Wave's own test modules (`app/root-tests`) and a Rescue marker module | Installable zips need genuine OEM signatures, and there are none; the owner has decided the mods stay unpublished until genuine signing exists. So no real mod has been installed, run on the newer firmware, or handed over from the old mods |
 
@@ -71,8 +71,9 @@ exists (see Known gaps).
   a code off a monitor with the XP3's fixed-focus camera
   ([decisions](decisions.md) open item 1).
 - **Backups include logins.** Every app allows Android backup, so
-  `adb backup` carries the setup and tokens. The owner decided to keep this,
-  for moving phones.
+  `adb backup` carries the setup and tokens, so whoever holds a backup can
+  read them. The owner decided to keep this, for moving phones
+  ([decisions](decisions.md), decided 11).
 - **Versions.** Every app on common has an unpublished patch bump (P
   `375e34e` and later). Publishing needs the cutover first. W's `common/`
   copy is synced to P `d905f90` (`common/UPSTREAM`).
