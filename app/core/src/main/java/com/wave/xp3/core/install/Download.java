@@ -1,0 +1,200 @@
+package com.wave.xp3.core.install;
+
+import com.wave.xp3.core.Releases;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Locale;
+
+/**
+ * Fetches a package's binary into the cache, as the Updater's
+ * {@link Releases#download} does, for any `https://` URL a manifest names:
+ * through `<file>.part`, with progress, checked against the manifest's size
+ * and SHA-256, and resumable. A download cut off by the network keeps its
+ * `.part`, and the next try asks only for the rest (`Range`); every other
+ * failure (wrong size or hash, no space, stopped) deletes it, so nothing is
+ * left behind. The engine deletes any `.part` still there when its run ends.
+ */
+public final class Download {
+
+    private Download() {}
+
+    public interface Progress {
+        void update(long done, long total);
+    }
+
+    public interface Cancel {
+        boolean cancelled();
+    }
+
+    /** Thrown when the user stopped it. */
+    public static final class Stopped extends IOException {
+        public Stopped() {
+            super("Stopped.");
+        }
+    }
+
+    private static final int CONNECT_TIMEOUT_MS = 20000;
+    private static final int READ_TIMEOUT_MS = 60000;
+    /** Bigger than any package should be: a module of whole APKs, with room. */
+    static final long MAX = 512L * 1024 * 1024;
+    /** Kept free beyond the download itself, so installing has room too. */
+    static final long SPARE = 4L * 1024 * 1024;
+
+    public static void fetch(String url, long size, String sha256, File to, Progress progress, Cancel cancel)
+            throws IOException {
+        checkUrl(url);
+        if (size < 0 || size > MAX) throw new IOException("The source gives a size Wave won't download.");
+        if (sha256 == null || !sha256.matches("[0-9a-f]{64}")) {
+            throw new IOException("The source gives no usable SHA-256.");
+        }
+        File part = new File(to.getPath() + ".part");
+        File dir = to.getAbsoluteFile().getParentFile();
+        if (dir != null && !dir.isDirectory() && !dir.mkdirs()) throw new IOException("Can't make the download folder.");
+        if (part.length() > size) part.delete();
+        long have = part.isFile() ? part.length() : 0;
+        if (dir != null && dir.getUsableSpace() < size - have + SPARE) {
+            part.delete();
+            throw new IOException("Not enough space: it needs " + megabytes(size + SPARE) + ".");
+        }
+        try {
+            if (!get(url, size, part, have, progress, cancel)) {
+                // The server ignored or refused the range: start again.
+                part.delete();
+                get(url, size, part, 0, progress, cancel);
+            }
+            if (part.length() != size) throw new Discard("The download isn't the size the source gives.");
+            if (!sha256.equals(sha256(part))) throw new Discard("The download doesn't match the source.");
+            if (to.exists() && !to.delete()) throw new Discard("Can't replace the old download.");
+            if (!part.renameTo(to)) throw new Discard("Can't save the download.");
+        } catch (Discard | Stopped e) {
+            part.delete();
+            throw e;
+        } catch (IOException e) {
+            if (outOfSpace(e)) {
+                part.delete();
+                throw new IOException("The phone is out of space.");
+            }
+            throw Releases.friendly(e, "The download was cut short.");
+        }
+    }
+
+    /** A failure after which the `.part` is worthless. */
+    private static final class Discard extends IOException {
+        Discard(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * One request, appending to `part` from `from`. False when a range was
+     * asked for and the answer wasn't the rest of the file.
+     */
+    private static boolean get(String url, long size, File part, long from, Progress progress, Cancel cancel)
+            throws IOException {
+        if (from > 0 && from == size) return true;
+        HttpURLConnection c = open(url);
+        try {
+            if (from > 0) c.setRequestProperty("Range", "bytes=" + from + "-");
+            int status = c.getResponseCode();
+            if (from > 0) {
+                if (status == 416 || status == 200) return false;
+                if (status != 206 || !rangeStartsAt(c.getHeaderField("Content-Range"), from)) return false;
+            } else if (status != 200) {
+                throw new Discard(status == 404 ? "The source's file is missing." : "The server answered " + status + ".");
+            }
+            long length = c.getContentLengthLong();
+            if (length >= 0 && from + length != size) {
+                throw new Discard("The download isn't the size the source gives.");
+            }
+            long done = from;
+            InputStream in = c.getInputStream();
+            try {
+                OutputStream out = new FileOutputStream(part, from > 0);
+                try {
+                    byte[] buffer = new byte[64 * 1024];
+                    int n;
+                    if (progress != null) progress.update(done, size);
+                    while ((n = in.read(buffer)) != -1) {
+                        if (cancel != null && cancel.cancelled()) throw new Stopped();
+                        done += n;
+                        if (done > size) throw new Discard("The download isn't the size the source gives.");
+                        out.write(buffer, 0, n);
+                        if (progress != null) progress.update(done, size);
+                    }
+                } finally {
+                    out.close();
+                }
+            } finally {
+                in.close();
+            }
+            if (done != size) throw new IOException("The download was cut short.");
+            return true;
+        } finally {
+            c.disconnect();
+        }
+    }
+
+    static boolean rangeStartsAt(String contentRange, long from) {
+        if (contentRange == null) return false;
+        String v = contentRange.trim().toLowerCase(Locale.US);
+        return v.startsWith("bytes " + from + "-");
+    }
+
+    private static HttpURLConnection open(String url) throws IOException {
+        HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+        c.setConnectTimeout(CONNECT_TIMEOUT_MS);
+        c.setReadTimeout(READ_TIMEOUT_MS);
+        c.setInstanceFollowRedirects(true);
+        c.setUseCaches(false);
+        c.setRequestProperty("User-Agent", "Wave");
+        c.setRequestProperty("Accept-Encoding", "identity");
+        return c;
+    }
+
+    /** Only https, but plain http to this machine for the tests. */
+    static void checkUrl(String url) throws IOException {
+        if (url == null) throw new IOException("The source gives no download.");
+        String u = url.toLowerCase(Locale.US);
+        if (u.startsWith("https://")) return;
+        if (u.startsWith("http://127.0.0.1:") || u.startsWith("http://localhost:")) return;
+        throw new IOException("Wave only downloads over https.");
+    }
+
+    static boolean outOfSpace(IOException e) {
+        String m = e.getMessage();
+        return m != null && (m.contains("ENOSPC") || m.contains("No space left"));
+    }
+
+    public static String sha256(File file) throws IOException {
+        MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new IOException("No SHA-256 on this phone.");
+        }
+        InputStream in = new FileInputStream(file);
+        try {
+            byte[] buffer = new byte[64 * 1024];
+            int n;
+            while ((n = in.read(buffer)) != -1) digest.update(buffer, 0, n);
+        } finally {
+            in.close();
+        }
+        StringBuilder out = new StringBuilder(64);
+        for (byte b : digest.digest()) out.append(String.format("%02x", b & 0xFF));
+        return out.toString();
+    }
+
+    static String megabytes(long bytes) {
+        return ((bytes + 1024 * 1024 - 1) / (1024 * 1024)) + " MB";
+    }
+}
