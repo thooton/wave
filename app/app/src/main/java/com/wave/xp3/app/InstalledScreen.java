@@ -6,7 +6,6 @@ import android.widget.TextView;
 import com.wave.xp3.data.WaveData;
 import com.wave.xp3.data.WaveData.Pkg;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -39,17 +38,17 @@ final class InstalledScreen extends Screen {
     }
 
     private void updateAll() {
-        List<String> ids = new ArrayList<>();
-        for (Pkg p : app.snapshot.updates) if (!Rows.unfit(p)) ids.add(p.id);
+        List<String> ids = Actions.updatable(app.snapshot.updates);
         if (!ids.isEmpty()) app.plan(ids, WaveData.Action.UPDATE);
     }
 
     private View.OnClickListener press(final Pkg p) {
         return v -> {
-            String word = Rows.capsuleWord(app, p);
-            if ("OPEN".equals(word)) app.open(p);
-            else if (word != null && p.state != WaveData.State.OFF) app.press(p);
-            else app.details(p, null);
+            switch (Actions.pressInstalledRow(p, app::canOpen)) {
+                case OPEN: app.open(p); break;
+                case DETAILS: app.details(p, null); break;
+                default: app.press(p);
+            }
         };
     }
 
@@ -72,11 +71,9 @@ final class InstalledScreen extends Screen {
             }
         }
         if (s.updates.isEmpty() && s.upToDate.isEmpty()) {
-            boolean unread = SourcesScreen.nothingFetched(s);
-            View message = s.firstLoadError != null && unread
-                ? Kit.message(app, null, "Cannot Load Sources", s.firstLoadError, null, "Try Again")
-                : unread ? Kit.message(app, Ring.spinnerBox(app), null, null, null, null)
-                : Kit.message(app, null, "Nothing Installed", "What Wave installs is listed here.", null, null);
+            Pages.Message what = Pages.installedEmpty(s);
+            View message = what.spinner ? Kit.message(app, Ring.spinnerBox(app), null, null, null, null)
+                : Kit.message(app, null, what.title, what.body, null, what.button);
             TextView retry = Kit.messageButton(message);
             if (retry != null) retry.setOnClickListener(v -> app.data.refreshAll());
             if (s.rebootPending.isEmpty()) {
@@ -98,7 +95,7 @@ final class InstalledScreen extends Screen {
             Pkg p = (Pkg) ((Kit.Row) focus).about;
             if (p.newestChange != null) {
                 // After Details, as the mockup's menu has it.
-                int at = menu.titles.indexOf("Details") + 1;
+                int at = Actions.whatsNewAt(menu.titles);
                 menu.titles.add(at, "What's New");
                 menu.actions.add(at, () -> app.details(p, null));
             }

@@ -45,9 +45,7 @@ final class HomeScreen extends Screen {
         List<Pkg> featured = s.featured(null);
         page.add(Kit.heading(app, "Featured", false));
         if (featured.isEmpty()) {
-            String why = s.firstLoadError != null ? "Cannot load sources. " + s.firstLoadError
-                : refreshing(s) ? "Loading…" : "Nothing featured yet.";
-            TextView t = Look.text(app, why, 13, Look.MUTED, Look.REGULAR);
+            TextView t = Look.text(app, Pages.featuredEmpty(s), 13, Look.MUTED, Look.REGULAR);
             t.setPadding(Kit.dp(app, 10), Kit.dp(app, 4), Kit.dp(app, 10), Kit.dp(app, 8));
             page.add(t);
         }
@@ -73,36 +71,21 @@ final class HomeScreen extends Screen {
         add.setOnClickListener(v -> app.pushOnTab(1, new AddSourceScreen(app)));
         page.add(keyed(add, "add"));
 
-        if (s.root != WaveData.Root.OK) {
-            Kit.Row root = Rows.link(app, "Root for System Mods", s.root == WaveData.Root.CHECKING ? "Checking…" : "Not granted", Look.MUTED,
+        if (Pages.rootRow(s.root) != null) {
+            Kit.Row root = Rows.link(app, "Root for System Mods", Pages.rootRow(s.root), Look.MUTED,
                 null, 0, null, false);
             root.setOnClickListener(v -> app.push(new NoRootScreen(app)));
             page.add(Kit.gap(app, 10));
             page.add(keyed(root.last(), "root"));
         }
         page.add(Kit.heading(app, "This Phone", false));
-        WaveData.Facts f = s.facts;
-        String model = f != null && f.model != null ? f.model : Build.MODEL;
-        String android = f != null && f.android != null ? f.android : Build.VERSION.RELEASE;
-        if (f != null && f.build != null) android += ", build " + f.build;
-        page.add(Rows.fact(app, "Model", model, false));
-        page.add(Rows.fact(app, "Android", android, false));
-        page.add(Rows.fact(app, "Root", f != null && f.root != null ? f.root : rootText(s.root), false));
-        page.add(Rows.fact(app, "Storage", f != null && f.storageFree != null ? f.storageFree : "", true));
+        List<String[]> phone = Pages.phoneFacts(s, Build.MODEL, Build.VERSION.RELEASE);
+        for (int i = 0; i < phone.size(); i++) page.add(Rows.fact(app, phone.get(i)[0], phone.get(i)[1], i == phone.size() - 1));
         page.add(Kit.heading(app, "Community", false));
         page.add(Rows.fact(app, "Code", "github.com/thooton/wave", false));
         page.add(Rows.fact(app, "Website", "thooton.github.io/wave", true));
         page.add(Kit.gap(app, 10));
         page.restore(mark, featured.isEmpty() ? "about" : null);
-    }
-
-    private static boolean refreshing(WaveData.Snapshot s) {
-        for (WaveData.Src src : s.sources) if (src.refreshing) return true;
-        return s.sources.isEmpty();
-    }
-
-    private static String rootText(WaveData.Root root) {
-        return root == WaveData.Root.OK ? "Yes" : root == WaveData.Root.NONE ? "No" : "Checking…";
     }
 
     private View welcome() {

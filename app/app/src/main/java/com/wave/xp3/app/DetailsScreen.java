@@ -91,7 +91,7 @@ final class DetailsScreen extends Screen {
         name.setTypeface(Look.MEDIUM);
         texts.addView(name);
         // Kept by a receipt, a package has no author and maybe no source name: then no line at all.
-        String byline = !empty(d.author) ? d.author : !empty(p.sourceName) ? p.sourceName : null;
+        String byline = Pages.byline(p, d);
         if (byline != null) {
             TextView by = Kit.line(app, byline, 12, Look.MUTED);
             LinearLayout.LayoutParams bl = Kit.wrap();
@@ -124,29 +124,21 @@ final class DetailsScreen extends Screen {
 
         // What to know.
         // A newer format is said once, as a note (its reason is the same words), and points at Wave's own update when there is one.
-        if (p.unfitReason != null && !p.needsNewerWave) column.addView(line(Glyph.WARN, Look.ORANGE, p.unfitReason, Look.RED));
-        if (p.needsNewerWave) {
-            column.addView(line(Glyph.INFO, Look.MUTED, app.waveUpdate() != null ? "Update Wave to install this" : "Needs a newer Wave", Look.TEXT));
+        for (Pages.Note note : Pages.notes(p, d, app.waveUpdate() != null)) {
+            column.addView(line(glyph(note.icon), Look.color(note.iconTone), note.text, Look.color(note.textTone)));
         }
-        if (p.state == State.UPDATE && Rows.unfit(p)) column.addView(line(Glyph.INFO, Look.MUTED, "Version " + p.version + " can't be installed here", Look.TEXT));
-        if (p.isModule) column.addView(line(Glyph.REBOOT, Look.BLUE, "System mod, needs a reboot", Look.TEXT));
-        if (p.state == State.OFF) column.addView(line(Glyph.WARN, Look.ORANGE, "Turned off: the phone didn't finish starting with it", Look.RED));
-        if (p.state == State.PENDING_INSTALL) column.addView(line(Glyph.REBOOT, Look.BLUE, "Starts after a reboot", Look.TEXT));
-        if (p.state == State.PENDING_REMOVAL) column.addView(line(Glyph.REBOOT, Look.BLUE, "Removed after a reboot", Look.TEXT));
-        for (String r : d.replaces) column.addView(line(Glyph.INFO, Look.MUTED, "Replaces " + r, Look.TEXT));
-        if (d.firmwareNote) column.addView(line(Glyph.INFO, Look.MUTED, "Not tested on this phone's firmware", Look.TEXT));
 
-        boolean updateFirst = p.state == State.UPDATE;
+        boolean updateFirst = Pages.changesFirst(p);
         if (!updateFirst) description(d);
         if (!d.changes.isEmpty()) {
             column.addView(Kit.heading(app, "What's New", true));
             int shown = 0;
             for (WaveData.Change c : d.changes) {
-                if (shown++ == 4) break;
+                if (shown++ == Pages.MAX_CHANGES) break;
                 LinearLayout sub = new LinearLayout(app);
                 sub.setPadding(Kit.dp(app, 10), 0, Kit.dp(app, 10), Kit.dp(app, 3));
                 sub.addView(Kit.line(app, c.version != null ? "Version " + c.version : "", 12, Look.MUTED), Kit.weight());
-                if (c.date != null) sub.addView(Kit.line(app, Rows.Format.date(c.date), 12, Look.MUTED));
+                if (c.date != null) sub.addView(Kit.line(app, Format.date(c.date), 12, Look.MUTED));
                 column.addView(sub);
                 if (c.text != null) column.addView(paragraph(app, c.text));
             }
@@ -154,18 +146,7 @@ final class DetailsScreen extends Screen {
         if (updateFirst) description(d);
 
         column.addView(Kit.heading(app, "Information", true));
-        String size = Rows.Format.size(d.size);
-        String version = p.installedVersion != null && p.state == State.UPDATE ? p.installedVersion + " → " + p.version : p.version;
-        java.util.List<String[]> facts = new java.util.ArrayList<>();
-        facts.add(new String[]{"Version", version});
-        if (size != null) facts.add(new String[]{"Size", size});
-        // Kept by a receipt after its source went, a package has no section (and Wave itself may have no source).
-        if (p.sourceName != null && !p.sourceName.isEmpty()) facts.add(new String[]{"Source", p.sourceName});
-        if (p.sectionName != null && !p.sectionName.isEmpty()) facts.add(new String[]{"Section", p.sectionName});
-        if (!empty(d.author)) facts.add(new String[]{"Author", d.author});
-        if (!d.depends.isEmpty()) facts.add(new String[]{"Needs", join(d.depends)});
-        if (!d.conflicts.isEmpty()) facts.add(new String[]{"Conflicts", join(d.conflicts)});
-        facts.add(new String[]{"Id", p.id});
+        java.util.List<String[]> facts = Pages.facts(p, d);
         for (int i = 0; i < facts.size(); i++) {
             column.addView(Rows.fact(app, facts.get(i)[0], facts.get(i)[1], i == facts.size() - 1));
         }
@@ -174,67 +155,28 @@ final class DetailsScreen extends Screen {
         app.redressBar();
     }
 
-    private static boolean empty(String s) {
-        return s == null || s.isEmpty();
-    }
-
     private void description(Detail d) {
-        if (empty(d.description)) {
-            if (!empty(d.pkg.summary)) {
-                TextView p = paragraph(app, d.pkg.summary);
-                p.setPadding(p.getPaddingLeft(), Kit.dp(app, 4), p.getPaddingRight(), p.getPaddingBottom());
-                column.addView(p);
-            }
-            return;
-        }
-        TextView p = paragraph(app, d.description);
+        String text = Pages.description(d);
+        if (text == null) return;
+        TextView p = paragraph(app, text);
         p.setPadding(p.getPaddingLeft(), Kit.dp(app, 4), p.getPaddingRight(), p.getPaddingBottom());
         column.addView(p);
     }
 
-    private static String join(java.util.List<String> items) {
-        StringBuilder b = new StringBuilder();
-        for (String s : items) {
-            if (b.length() > 0) b.append(", ");
-            b.append(s);
-        }
-        return b.toString();
+    private static int glyph(Pages.Icon icon) {
+        return icon == Pages.Icon.WARN ? Glyph.WARN : icon == Pages.Icon.REBOOT ? Glyph.REBOOT : Glyph.INFO;
     }
 
-    /** The capsule on a details page: GET, UPDATE or OPEN; none for a mod or Wave once installed. */
     private String word(Pkg p) {
-        switch (p.state) {
-            case NONE:
-                return "GET";
-            case UPDATE:
-                return "UPDATE";
-            case INSTALLED:
-            case NEWER:
-                return app.canOpen(p) ? "OPEN" : null;
-            default:
-                return null;
-        }
+        return Actions.detailsCapsule(p, app::canOpen);
     }
 
     private static String stateWord(Pkg p) {
-        switch (p.state) {
-            case OFF:
-                return "TURNED OFF";
-            case PENDING_INSTALL:
-            case PENDING_REMOVAL:
-                return "AFTER REBOOT";
-            default:
-                return "INSTALLED";
-        }
+        return Pages.stateWord(p);
     }
 
     private static String afterText(Pkg p, Detail d) {
-        if (p.state == State.UPDATE && p.installedVersion != null) return p.installedVersion + " → " + p.version;
-        if (p.state == State.NONE) {
-            String size = Rows.Format.size(d.size);
-            return size != null ? size : "Version " + p.version;
-        }
-        return "Version " + (p.installedVersion != null ? p.installedVersion : p.version);
+        return Pages.afterText(p, d);
     }
 
     private View line(int glyph, int glyphColor, String text, int textColor) {
@@ -268,20 +210,23 @@ final class DetailsScreen extends Screen {
 
     /** A GET or UPDATE this phone can't take: drawn grey, and OK does nothing. */
     private static boolean greyed(Pkg p) {
-        return Rows.unfit(p) && (p.state == State.NONE || p.state == State.UPDATE);
+        return Actions.greyed(p);
     }
 
     private void ok() {
         Pkg p = pkg;
-        if (greyed(p)) return;
-        String word = word(p);
-        if ("OPEN".equals(word)) {
-            app.open(p);
-        } else if (word != null) {
-            app.press(p);
-        } else {
-            // An installed mod: nothing to press, so OK opens the menu.
-            app.openMenu();
+        switch (Actions.detailsOk(p, app::canOpen)) {
+            case OPEN:
+                app.open(p);
+                break;
+            case PRESS:
+                app.press(p);
+                break;
+            case MENU:
+                // An installed mod: nothing to press, so OK opens the menu.
+                app.openMenu();
+                break;
+            default:
         }
     }
 

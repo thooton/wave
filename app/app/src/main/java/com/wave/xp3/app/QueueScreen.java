@@ -49,14 +49,7 @@ final class QueueScreen extends Screen {
 
     @Override
     String title() {
-        WaveData.QueueView q = app.snapshot.queue;
-        if (q != null && q.finished && started) return "Done";
-        if (q != null) {
-            boolean removing = true;
-            for (QueueItem item : q.items) if (item.step != WaveData.Step.REMOVING && item.step != WaveData.Step.WAITING) removing = false;
-            for (QueueItem item : q.items) if (item.step == WaveData.Step.DOWNLOADING || item.step == WaveData.Step.INSTALLING) return "Installing";
-        }
-        return "Installing";
+        return Pages.queueTitle(app.snapshot.queue, started);
     }
 
     @Override
@@ -107,10 +100,9 @@ final class QueueScreen extends Screen {
         for (QueueItem item : q.items) {
             if (item.step == WaveData.Step.FAILED && !failuresShown.contains(item.pkg.id)) {
                 failuresShown.add(item.pkg.id);
-                String verb = item.text != null && item.text.toLowerCase().contains("remov") ? "Removed" : "Installed";
                 new AlertDialog.Builder(app)
-                    .setTitle(item.pkg.name + " wasn't " + verb.toLowerCase(java.util.Locale.US))
-                    .setMessage(item.failure != null ? item.failure : "Something went wrong.")
+                    .setTitle(Pages.failureTitle(item))
+                    .setMessage(Pages.failureMessage(item))
                     .setPositiveButton("OK", null)
                     .show();
             }
@@ -118,59 +110,10 @@ final class QueueScreen extends Screen {
     }
 
     private View row(QueueItem item, boolean last) {
-        String sub;
-        int color = Look.MUTED;
-        View right = null;
-        boolean dim = false;
-        switch (item.step) {
-            case DONE:
-                sub = item.text != null ? item.text : "Done";
-                color = Look.GREEN;
-                right = new Glyph(app, Glyph.TICK, Look.GREEN);
-                break;
-            case FAILED:
-                sub = item.text != null ? item.text : "Not installed";
-                color = Look.RED;
-                break;
-            case SKIPPED:
-                sub = item.text != null ? item.text : "Skipped";
-                break;
-            case WAITING:
-                sub = item.text != null ? item.text : "Waiting";
-                dim = true;
-                right = spinner(-1);
-                break;
-            case DOWNLOADING: {
-                String of = item.total > 0 ? ", " + mb(item.bytes) + " of " + Rows.Format.size(item.total) : "";
-                sub = "Downloading" + of;
-                color = Look.BLUE;
-                right = spinner(item.percent);
-                break;
-            }
-            default:
-                sub = item.text != null ? item.text : word(item.step);
-                color = Look.BLUE;
-                right = spinner(-1);
-        }
-        if (finished && item.step == WaveData.Step.WAITING) right = null;
-        return Rows.queue(app, item.pkg, sub, color, right, false, last, dim);
-    }
-
-    private static String mb(long bytes) {
-        return String.format(java.util.Locale.US, "%.1f", bytes / 1000.0 / 1000.0);
-    }
-
-    private static String word(WaveData.Step step) {
-        switch (step) {
-            case CHECKING:
-                return "Checking";
-            case INSTALLING:
-                return "Installing";
-            case REMOVING:
-                return "Removing";
-            default:
-                return "";
-        }
+        Pages.QueueLine line = Pages.queueLine(item, finished);
+        View right = line.right == Pages.Right.TICK ? new Glyph(app, Glyph.TICK, Look.GREEN)
+            : line.right == Pages.Right.SPINNER ? spinner(line.percent) : null;
+        return Rows.queue(app, item.pkg, line.text, Look.color(line.tone), right, false, last, line.dim);
     }
 
     private View spinner(int percent) {

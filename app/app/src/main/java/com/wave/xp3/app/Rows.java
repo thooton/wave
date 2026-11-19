@@ -13,10 +13,6 @@ import com.wave.xp3.data.WaveData;
 import com.wave.xp3.data.WaveData.Pkg;
 import com.wave.xp3.data.WaveData.State;
 
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.Locale;
 
 /** The rows of the mockups, filled from WaveData's values. */
 final class Rows {
@@ -29,7 +25,7 @@ final class Rows {
     }
 
     static boolean unfit(Pkg p) {
-        return p.unfitReason != null || p.needsNewerWave;
+        return Actions.unfit(p);
     }
 
     /**
@@ -171,35 +167,12 @@ final class Rows {
     }
 
     static int badge(Pkg p) {
-        switch (p.state) {
-            case UPDATE:
-                return 2;
-            case INSTALLED:
-            case NEWER:
-            case OFF:
-            case PENDING_INSTALL:
-                return 1;
-            default:
-                return 0;
-        }
+        return Actions.badge(p);
     }
 
     /** What the capsule says for `p` on Installed, or null for none (a mod, Wave itself, nothing to open). */
     static String capsuleWord(WaveActivity app, Pkg p) {
-        if (unfit(p) && p.state == State.NONE) return null;
-        switch (p.state) {
-            case NONE:
-                return "GET";
-            case UPDATE:
-                // An update this phone can't take: the row is as up to date as it can be.
-                if (unfit(p)) return app.canOpen(p) ? "OPEN" : null;
-                return "UPDATE";
-            case INSTALLED:
-            case NEWER:
-                return app.canOpen(p) ? "OPEN" : null;
-            default:
-                return null;
-        }
+        return Actions.capsule(p, app::canOpen);
     }
 
     /**
@@ -263,15 +236,14 @@ final class Rows {
         UpdateRow bind(Pkg p, View.OnClickListener press, boolean last) {
             about = p;
             app.icons.into(icon, icon(app, p), 40);
-            String when = p.newestChange != null && p.newestChange.date != null ? Format.date(p.newestChange.date) : null;
-            String line = when != null ? when : "Version " + p.version;
+            String line = Pages.updateLine(p);
             name.setText(p.name);
             sub.setText(line);
             String word = capsuleWord(app, p);
             capsule.setText(word != null ? word : "");
             capsule.setVisibility(word != null ? VISIBLE : GONE);
             chevron.setVisibility(word != null ? GONE : VISIBLE);
-            boolean hasNotes = p.newestChange != null && p.newestChange.text != null && !p.newestChange.text.isEmpty();
+            boolean hasNotes = Pages.hasNotes(p);
             notes.setText(hasNotes ? p.newestChange.text : "");
             notes.setVisibility(hasNotes ? VISIBLE : GONE);
             setHairline(!last);
@@ -325,28 +297,13 @@ final class Rows {
         InstalledRow bind(Pkg p, View.OnClickListener press, boolean last) {
             about = p;
             app.icons.into(icon, icon(app, p), 32);
-            String line;
-            int color = Look.MUTED;
-            switch (p.state) {
-                case OFF:
-                    line = bootFailed(app, p.id) ? "Turned off: boot failed" : "Turned off";
-                    color = Look.RED;
-                    break;
-                case PENDING_INSTALL:
-                    line = "Starts after a reboot";
-                    color = Look.BLUE;
-                    break;
-                case PENDING_REMOVAL:
-                    line = "Removed after a reboot";
-                    color = Look.BLUE;
-                    break;
-                default:
-                    line = (p.isModule ? "System mod, " : "Version ") + (p.installedVersion != null ? p.installedVersion : p.version);
-            }
+            Pages.Line shown = Pages.installedLine(p, p.state == State.OFF && bootFailed(app, p.id));
+            String line = shown.text;
+            int color = Look.color(shown.tone);
             name.setText(p.name);
             sub.setText(line);
             sub.setTextColor(color);
-            String word = p.state == State.OFF || p.state == State.PENDING_INSTALL || p.state == State.PENDING_REMOVAL ? null : capsuleWord(app, p);
+            String word = Pages.installedCapsule(p, app::canOpen);
             capsule.setText(word != null ? word : "");
             capsule.setVisibility(word != null ? VISIBLE : GONE);
             chevron.setVisibility(word != null ? GONE : VISIBLE);
@@ -411,8 +368,7 @@ final class Rows {
 
     /** "Messages Improved starts after a reboot", or the count of them. */
     static String rebootText(java.util.List<String> names) {
-        if (names.size() == 1) return names.get(0) + " starts after a reboot";
-        return names.size() + " changes start after a reboot";
+        return Pages.rebootText(names);
     }
 
     /** A label and its value, as text: no focus stop. */
@@ -455,61 +411,6 @@ final class Rows {
 
     static Typeface medium() {
         return Look.MEDIUM;
-    }
-
-    /** Sizes, dates and versions as the screens say them. */
-    static final class Format {
-        private Format() {}
-
-        static String size(long bytes) {
-            if (bytes <= 0) return null;
-            if (bytes < 1000 * 1000) return Math.max(1, Math.round(bytes / 1000.0)) + " KB";
-            return String.format(Locale.US, "%.1f MB", bytes / 1000.0 / 1000.0);
-        }
-
-        /** "Today", "Yesterday", or "Nov 12, 2026", from YYYY-MM-DD. Anything else is returned as it is. */
-        static String date(String iso) {
-            if (iso == null) return null;
-            try {
-                SimpleDateFormat in = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
-                in.setLenient(false);
-                Date day = in.parse(iso.length() >= 10 ? iso.substring(0, 10) : iso);
-                Calendar then = Calendar.getInstance();
-                then.setTime(day);
-                Calendar now = Calendar.getInstance();
-                if (sameDay(then, now)) return "Today";
-                now.add(Calendar.DAY_OF_YEAR, -1);
-                if (sameDay(then, now)) return "Yesterday";
-                return new SimpleDateFormat("MMM d, yyyy", Locale.US).format(day);
-            } catch (Exception e) {
-                return iso;
-            }
-        }
-
-        private static boolean sameDay(Calendar a, Calendar b) {
-            return a.get(Calendar.YEAR) == b.get(Calendar.YEAR) && a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR);
-        }
-
-        /** "refreshed today", "refreshed Nov 2", or null before the first refresh. */
-        static String refreshed(long millis) {
-            if (millis <= 0) return null;
-            Calendar then = Calendar.getInstance();
-            then.setTimeInMillis(millis);
-            Calendar now = Calendar.getInstance();
-            if (sameDay(then, now)) return "refreshed today";
-            now.add(Calendar.DAY_OF_YEAR, -1);
-            if (sameDay(then, now)) return "refreshed yesterday";
-            return "refreshed " + new SimpleDateFormat("MMM d", Locale.US).format(new Date(millis));
-        }
-
-        /** An address without its scheme, as the rows show it. */
-        static String shortUrl(String url) {
-            if (url == null) return "";
-            String s = url.replaceFirst("^[a-zA-Z]+://", "");
-            if (s.endsWith(".git")) s = s.substring(0, s.length() - 4);
-            if (s.endsWith("/")) s = s.substring(0, s.length() - 1);
-            return s;
-        }
     }
 
     static WaveData.Pkg none() {

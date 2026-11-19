@@ -12,12 +12,31 @@ android {
 
     defaultConfig {
         applicationId "com.wave.xp3"
-        versionCode 30
-        versionName "0.7.23"
+        versionCode 31
+        versionName "0.7.24"
     }
 }
 
+// Host tests: the decisions behind the screens (what a row says, which menu entries a
+// package offers, how a snapshot is projected) run on a desktop JVM with the same
+// plain runner and Check as :app:core, no emulator and no test framework. Android's
+// classes are the stubs of android.jar, so anything that needs a real View is kept
+// out of what these tests touch (see Format, Actions and Pages).
+android.testOptions.unitTests.returnDefaultValues = true
+
 dependencies {
+    testImplementation testFixtures(project(":common:core"))
     implementation project(":app:core")
     implementation project(":common:ui")
+}
+
+// ./gradlew :app:app:selfTest
+afterEvaluate {
+    def unit = tasks.named("testDebugUnitTest")
+    unit.configure { enabled = false } // the runner below replaces framework discovery
+    tasks.register("selfTest", JavaExec) {
+        dependsOn unit
+        classpath = files({ unit.get().classpath })
+        mainClass = "com.wave.xp3.app.AppSelfTest"
+    }
 }

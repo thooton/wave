@@ -148,11 +148,12 @@ final class SearchScreen extends Screen {
 
     private void draw() {
         Mark mark = feed.clear();
-        if (results != null && results.isEmpty()) {
+        Pages.Results what = Pages.results(results);
+        if (what == Pages.Results.NONE_FOUND) {
             feed.message(Kit.message(app, null, "No Results", null, null, null));
             return;
         }
-        if (results != null) {
+        if (what == Pages.Results.FOUND) {
             for (int i = 0; i < results.size(); i++) {
                 final Pkg p = results.get(i);
                 feed.add(Rows.browseLine(app, p, v -> app.details(p, null), i == results.size() - 1));

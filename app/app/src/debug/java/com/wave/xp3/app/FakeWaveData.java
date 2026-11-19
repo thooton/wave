@@ -119,7 +119,8 @@ public final class FakeWaveData implements WaveData {
     }
 
     private void app(String id, String name, String summary, String version, String installed, State state, String folder) {
-        put(new Pkg(id, name, summary, null, version, installed, state, null, false, false, null, "wave", "Wave", "Applications"));
+        put(new Pkg(id, name, summary, null, version, installed == null && state != State.NONE ? version : installed, state, null, false, false, null,
+            "wave", "Wave", "Applications"));
     }
 
     private void put(Pkg p) {

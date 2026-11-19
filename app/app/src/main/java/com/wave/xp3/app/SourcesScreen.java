@@ -35,29 +35,28 @@ final class SourcesScreen extends Screen {
     }
 
     private boolean refreshing() {
-        for (Src s : app.snapshot.sources) if (s.refreshing) return true;
-        return false;
+        return Pages.anyRefreshing(app.snapshot);
     }
 
     @Override
     void bar(Bar bar) {
-        if (refreshing()) bar.setSpinning(true);
         // With nothing fetched and a failure, the page's Try Again is the refresh.
-        else if (!(app.snapshot.firstLoadError != null && nothingFetched(app.snapshot)))
-            bar.setLink(0, "Refresh", true).setOnClickListener(v -> app.data.refreshAll());
+        Pages.BarState state = Pages.sourcesBar(app.snapshot);
+        if (state == Pages.BarState.SPINNING) bar.setSpinning(true);
+        else if (state == Pages.BarState.REFRESH) bar.setLink(0, "Refresh", true).setOnClickListener(v -> app.data.refreshAll());
         bar.setLink(1, "Add", true).setOnClickListener(v -> app.push(new AddSourceScreen(app)));
     }
 
     static boolean nothingFetched(WaveData.Snapshot s) {
-        for (Src src : s.sources) if (src.refreshedAt > 0 || src.packageCount > 0) return false;
-        return true;
+        return Pages.nothingFetched(s);
     }
 
     @Override
     void update(WaveData.Snapshot s) {
         boolean messageHadFocus = feed.showingMessage() && feed.root.hasFocus();
-        if (s.firstLoadError != null && nothingFetched(s) && !refreshing()) {
-            View message = Kit.message(app, null, "Cannot Load Sources", s.firstLoadError, null, "Try Again");
+        Pages.Message failed = Pages.sourcesEmpty(s);
+        if (failed != null) {
+            View message = Kit.message(app, null, failed.title, failed.body, null, failed.button);
             Kit.messageButton(message).setOnClickListener(v -> app.data.refreshAll());
             feed.message(message);
             if (app.isShowing(this)) Kit.messageButton(message).requestFocus();
@@ -72,17 +71,8 @@ final class SourcesScreen extends Screen {
             final Src src = s.sources.get(i);
             ImageView icon = new ImageView(app);
             app.icons.into(icon, new AppIcons.Ref("source:" + src.id, src.name, src.iconFile, null, null), 30);
-            String sub;
-            int color = Look.MUTED;
-            if (src.refreshing) sub = "Refreshing…";
-            else if (src.error != null) {
-                sub = src.error;
-                color = Look.RED;
-            } else if (src.needsNewerWave) {
-                sub = "Needs a newer Wave";
-                color = Look.RED;
-            } else sub = Rows.Format.shortUrl(src.url);
-            Kit.Row row = Rows.link(app, src.name, sub, color, icon, 30, null, true);
+            Pages.Line line = Pages.sourceRow(src);
+            Kit.Row row = Rows.link(app, src.name, line.text, Look.color(line.tone), icon, 30, null, true);
             if (src.refreshing || src.error != null) {
                 // The spinner or the warning sits before the chevron.
                 View sign = src.refreshing ? Ring.spinner(app) : new Glyph(app, Glyph.WARN, Look.ORANGE);

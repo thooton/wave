@@ -35,7 +35,7 @@ final class SourceScreen extends Screen {
     @Override
     String title() {
         Src s = source();
-        return sourceId == null ? "All Sources" : s != null ? s.name : "Source";
+        return Pages.sourceTitle(sourceId, s);
     }
 
     @Override
@@ -64,14 +64,11 @@ final class SourceScreen extends Screen {
             ImageView icon = Kit.iconView(app, 36);
             app.icons.into(icon, new AppIcons.Ref("source:" + src.id, src.name, src.iconFile, null, null), 36);
             head.addView(icon);
-            String by = src.maintainer != null ? src.maintainer : Rows.Format.shortUrl(src.url);
-            String when = Rows.Format.refreshed(src.refreshedAt);
-            String sub = src.refreshing ? "Refreshing…" : src.error != null ? "Couldn't refresh: " + src.error
-                : when != null ? by + ", " + when : by;
+            Pages.Line header = Pages.sourceHeader(src);
             LinearLayout texts = new LinearLayout(app);
             texts.setOrientation(LinearLayout.VERTICAL);
             texts.addView(Look.text(app, src.name, 14, Look.TEXT, Look.MEDIUM));
-            TextView s = Look.text(app, sub, 12, src.error != null ? Look.RED : Look.MUTED, Look.REGULAR);
+            TextView s = Look.text(app, header.text, 12, Look.color(header.tone), Look.REGULAR);
             s.setMaxLines(2);
             LinearLayout.LayoutParams sl = Kit.wrap();
             sl.topMargin = Kit.dp(app, 3);
@@ -99,14 +96,12 @@ final class SourceScreen extends Screen {
         if (notRead) {
             // For whoever publishes the source: which packages Wave left out, and why.
             int n = src.unreadableCount;
-            Kit.Row row = Rows.link(app, n == 1 ? "1 package can't be read" : n + " packages can't be read",
+            Kit.Row row = Rows.link(app, Pages.unreadableLabel(n),
                 null, 0, null, 0, null, false);
             row.last();
             final List<String> lines = src.unreadable, icons = src.iconsIgnored;
             row.setOnClickListener(v -> {
-                StringBuilder text = new StringBuilder(android.text.TextUtils.join("\n", lines));
-                if (!icons.isEmpty()) text.append("\n\nIcons ignored:\n").append(android.text.TextUtils.join("\n", icons));
-                app.alert("Can't Be Read", text.toString());
+                app.alert("Can't Be Read", Pages.unreadableText(lines, icons));
             });
             feed.add(keyed(row, "unreadable"));
         }

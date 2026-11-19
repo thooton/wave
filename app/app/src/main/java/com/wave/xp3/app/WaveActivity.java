@@ -348,32 +348,25 @@ public final class WaveActivity extends Activity {
 
     /** What pressing `p`'s capsule does: GET or UPDATE go to the confirm, OPEN starts the app. */
     void press(Pkg p) {
-        if (Rows.unfit(p) && p.state == WaveData.State.NONE) return;
-        switch (p.state) {
-            case NONE:
+        switch (Actions.press(p, this::canOpen)) {
+            case GET:
                 plan(Collections.singletonList(p.id), WaveData.Action.GET);
                 break;
             case UPDATE:
-                if (Rows.unfit(p)) {
-                    // A newer version this phone can't take: as if up to date.
-                    if (canOpen(p)) open(p);
-                    else details(p, null);
-                    break;
-                }
                 plan(Collections.singletonList(p.id), WaveData.Action.UPDATE);
                 break;
-            case INSTALLED:
-            case NEWER:
-                if (canOpen(p)) open(p);
-                else details(p, null);
+            case OPEN:
+                open(p);
+                break;
+            case DETAILS:
+                details(p, null);
                 break;
             default:
-                details(p, null);
         }
     }
 
     boolean canOpen(Pkg p) {
-        return !p.isModule && !p.id.equals(getPackageName()) && getPackageManager().getLaunchIntentForPackage(p.id) != null;
+        return Actions.openable(p, getPackageName(), () -> getPackageManager().getLaunchIntentForPackage(p.id) != null);
     }
 
     void open(Pkg p) {
@@ -592,31 +585,22 @@ public final class WaveActivity extends Activity {
 
     /** Wave's own update, when a source offers one this phone can take; else null. */
     Pkg waveUpdate() {
-        if (snapshot == null) return null;
-        for (Pkg u : snapshot.updates) if (u.id.equals(getPackageName())) return u;
-        return null;
+        return Actions.waveUpdate(snapshot, getPackageName());
     }
 
     /** The common package menu: the capsule's action, details, what's new. */
     void packageMenu(Screen.Menu menu, final Pkg p, boolean withDetails, final String sourceId) {
-        String word = Rows.capsuleWord(this, p);
-        if (word != null) {
-            if (word.equals("OPEN")) menu.add("Open", () -> open(p));
-            else if (!Rows.unfit(p)) menu.add(word.equals("GET") ? "Get" : "Update", () -> press(p));
-        }
-        if (p.needsNewerWave) {
-            final Pkg wave = waveUpdate();
-            if (wave != null) menu.add("Update Wave", () -> press(wave));
-        }
-        if (withDetails) menu.add("Details", () -> details(p, sourceId));
-        if (p.state == WaveData.State.OFF) menu.add("Turn On", () -> data.turnOn(p.id));
-        boolean installed = p.state != WaveData.State.NONE && p.state != WaveData.State.PENDING_REMOVAL;
-        // Reinstalling downloads from a source; one kept only by its receipt has none.
-        if (installed && p.sourceId != null && p.state != WaveData.State.PENDING_INSTALL && p.state != WaveData.State.UPDATE && !Rows.unfit(p)) {
-            menu.add("Reinstall", () -> plan(Collections.singletonList(p.id), WaveData.Action.REINSTALL));
-        }
-        if (installed && !p.id.equals(getPackageName())) {
-            menu.add("!Remove", () -> plan(Collections.singletonList(p.id), WaveData.Action.REMOVE));
+        final Pkg wave = waveUpdate();
+        for (Actions.Item item : Actions.menu(p, withDetails, this::canOpen, p.id.equals(getPackageName()), wave != null)) {
+            switch (item) {
+                case OPEN: menu.add(item.title, () -> open(p)); break;
+                case GET: case UPDATE: menu.add(item.title, () -> press(p)); break;
+                case UPDATE_WAVE: menu.add(item.title, () -> press(wave)); break;
+                case DETAILS: menu.add(item.title, () -> details(p, sourceId)); break;
+                case TURN_ON: menu.add(item.title, () -> data.turnOn(p.id)); break;
+                case REINSTALL: menu.add(item.title, () -> plan(Collections.singletonList(p.id), WaveData.Action.REINSTALL)); break;
+                default: menu.add(item.title, () -> plan(Collections.singletonList(p.id), WaveData.Action.REMOVE));
+            }
         }
     }
 

@@ -52,10 +52,7 @@ final class ConfirmScreen extends Screen {
         outer.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
         Kit.Foot foot = new Kit.Foot(app);
-        String size = Rows.Format.size(plan.downloadBytes);
-        String summary = size != null ? size + " to download" : null;
-        if (plan.needsReboot) summary = summary != null ? summary + ", then a reboot" : "Needs a reboot";
-        foot.setSummary(summary);
+        foot.setSummary(Pages.confirmSummary(plan));
         buttons = foot.setButtons("Cancel", "Confirm");
         buttons[0].setOnClickListener(v -> app.pop());
         buttons[1].setOnClickListener(v -> confirm());
@@ -65,31 +62,11 @@ final class ConfirmScreen extends Screen {
 
     private void group(LinearLayout column, String title, java.util.List<PlanItem> items, boolean removing) {
         if (items.isEmpty()) return;
-        String heading = title;
-        if (!removing) {
-            boolean allUpdates = true;
-            for (PlanItem item : items) if (item.action != WaveData.Action.UPDATE) allUpdates = false;
-            boolean allReinstall = true;
-            for (PlanItem item : items) if (item.action != WaveData.Action.REINSTALL) allReinstall = false;
-            if (allUpdates) heading = "Update";
-            else if (allReinstall) heading = "Reinstall";
-        }
-        column.addView(Kit.heading(app, heading, true));
+        column.addView(Kit.heading(app, Pages.confirmHeading(items, removing), true));
         for (int i = 0; i < items.size(); i++) {
             PlanItem item = items.get(i);
-            String sub;
-            int color = Look.MUTED;
-            if (item.reason != null) {
-                sub = item.reason;
-                if (!removing) color = Look.BLUE;
-            } else if (removing) {
-                sub = "Version " + (item.pkg.installedVersion != null ? item.pkg.installedVersion : item.pkg.version);
-            } else if (item.action == WaveData.Action.UPDATE && item.pkg.installedVersion != null) {
-                sub = item.pkg.installedVersion + " → " + item.pkg.version;
-            } else {
-                sub = item.pkg.version;
-            }
-            column.addView(Rows.queue(app, item.pkg, sub, color, null, true, i == items.size() - 1, false));
+            Pages.Line line = Pages.confirmLine(item, removing);
+            column.addView(Rows.queue(app, item.pkg, line.text, Look.color(line.tone), null, true, i == items.size() - 1, false));
         }
     }
 

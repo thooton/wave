@@ -65,4 +65,16 @@ final class Look {
         shape.setCornerRadius(radiusPx);
         return shape;
     }
+
+    /** The colour a page's plain {@link Pages.Tone} is drawn in. */
+    static int color(Pages.Tone tone) {
+        switch (tone) {
+            case MUTED: return MUTED;
+            case RED: return RED;
+            case BLUE: return BLUE;
+            case GREEN: return GREEN;
+            case ORANGE: return ORANGE;
+            default: return TEXT;
+        }
+    }
 }

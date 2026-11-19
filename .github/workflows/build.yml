@@ -38,7 +38,7 @@ jobs:
       # :core's plain-Java self-tests (git client, scripts and parsers, ...)
       # and the release APK, signed with the shared key in signing/.
       - name: Self-test and build
-        run: ./gradlew --no-daemon :app:core:selfTest :app:app:assembleRelease
+        run: ./gradlew --no-daemon :app:core:selfTest :app:app:selfTest :app:app:assembleRelease
 
       - name: Name the APK
         run: cp app/app/build/outputs/apk/release/app-release.apk wave.apk

@@ -47,8 +47,14 @@ permission, which Wave holds because it is signed with the same shared key
 ## Build and validation
 
 ```bash
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:core:selfTest :app:app:assembleRelease
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:core:selfTest :app:app:selfTest :app:app:assembleRelease
 ```
+
+`:app:app:selfTest` runs on the desktop JVM like the core's: the screens' decisions
+live in `Pages` (what a row or page says), `Actions` (what a package offers and
+what pressing it does) and `Format`, none of which touch a View, plus `CatalogModel`
+over real source files and every debug fixture. New logic of that kind goes there,
+with a check in `app/app/src/test`, not inline in a screen.
 
 Run from the repository root with JDK 21 (Gradle 8.9 does not run on newer
 JDKs) and the Android SDK's platform 35 and Build Tools 35.0.1. Set
