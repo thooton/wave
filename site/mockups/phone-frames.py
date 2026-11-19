@@ -2,7 +2,7 @@
 """Shoot every mockup frame on the phone (8516067e) from a debug build of Wave:
 phone-frames.py OUTDIR [sequence-index...]; writes OUTDIR/<frame-id>.png, the
 names of shots/. Install app-debug.apk first and hold the phone lock.
-Steps: launch | KEY (UP/DOWN/LEFT/RIGHT mean the d-pad) | KEY*N | text:abc | wait:ms | shot:frame-id."""
+Steps: launch | KEY (UP/DOWN/LEFT/RIGHT mean the d-pad; x-* shots have no mockup) | KEY*N | text:abc | wait:ms | shot:frame-id."""
 import os, subprocess, sys, time
 S = ['adb', '-s', '8516067e']
 out = sys.argv[1]
@@ -30,6 +30,8 @@ SEQ = [
     ('reboot', 'launch shot:wave-home-reboot RIGHT*2 shot:installed-reboot'),
     ('uptodate', 'launch RIGHT*2 shot:installed-none'),
     ('noroot', 'launch DOWN*4 ENTER shot:no-root'),
+    ('browse', 'launch LEFT text:launcher DOWN MENU shot:x-remove-menu DOWN*2 ENTER wait:600 shot:x-confirm-remove'),
+    ('reboot', 'launch ENTER shot:x-reboot-dialog'),
 ]
 
 def sh(*a):

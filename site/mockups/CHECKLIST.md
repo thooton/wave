@@ -17,11 +17,12 @@ so text widths match what the phone draws. Real screens may differ by a
 pixel or two in line height (Android's `includeFontPadding=false` versus
 CSS `line-height: normal`).
 
-`phone/<id>.png` is the same frame shot on that phone from Wave 0.7.5/0.7.6
+`phone/<id>.png` is the same frame shot on that phone from Wave 0.7.12
 (brief 07) with the debug fixtures (`app/SPEC.md`), by `phone-frames.py`.
 Known differences: the menus are Android's own context menu (smaller text,
 items about 32px); fixture icons are lettered tiles where the mockups have
-the apps' art; the section's menu says Refresh Sources.
+the apps' art; the section's menu says Refresh Sources. `phone/x-*.png` are extra
+states with no frame (Remove's confirm, Reboot Now? on Later).
 
 Budget: 24 status + 34 bar + 1 hairline + 36 tab bar leaves **225px** of
 page on a tab. A browsed package row and an Installed row are 47px (name,
