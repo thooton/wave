@@ -8,8 +8,9 @@ So "verified" below means on this machine, and on the one reserved phone
 progress and the evidence behind each line are in the
 [work notes](tasks/README.md#work-notes).
 
-The short version: the app browses, searches and plans on a real phone. It
-has not yet installed anything from a real source. Nothing that needs root
+The short version: the app browses, searches and plans on a real phone, and
+has installed, updated and removed an app from a real (local) source without
+root ([first-install.md](first-install.md)). Nothing that needs root
 has run on a phone. The site works in a browser but isn't hosted. The tools
 work locally. The packages build. The default source is empty.
 
@@ -20,7 +21,7 @@ work locally. The packages build. The default source is empty.
 | Git client ([03](tasks/03-git-client.md)) | Git v2 smart HTTP, depth-1 fetch, packs and deltas | Host tests; live fetches from GitHub, GitLab, Codeberg and sourcehut; 1,000 packages in 1 s at a 32 MiB heap | Nothing outstanding |
 | Sources, index, search ([05](tasks/05-sources-index.md)) | Preview and trust, transactional refresh, sections, merged candidates, search | Host tests; on the phone: adding a source over HTTPS, browsing it, search ([first phone](first-phone.md)) | Only against a local fixture source; the public source has never been fetched, because it isn't hosted |
 | Tabs and screens ([07](tasks/07-app-screens.md), open) | Wave, Sources, Installed, Search; details, queue, no-root screen; `app/SPEC.md` | Phone QA (`tools/qa`) on 0.7.2: tabs, browse and preview, search, Home and root info all pass | 0.7.3 onward have no phone QA report. Not every mockup frame has a phone screenshot yet, which is 07's done-when. Installing over the Updater-derived build isn't rechecked |
-| Install engine ([06](tasks/06-root-install.md)) | Plans with deps and conflicts, resumable download with size and SHA-256, receipts; apps without root go through Installer (`StockApps`) | 505 self-tests pass today (`:app:core:selfTest`), including whole plans run through a fake `su` | No real package has been installed by Wave on a phone: the local fixture had no download assets, and there's no published one |
+| Install engine ([06](tasks/06-root-install.md)) | Plans with deps and conflicts, resumable download with size and SHA-256, receipts; apps without root go through Installer (`StockApps`) | 505 self-tests pass today (`:app:core:selfTest`), including whole plans run through a fake `su`. On the stock phone, from a `wavesrc`-published local HTTPS source: GET, UPDATE, a refused bad hash and Remove of a test app, installed silently through Installer ([first-install.md](first-install.md)) | Against a hosted source (none is published). Downloads that need a sign-in (decisions open item 4). Anything through root |
 | Root (06) | Opt-in: `su` opens only on a user action | Host tests; on the phone, the no-root path: mods refused before download, guide shown | Everything rooted. The phone isn't rooted; [ROOT-TESTING.md](../app/ROOT-TESTING.md) section 06 is the procedure |
 | Watchdog ([08](tasks/08-boot-watchdog.md)) | Boot watchdog v2, safe-mode handling, launch dialogs | Pretend boots in host tests (good, hung, restarted, framework restarts, no reboot loop) | No real boot; safe-mode key timing on the XP3 unknown. ROOT-TESTING.md section 08 |
 
@@ -68,7 +69,8 @@ work locally. The packages build. The default source is empty.
 - **Versions.** Every app on common has an unpublished patch bump (P
   `375e34e` and later). Publishing needs the cutover first.
 - **First phone, end to end ([17](tasks/17-first-phone.md)).** Only the
-  stock pass is done ([first-phone.md](first-phone.md)). Still to run: a
-  hosted install, update and remove cycle; rooted onboarding with the mods
+  stock pass ([first-phone.md](first-phone.md)) and an install, update and
+  remove cycle from a local source ([first-install.md](first-install.md))
+  are done. Still to run: the same cycle against the hosted source; rooted onboarding with the mods
   and the watchdog; Rescue and Restore; and the legacy migration. Don't
   retire the legacy channel until those pass.
