@@ -1,0 +1,66 @@
+export const sectorBytes = 512;
+export const bootBytes = 32 * 1024 * 1024;
+const signature = (bytes, text) => [...text].every((c, i) => c.charCodeAt(0) === bytes[i]);
+const fields = b => new DataView(b.buffer, b.byteOffset, b.byteLength);
+const crc = bytes => {
+  let value = -1;
+  for (const b of bytes) {
+    value ^= b;
+    for (let bit = 0; bit < 8; bit++) value = (value >>> 1) ^ (0xedb88320 & -(value & 1));
+  }
+  return (value ^ -1) >>> 0;
+};
+
+export function readGptHeader(bytes) {
+  if (bytes.length !== sectorBytes || !signature(bytes, 'EFI PART')) throw new Error('Primary GPT signature is missing.');
+  const view = fields(bytes), size = view.getUint32(12, true);
+  if (view.getUint32(8, true) !== 0x00010000 || size < 92 || size > sectorBytes || view.getBigUint64(24, true) !== 1n) {
+    throw new Error('Unsupported GPT header.');
+  }
+  const check = bytes.slice(0, size);
+  fields(check).setUint32(16, 0);
+  if (crc(check) !== view.getUint32(16, true)) throw new Error('GPT header CRC mismatch.');
+  const entryLba = view.getBigUint64(72, true), count = view.getUint32(80, true), stride = view.getUint32(84, true);
+  const min = view.getBigUint64(40, true), max = view.getBigUint64(48, true);
+  const sectors = Math.ceil(count * stride / sectorBytes);
+  if (entryLba !== 2n || count < 10 || count > 128 || stride !== 128 || entryLba + BigInt(sectors) > min
+      || max <= min || max >= view.getBigUint64(32, true) || max > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new Error('Unsupported XP3800 GPT geometry.');
+  }
+  return { entryLba: Number(entryLba), count, stride, sectors, min, max, tableCrc: view.getUint32(88, true) };
+}
+
+export function findXp3800Boot(gpt, table) {
+  if (table.length !== gpt.sectors * sectorBytes || crc(table.subarray(0, gpt.count * gpt.stride)) !== gpt.tableCrc) {
+    throw new Error('GPT partition array CRC mismatch.');
+  }
+  const entries = new Map();
+  for (let i = 0; i < gpt.count; i++) {
+    const part = table.subarray(i * gpt.stride, (i + 1) * gpt.stride);
+    if (!part.subarray(0, 16).some(Boolean)) continue;
+    const view = fields(part), start = view.getBigUint64(32, true), end = view.getBigUint64(40, true);
+    const name = new TextDecoder('utf-16le').decode(part.subarray(56)).split('\0', 1)[0];
+    if (!name || entries.has(name) || start < gpt.min || end > gpt.max || end < start) throw new Error('Invalid GPT partition entry.');
+    entries.set(name, { index: i, start: Number(start), end: Number(end) });
+  }
+  const sorted = [...entries.values()].sort((a, b) => a.start - b.start);
+  if (sorted.some((entry, i) => i > 0 && sorted[i - 1].end >= entry.start)) throw new Error('Overlapping GPT partitions.');
+  const boot = entries.get('boot');
+  if (!boot || boot.index !== 4 || boot.end - boot.start + 1 !== bootBytes / sectorBytes
+      || !['DDR', 'sec', 'system', 'persist', 'recovery', 'devinfo', 'aboot', 'devcfg', 'vendor', 'userdata'].every(name => entries.has(name))
+      || entries.get('sec').end + 1 !== boot.start || boot.end + 1 !== entries.get('system').start
+      || entries.has('boot_a') || entries.has('boot_b') || entries.has('vbmeta')) {
+    throw new Error('GPT is not the recognized single-slot XP3800 layout.');
+  }
+  return { start: boot.start, sectors: bootBytes / sectorBytes };
+}
+
+export function checkBootImage(bytes) {
+  if (bytes.length !== bootBytes || !signature(bytes, 'ANDROID!')) throw new Error('Expected a full 32 MiB XP3800 boot backup starting with ANDROID!.');
+  const header = fields(bytes), page = header.getUint32(36, true);
+  const kernel = header.getUint32(8, true), ramdisk = header.getUint32(16, true);
+  const round = size => Math.ceil(size / page) * page;
+  if (page !== 2048 || !kernel || !ramdisk || page + round(kernel) + round(ramdisk) + round(header.getUint32(24, true)) > bytes.length) {
+    throw new Error('XP3800 boot header has invalid component sizes.');
+  }
+}

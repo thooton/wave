@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<title>Verify or restore a stock backup | Wave</title><link rel="icon" href="../assets/wave.svg"><link rel="stylesheet" href="../assets/site.css"><script type="module" src="../src/jailbreak/restore.mjs"></script></head>
+<body><a class="skip" href="#main">Skip to content</a>
+<header><div class="wrap top"><a class="brand" href="../" aria-label="Wave home"><img src="../assets/wave.svg" width="32" height="32" alt="">Wave</a><nav aria-label="Main"><a href="../jailbreak/">Jailbreak guide</a><a href="../rescue/">Rescue</a><a href="../restore/" aria-current="page">Restore</a></nav></div></header>
+<main id="main" class="wrap guide">
+<a href="../jailbreak/" class="crumb">Wave / Device guide</a><p class="kicker">03 <span>/</span> STOCK RECOVERY</p>
+<h1>Verify your stock boot image.</h1><p class="lead">Check a backup or a readback here. This page does not connect to the phone or write anything to it.</p>
+<section id="verify" class="box" aria-labelledby="verify-title"><h2 id="verify-title">Local backup check</h2>
+<p>These files stay in your browser. Use the original untouched 32 MiB image from this phone. A valid header or matching hash cannot prove the file came from the right phone: check the serial and firmware in your original backup notes.</p>
+<label for="stock">Original stock boot backup</label><input type="file" id="stock" aria-describedby="stock-note"><small id="stock-note">Full XP3800 boot partition read before any changes.</small>
+<label for="expected">Original SHA-256 (from your backup notes)</label><input id="expected" type="text" spellcheck="false" autocomplete="off" maxlength="64" placeholder="64 hexadecimal characters">
+<label for="second">Second independent read or post-restore readback (optional)</label><input type="file" id="second">
+<button id="verify-backup" type="button" disabled>Verify boot image</button><p id="verify-status" class="status" role="status">JavaScript and a secure context are required to check SHA-256.</p><pre id="verification" hidden></pre>
+</section>
+<h2 id="service-mode">Get the phone into emergency download mode</h2>
+<p>If the phone boots but a Magisk module broke something, try <a href="../rescue/">Rescue</a> first. If Android will not boot, the XP3800 needs a cold start for EDL:</p>
+<ol><li>Unplug USB. Remove the back cover and battery and wait about 30 seconds.</li><li>Hold <strong>Volume Up and Volume Down</strong> together. Keep holding as you refit the battery and plug in USB.</li><li>Release after a few seconds and check the USB ID. Use only <code>05c6:9008</code>. If you see <code>05c6:900e</code>, that is crash-dump mode, not EDL. Unplug, remove the battery again and repeat the cold start.</li></ol>
+<p>See the <a href="../platforms/">USB and driver guide</a> for your computer.</p>
+<h2>Restore and verify</h2>
+<ol><li>Use a trusted stock recovery service for your exact model and build. Confirm the GPT identifies a single <code>boot</code> partition of 32 MiB.</li><li>Use only the verified original backup from this phone. Do not change other partitions or use a patched image as stock.</li><li>Read the entire <code>boot</code> partition back after service. Select it above alongside the original and require a byte-for-byte match before resetting to Android.</li><li>Wait for Android to finish booting. Restoring stock boot does not uninstall Magisk or Wave, clear their data, or undo other changes you may have made. Uninstall unneeded apps through Android Settings.</li></ol>
+<p class="notice">If you cannot identify the correct stock image, stop. Do not try a boot image from another phone.</p>
+</main><footer><div class="wrap foot"><span>Wave for the Sonim XP3800</span><a href="https://github.com/thooton/wave/issues">Report a problem ↗</a></div></footer></body></html>

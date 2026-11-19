@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<title>XP3800 jailbreak field guide | Wave</title><link rel="icon" href="../assets/wave.svg"><link rel="stylesheet" href="../assets/site.css"><script type="module" src="../src/jailbreak/probe.mjs"></script></head>
+<body><a class="skip" href="#main">Skip to content</a>
+<header><div class="wrap top"><a class="brand" href="../" aria-label="Wave home"><img src="../assets/wave.svg" width="32" height="32" alt="">Wave</a><nav aria-label="Main"><a href="../jailbreak/" aria-current="page">Jailbreak guide</a><a href="../rescue/">Rescue</a><a href="../restore/">Restore</a></nav></div></header>
+<main id="main" class="wrap guide">
+<a href="../platforms/" class="crumb">Wave / USB guide</a><p class="kicker">01 <span>/</span> DEVICE GUIDE</p>
+<h1>Prepare your XP3800.</h1><p class="lead">Identify the phone, make a verified backup, and understand the recovery route before changing anything. This page does not root or flash the phone.</p>
+<section class="box" aria-labelledby="check-title">
+<h2 id="check-title">Check this phone</h2>
+<ol><li>Open <strong>Settings → About phone</strong> and select <strong>Build number</strong> seven times with the center key.</li><li>In <strong>Settings → Developer options</strong>, turn on <strong>USB debugging</strong>.</li><li>Connect only this phone with a USB data cable. Close desktop adb and other tools that may already hold its USB interface.</li></ol>
+<button id="check-phone" disabled>Check XP3800 over USB</button>
+<p class="status" id="phone-status" role="status">Use Chrome or Edge on a secure page for the USB check. The rest of the guide works without WebUSB.</p>
+<dl id="phone-detail" hidden><dt>Firmware</dt><dd id="firmware"></dd><dt>Battery</dt><dd id="battery"></dd><dt>Superuser tool</dt><dd id="superuser"></dd></dl>
+<noscript><p>JavaScript is required for the USB check. Read the model, Android version and build directly in Settings instead.</p></noscript>
+</section>
+<h2>1. Back up before making changes</h2>
+<p>Back up contacts, messages and other personal data separately. A boot image is not a copy of your files. Charge the phone above 40% and record its serial and full firmware build with your backup.</p>
+<p>Use a trusted service tool to <em>read</em> the GPT and locate the single <code>boot</code> partition by name. Read that partition twice and compare the full 32 MiB copies. A stock XP3800 image starts with <code>ANDROID!</code>. Save both copies offline with their original SHA-256. Never use another phone’s image, even for the same model and carrier.</p>
+<p class="actions"><a href="../restore/#verify">Verify your boot backup</a></p>
+<h2>2. Know what service mode looks like</h2>
+<p>Qualcomm emergency download mode (EDL) identifies itself as <code>05c6:9008</code>. <code>05c6:900e</code> is crash-dump mode and cannot be used as EDL. If Android is unavailable, <a href="../restore/#service-mode">follow the cold-start checks</a>. See the <a href="../platforms/">USB guide</a> if permissions or drivers prevent connection.</p>
+<h2>3. Patch on the phone, not on a computer</h2>
+<p>The community procedure for the XP3800 uses <a href="https://github.com/topjohnwu/Magisk/tree/v24.0">Magisk 24.0</a> and the stock image from that same phone. PC-side patching can produce an image that shows the Sonim logo and immediately black-screens. Avoid substituting a downloaded boot image or a different Magisk version. No patching or flashing is done by this site.</p>
+<p>If servicing the phone, verify any write byte for byte before restarting. A patched image can be shorter than the partition; compare the bytes actually written. For a stock restore, compare the entire partition. Do not write to <code>/system</code> or try to edit bootloader flags.</p>
+<h2>4. Check Android before installing Wave</h2>
+<p>Wait for Android to finish booting, then check that Magisk reports a working installation. Magisk handles superuser access. Review prompts on the phone and grant only to apps you trust. If the shell is denied after installing Magisk’s app, check its Superuser access setting; denial alone does not mean the boot image is broken.</p>
+<p>Once root works, install Wave from the <a href="https://github.com/thooton/wave/releases">Wave releases</a> and open it from the launcher. Wave will ask for root. The site does not grant root privileges or change Magisk settings.</p>
+<p class="notice">If Android still answers adb but a module broke the launcher, try <a href="../rescue/">Rescue</a>. If Android does not start, use the <a href="../restore/">stock Restore guide</a>.</p>
+<h2>Credits</h2><p>XP3800 community research by anonymousfliphones and flipphoneguy on JTech Forums. <a href="https://github.com/flipphoneguy/root-sonim-xp3800">Community project</a> and <a href="https://github.com/topjohnwu/Magisk/tree/v24.0">Magisk source</a> (GPL-3.0).</p>
+</main><footer><div class="wrap foot"><span>Wave for the Sonim XP3800</span><a href="https://github.com/thooton/wave/issues">Report a problem ↗</a></div></footer></body></html>
