@@ -395,7 +395,8 @@ public final class WaveActivity extends Activity {
             .setNegativeButton("Later", null)
             .setPositiveButton("Reboot", (d, w) -> data.reboot())
             .show()
-            .getButton(AlertDialog.BUTTON_POSITIVE).requestFocus();
+            // Later, so OK on Reboot to Finish and a second OK never reboot by accident.
+            .getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus();
     }
 
     /** A dialog's title as the mockups draw it: the icon, the name, a grey line. */

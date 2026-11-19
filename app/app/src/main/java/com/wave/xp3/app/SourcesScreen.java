@@ -147,7 +147,8 @@ final class SourcesScreen extends Screen {
                         app.alert("Can't Remove " + src.name, reason);
                     }
                 }))
-                .show());
+                .show()
+                .getButton(android.app.AlertDialog.BUTTON_NEGATIVE).requestFocus());
         }
     }
 
