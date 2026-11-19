@@ -58,3 +58,10 @@ Four agents can work without touching the same files: one on the app's core
 ## Work notes
 
 (Record completion evidence, decisions, and blocked checks here.)
+
+- **04 build is in** (commit 98aa658): `JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:core:selfTest :app:app:assembleRelease`
+  (JDK 21 required; the machine default is 27, which Gradle 8.9 can't run). Modules `:app:core`
+  (`app/core/src/main/java/com/wave/xp3/core/...`, tests `app/core/src/test/java/`, runner
+  `com.wave.xp3.SelfTest` using `com.xp3.common.Check`), `:app:app`, `:common:core`, `:common:ui`.
+  Needs `local.properties` with `sdk.dir=/opt/android-sdk` (gitignored). APK:
+  `app/app/build/outputs/apk/release/app-release.apk`.
