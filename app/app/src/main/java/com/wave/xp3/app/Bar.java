@@ -102,8 +102,14 @@ final class Bar extends FrameLayout {
         if (spinner.getVisibility() == VISIBLE) side = Math.max(side, spinner.getRight() + gap);
         if (right.getVisibility() == VISIBLE) side = Math.max(side, width - right.getLeft() + gap);
         int barH = Math.round(Look.BAR_HEIGHT * d);
-        title.layout(side, 0, Math.max(side, width - side), barH);
-        if (field != null) field.layout(Math.round(6 * d), Math.round(5 * d), width - Math.round(6 * d), Math.round(29 * d));
+        int titleW = Math.max(0, width - 2 * side);
+        title.measure(MeasureSpec.makeMeasureSpec(titleW, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(barH, MeasureSpec.EXACTLY));
+        title.layout(side, 0, side + titleW, barH);
+        if (field != null) {
+            int fw = width - Math.round(12 * d);
+            field.measure(MeasureSpec.makeMeasureSpec(fw, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(Math.round(24 * d), MeasureSpec.EXACTLY));
+            field.layout(Math.round(6 * d), Math.round(5 * d), Math.round(6 * d) + fw, Math.round(29 * d));
+        }
     }
 
     @Override
@@ -174,6 +180,13 @@ final class Bar extends FrameLayout {
             ? new android.content.res.ColorStateList(new int[][]{Kit.FOCUSED, new int[0]}, new int[]{0xFFFFFFFF, Look.BLUE})
             : android.content.res.ColorStateList.valueOf(0xFFC4C4C9));
         return view;
+    }
+
+    /** The link a d-pad Up from the top row lands on: the right one, else the left; null for none. */
+    TextView upTarget() {
+        if (right.getVisibility() == VISIBLE && right.isFocusable()) return right;
+        if (left.getVisibility() == VISIBLE && left.isFocusable()) return left;
+        return null;
     }
 
     TextView link(int side) {

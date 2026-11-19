@@ -80,6 +80,13 @@ public final class WaveActivity extends Activity {
         snapshot = data.snapshot();
         data.listen(onChanged);
         show();
+        // A debug fixture may start on Search with a query typed (tools/qa can only press d-pad keys).
+        String query = getIntent().getStringExtra("query");
+        if (query != null && data.getClass().getSimpleName().equals("FakeWaveData")) {
+            openTab(3);
+            ((SearchScreen) top()).type(query);
+        }
+        turnedOff();
     }
 
     @Override
@@ -158,7 +165,7 @@ public final class WaveActivity extends Activity {
     /** Opens `screen` on top of the current tab, with Back named after the screen below. */
     void push(Screen screen) {
         Screen below = top();
-        screen.backLabel = below.title();
+        screen.backLabel = screen.modal() || screen.bare() ? null : below.title();
         if (!overlay.isEmpty() || screen.modal() || screen.bare()) overlay.add(screen);
         else stacks.get(tab).add(screen);
         show();
@@ -359,6 +366,15 @@ public final class WaveActivity extends Activity {
         Screen screen = top();
         if (screen.onKey(event)) return true;
         int key = event.getKeyCode();
+        // Up from the top row goes to the bar's link (Add, Update All), the right one first.
+        if (key == KeyEvent.KEYCODE_DPAD_UP && bar.getVisibility() == View.VISIBLE) {
+            View focus = getCurrentFocus();
+            TextView link = bar.upTarget();
+            if (link != null && focus != null && focus.getParent() != bar && focus == Screen.firstFocusable(screen.view)) {
+                if (event.getAction() == KeyEvent.ACTION_DOWN) link.requestFocus();
+                return true;
+            }
+        }
         if ((key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT)
             && !screen.modal() && !screen.bare() && overlay.isEmpty()) {
             View focus = getCurrentFocus();

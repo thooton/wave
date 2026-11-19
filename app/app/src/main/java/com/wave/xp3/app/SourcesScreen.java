@@ -59,7 +59,9 @@ final class SourcesScreen extends Screen {
 
     @Override
     void update(WaveData.Snapshot s) {
+        boolean messageHadFocus = false;
         if (message != null) {
+            messageHadFocus = message.hasFocus();
             frame.removeView(message);
             message = null;
         }
@@ -105,6 +107,7 @@ final class SourcesScreen extends Screen {
             page.add(keyed(row, "src:" + src.id));
         }
         page.restore(mark, null);
+        if (messageHadFocus && app.isShowing(this)) allRow.requestFocus();
     }
 
     @Override

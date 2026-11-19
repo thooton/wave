@@ -27,7 +27,68 @@ the user asks.
 
 ## Screens
 
-### The list (the only screen until brief 07)
+### The tabs (brief 07, from 0.5.0)
+
+The launcher opens `app.WaveActivity`, drawn as `site/mockups` (the frames
+and `CHECKLIST.md`). Under the status bar, the bar (Back's target in blue
+on the left, the title centred, links on the sides); under the page, the tab
+bar: **Wave**, **Sources**, **Installed** (red badge with the update count),
+**Search**. Each tab keeps its own stack of screens and its focus.
+
+Keys everywhere: Up/Down move between focus stops (rows, buttons); OK
+presses the focused one; Left/Right switch tabs (the tab bar is never a
+focus stop); Back goes back a screen, on a tab's first screen closes Wave
+(or sends it to the back while the queue works); Menu, on release, opens
+the menu for the focused row. Up from a page's top row reaches the bar's
+link (Add, Update All; else Refresh).
+
+- **Wave** (title Home): Reboot to Finish row while a mod waits for a
+  reboot; the welcome header; Featured (the default source's), browse
+  rows; What is Wave; Add a Source (opens it on the Sources tab); without
+  root, a Root for System Mods row; then This Phone and Community as text.
+- **Sources**: Refresh (or a spinner) and Add on the bar; All Sources, then
+  each source (icon, name, address; "Refreshing…" with a spinner, or the
+  failure in red with a warning sign). Nothing fetched and a failure: the
+  message **Cannot Load Sources**, the reason, **Try Again**. Menu:
+  Refresh, Copy Address, Remove Source (not the default; confirmed), Refresh
+  Sources, Add a Source.
+- **A source**: header (icon, name, maintainer, when refreshed), All
+  Packages and each section with counts, the source's Featured.
+- **A section**: browse rows (icon with a corner badge: grey tick
+  installed, blue arrow update; one that can't install here is dimmed;
+  chevron). OK opens Details.
+- **Details**: header with icon, name, author and the capsule (GET, UPDATE,
+  OPEN; drawn pressed, since it is the one focus stop), then lines for what
+  to know (needs a reboot, replaces, why it can't install), the
+  description, What's New (before it, for an update), Information. Up/Down
+  scroll; OK presses the capsule; Reinstall and Remove are in the menu.
+- **Installed**: the Updater's rows (below); Updates with Update All on the
+  bar, then Up to Date. A row with a capsule presses it on OK; a mod's row,
+  Wave's own and a turned-off mod have none and open Details.
+- **Search**: the field in the bar's place has the keys when the tab opens;
+  results follow each key across every source; the cursor stays at the end;
+  Back deletes; Down enters the results, Up on the first returns.
+- **Add a Source**: the address field starts as `https://github.com/`
+  (cursor at the end; Left/Right move it here, Back deletes), Down to
+  **Add**. Add fetches first ("Fetching" with a spinner; Back abandons it),
+  then asks to trust the source by its name, maintainer and package count;
+  a failure is the red line under the field.
+- **Confirm** (no tab bar): Install / Update / Remove groups with "Needed
+  by" and "Replaced by", the download size and "then a reboot";
+  **Cancel | Confirm**, focus on Confirm.
+- **Installing / Done** (no tab bar): each package with its step (ring
+  while downloading, spinner, green tick, red failure with an alert). Back
+  while working sends Wave to the back. At the end **Done**, or
+  **Later | Reboot Now** when a mod waits for a reboot.
+- Watchdog news is an alert on launch: "<Mod> Was Turned Off", OK or
+  Remove It.
+
+Debug builds take `--es fixture browse|reboot|errors|offline|noroot`
+(and `--es query <text>` to open Search typed) to show sample data
+(`src/debug/.../FakeWaveData`) without changing the phone; release builds
+ignore both.
+
+### The Updater list (`MainActivity`, off the launcher since 0.5.0)
 
 **Bar** (near-white, grey hairline under it): "Updates" centred. On the
 right, **Update All**, shown only while at least one app is in Available

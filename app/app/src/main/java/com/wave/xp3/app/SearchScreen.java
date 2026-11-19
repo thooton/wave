@@ -84,6 +84,13 @@ final class SearchScreen extends Screen {
         return frame;
     }
 
+    /** Puts `query` in the field, as if typed. */
+    void type(String query) {
+        field.setText(query);
+        field.setSelection(field.length());
+        field.requestFocus();
+    }
+
     private void paintField(boolean focused) {
         android.graphics.drawable.GradientDrawable bg = Look.rounded(focused ? 0xFFFFFFFF : Look.FIELD, Kit.dp(app, 8));
         if (focused) bg.setStroke(Math.max(1, Kit.dp(app, 1.5f)), Look.BLUE);
