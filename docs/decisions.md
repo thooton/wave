@@ -35,8 +35,9 @@ moving; resolve open questions when the relevant brief has evidence.
    the mod doesn't add a launchable component. Canvas, Charge, Mail,
    Places, Authenticator and Flashcards are reworked to not need a baked
    Delta login: the user supplies their own credentials, moved onto the phone
-   by QR code from a generator tool, with Delta kept as a hidden alternative
-   behind the same code. `camera_argon` is left out for now.
+   by a generator tool, with Delta kept as a secondary alternative behind
+   the same code. The original QR-first plan is deferred; version 1 uses
+   setup files (`../spec/setup-payload.md`). `camera_argon` is left out for now.
 9. **Renames**: Messages Improved, Launcher Improved, Music Improved.
    `Argon` becomes `Wave` inside the code; module ids `messages_improved`,
    `launcher_improved`, `music_improved`.
@@ -81,8 +82,9 @@ moving; resolve open questions when the relevant brief has evidence.
    `stock-<mod>`.
 8. **The site may use third-party JavaScript**; the phone apps still use
    none.
-9. **The Magisk app stays installed** after the jailbreak, and Wave is
-   granted root ahead of time so no prompt appears.
+9. **The Magisk app stays installed** after the jailbreak. The original
+   plan to pre-grant Wave root so no prompt appears is superseded by
+   working default 16 (owner opt-in).
 10. **The default source can't be removed** from Wave.
 11. **Bottom tab bar, as Cydia**. Validate the mockups against the frame
     and d-pad checklist in task 00 before building the screens.
@@ -138,12 +140,16 @@ moving; resolve open questions when the relevant brief has evidence.
    NDK job; revisit only after the upstream code and API checks are ready.
 3. **Nightly QA.** Delta's nightly QA runs on `thooton/sonim`. It follows the
    rename, but should it cover the mods and Wave too?
-4. **Private asset access.** Source and Tablet use a private repo and source
-   (task 16). Verify a supported authenticated download path; keep repository
-   and asset credentials out of manifests. Use QR for source setup only if
-   scanning is supported.
-5. **Windows.** The WinUSB driver step for EDL is the one part of the
-   jailbreak that isn't "open a page". Acceptable, or worth a small helper?
+4. **Private asset access.** Source and Tablet use `wave_private_packages`
+   (task 16). CI emits unsigned-by-authentication HTTPS API URLs pointing at
+   immutable GitHub release asset IDs; no credential or signed redirect
+   belongs in a manifest. Git refresh and binary download authenticate
+   separately. Wave still needs the scoped private asset request and a
+   migration-device verification before cutover; see the
+   [owner checklist](tasks/01-owner-checklist.md#source-and-tablet-private-cutover).
+5. **Windows.** For the intended browser flow, the required WinUSB driver
+   binding might warrant a helper. The current device guide explains the
+   driver requirements; the site does not install any drivers.
 6. **Local folder names (closed).** W is already `wave`; keep P at
    `../sonim` on this shared machine. GitHub uses `wave_packages`. A later
    fresh clone can use the remote name. See `tasks/01-owner-checklist.md`.

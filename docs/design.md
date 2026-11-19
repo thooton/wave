@@ -1,10 +1,11 @@
 # Wave: design
 
 Wave is a package manager and modding framework for the Sonim XP3800, in the
-role Cydia had on a jailbroken iPhone. The user jailbreaks the phone from a
-web page, which leaves a Wave app on the launcher. In Wave they add sources
-(git repositories of package manifests), browse and search them, and install
-apps and system mods. Wave keeps what it installed up to date.
+role Cydia had on a jailbroken iPhone. The intended onboarding is to
+jailbreak the phone from a web page and leave Wave on its launcher. Today
+that page is a device and recovery guide; see §6 for the difference. In
+Wave users add sources (git repositories of package manifests), browse and
+search them, and install apps and system mods.
 
 This file is the whole picture. The details that other people build against
 are split out: `source-format.md` (what a source is), `jailbreak.md` (the web
@@ -15,7 +16,7 @@ and `tasks/` (the work, one brief per piece).
 
 | Repo | Local folder | Holds |
 | :--- | :--- | :--- |
-| `thooton/wave` | this one (`sonim_wave` today) | The Wave app, the website (jailbreak, QR setup generator), the source format spec, and the tools sources are checked and published with |
+| `thooton/wave` | this one (`sonim_wave` today) | The Wave app, the website (device guide, setup-file generator), the source format spec, and the tools sources are checked and published with |
 | `thooton/wave_packages` | `../sonim` today, renamed | The source code of every package we ship: the Gradle apps, `common/`, and the three system mods under `mods/`. CI builds them and attaches the binaries to GitHub releases |
 | `thooton/wave_repository` | new | The default source. Only manifests and icons. Each manifest points at a release asset in `wave_packages`. Written by `wave_packages` CI |
 
@@ -316,30 +317,32 @@ Three more ways out, in rising order of effort:
   offers to turn them back on one at a time. To be confirmed on the XP3's
   keys.
 - **Rescue** on the website: disable modules over adb.
-- **Restore** on the website: flash the stock boot image saved during the
-  jailbreak over EDL. Since `/system` is never written, this is always a
-  full way back.
+- **Restore** on the website: locally verify the stock backup or readback;
+  perform stock recovery with a trusted service procedure outside the site.
+  The intended browser restore would write only the original `boot` image.
+  A stock boot restore does not remove apps, their data, or changes to other
+  partitions.
 
 ## 6. The jailbreak
 
-A static web page (GitHub Pages from this repo) that drives the phone over
-WebUSB in Chrome: adb for the Android side, Sahara and Firehose for EDL. It
-automates `../rphone/ROOTING.md` end to end: back up the boot image over EDL,
+**Intended end-to-end flow (not shipped):** A static web page (GitHub Pages
+from this repo) drives the phone over WebUSB in Chrome: adb for the Android
+side, Sahara and Firehose for EDL. The target automates `../rphone/ROOTING.md` end to end: back up the boot image over EDL,
 patch it **on the phone** with Magisk 24.0's own ARM binaries over adb, flash
-it over EDL, verify, then install the Magisk app and Wave and grant Wave
-root. The user's stock boot image is saved to their computer. Steps, checks
+it over EDL, verify, then install the Magisk app and Wave. The owner
+approves root in Magisk, not the site. The user's stock boot image is saved to their computer. Steps, checks
 and the platform caveats are in `jailbreak.md`.
 
 **Implementation status (brief 09):** The site provides a guided device check
 and recovery, adb over WebUSB, module Rescue on already-rooted phones, and
 local stock backup/readback verification. A read-only EDL backup was verified
 using a separate desktop tool; the browser package does not include an EDL
-programmer. Automated boot patching, partition writes, app setup and root
-grants are not implemented. Owners use their own service procedure for any
+programmer. Automated boot patching, partition writes, and installation of
+Magisk and Wave are not implemented; authorization stays with the owner. Owners use their own service procedure for any
 boot-image changes and review Magisk prompts on the phone. See `jailbreak.md`
 for hardware and browser validation limits.
 
-The same site hosts the landing page and the QR setup generator (section 8).
+The same site hosts the landing page and the setup-file generator (section 8).
 
 ## 7. Publishing: from a push to a phone
 
@@ -392,8 +395,9 @@ T9 keypad is not an option, so:
 - A shared setup flow in `common/` imports a small, versioned JSON payload
   naming the app and its settings. Task 14 tests camera scanning; use
   setup-file import if scanning can't be validated.
-- A generator page on the Wave site builds the setup file or QR code in the
-  browser from what the user pastes in. Nothing is sent to a server.
+- The Wave site's generator builds a setup file from the user's entries,
+  without sending credentials to a server. QR transport is reserved, not
+  implemented in v1 (see `../spec/setup-payload.md`).
 - The same payload can carry a Delta address and token instead. Each app
   talks to its service through one interface with two implementations
   (direct, and through Delta), so the code is the same either way and the
