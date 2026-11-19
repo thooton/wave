@@ -24,6 +24,17 @@ items about 32px); fixture icons are lettered tiles where the mockups have
 the apps' art; the section's menu says Refresh Sources. `phone/x-*.png` are extra
 states with no frame (Remove's confirm, Reboot Now? on Later).
 
+Ten of them are real data from the rooted phone instead (Wave 0.7.20 at
+`15dc337`, Magisk 24.0): no-root, details-module, queue-confirm,
+queue-progress, queue-reboot, wave-home-reboot, installed-reboot,
+x-reboot-dialog, error-watchdog and error-watchdog-row. They come from a local
+HTTPS source holding `app/root-tests`' two test mods, after Check Again was
+granted through Magisk's prompt (`phone/x-magisk-grant.png`: the time choice
+starts focused, then Down to Deny, Right to Grant, OK). Their queues hold one
+mod, so the fixture's dependency and replaced-mod rows are only in the 0.7.12
+shots (git history, `2ac1a56`). The turned-off alert and rows come from a
+real watchdog turn-off.
+
 Budget: 24 status + 34 bar + 1 hairline + 36 tab bar leaves **225px** of
 page on a tab. A browsed package row and an Installed row are 47px (name,
 a line of detail, a capsule or chevron): 4.8 rows show. The Updater's row
