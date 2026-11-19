@@ -25,8 +25,10 @@ icon.png                     optional
   (65,536 bytes each):
   Wave fetches with a 256 KB blob limit and anything larger never reaches
   the phone.
-- Icons are square PNGs, 96x96 recommended. Wave rounds the corners. A
-  package or source without one gets a coloured tile with its initial.
+- Icons are square PNGs, 96x96 recommended, at most 1024x1024 (a small file can
+  declare far more pixels than a phone can decode; a larger icon is ignored).
+  Wave rounds the corners. A package or source without one gets a coloured
+  tile with its initial.
 - Wave reads the repository's default branch (`HEAD`).
 
 ## wave.json

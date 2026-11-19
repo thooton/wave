@@ -6,6 +6,8 @@ import java.util.zip.CRC32;
 /** Check the same basic PNG structure as wavesrc before offering an icon to the UI. */
 final class Png {
     private static final long SIGNATURE = 0x89504e470d0a1a0aL;
+    /** A 64 KiB PNG can declare billions of pixels; decoding one would exhaust the phone's memory. */
+    static final int MAX_SIDE = 1024;
     private static final int IHDR = 0x49484452, IDAT = 0x49444154, IEND = 0x49454e44;
 
     static void check(byte[] png) {
@@ -27,6 +29,7 @@ final class Png {
                 if (type != IHDR || length != 13) throw new IllegalArgumentException("Missing PNG IHDR");
                 int width = in.getInt(), height = in.getInt();
                 if (width != height) throw new IllegalArgumentException("PNG icon must be square");
+                if (width > MAX_SIDE) throw new IllegalArgumentException("PNG icon must be at most " + MAX_SIDE + " pixels square");
                 int depth = in.get() & 255, color = in.get() & 255;
                 int allowed = color == 0 ? 0x10116 : color == 3 ? 0x116 :
                     color == 2 || color == 4 || color == 6 ? 0x10100 : 0;

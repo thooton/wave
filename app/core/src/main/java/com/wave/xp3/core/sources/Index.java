@@ -114,8 +114,33 @@ public final class Index {
     }
     public List<Entry> search(String query) { return search.find(query); }
 
+    /** Manifest bytes all sources together may keep in memory (a source's own tree is already limited to 16 MiB). */
+    static final long MAX_MANIFEST_BYTES = 16L * 1024 * 1024;
+
+    /** What is left of the memory a whole index may use for manifests; the sources read first are served first. */
+    static final class Budget {
+        private long left;
+        Budget(long bytes) { left = bytes; }
+        boolean take(long bytes) {
+            if (bytes > left) { left = 0; return false; }
+            left -= bytes;
+            return true;
+        }
+    }
+
+    /** A source whose saved copy failed its integrity check: shown with the reason and no packages until it is refreshed. */
+    static Source damaged(SourceStore.Source info) {
+        Map<String, String> issues = new LinkedHashMap<>();
+        issues.put("wave.json", "The saved copy of this source is damaged. Refresh it.");
+        return new Source(info, null, null, Collections.emptyList(), Collections.emptyList(), issues);
+    }
+
     /** Reads a checkout or a cached source directory. Useful for offline validation, not Git fetching. */
     public static Source read(SourceStore.Source info, Path tree) {
+        return read(info, tree, new Budget(MAX_MANIFEST_BYTES));
+    }
+
+    static Source read(SourceStore.Source info, Path tree, Budget budget) {
         Map<String, String> issues = new LinkedHashMap<>();
         List<Entry> packages = new ArrayList<>();
         SourceManifest header = null;
@@ -124,14 +149,14 @@ public final class Index {
             try { header = SourceManifest.parse(SourceStore.readBounded(tree.resolve("wave.json"), Tree.MAX_FILE)); }
             catch (IOException | IllegalArgumentException e) { issues.put("wave.json", e.getMessage()); }
             icon = icon(tree, tree.resolve("icon.png"), issues);
-            if (header != null) readPackages(info, tree, header, packages, issues);
+            if (header != null) readPackages(info, tree, header, packages, issues, budget);
         }
         return new Source(info, header, icon, sections(packages, header == null ? Collections.emptyMap() : header.sections),
             packages, issues);
     }
 
     private static void readPackages(SourceStore.Source info, Path tree, SourceManifest header, List<Entry> packages,
-                                     Map<String, String> issues) {
+                                     Map<String, String> issues, Budget budget) {
         Map<String, String> seen = new LinkedHashMap<>();
         try {
             for (Path sectionPath : directories(tree)) {
@@ -146,6 +171,12 @@ public final class Index {
                         issues.put(relative, "Invalid section or package folder name");
                         continue;
                     }
+                    try {
+                        if (!budget.take(Files.size(path))) {
+                            issues.put(relative, "Not loaded: the sources hold more package data than Wave can keep");
+                            continue;
+                        }
+                    } catch (IOException e) { issues.put(relative, "Could not read package file"); continue; }
                     File art = icon(tree, folderPath.resolve("icon.png"), issues);
                     try {
                         PackageManifest item = PackageManifest.parse(SourceStore.readBounded(path, Tree.MAX_FILE));

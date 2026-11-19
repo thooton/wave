@@ -19,6 +19,7 @@ import com.wave.xp3.core.root.Scripts;
 import com.wave.xp3.core.root.Shell;
 import com.wave.xp3.core.root.Watchdog;
 import com.wave.xp3.core.sources.Compat;
+import com.wave.xp3.core.sources.InFlight;
 import com.wave.xp3.core.sources.Index;
 import com.wave.xp3.core.sources.PackageManifest;
 import com.wave.xp3.core.sources.SourceManifest;
@@ -62,7 +63,11 @@ public final class SourceController implements WaveData {
     private QueueView queue;
     private Snapshot snapshot;
     private volatile long searchEpoch;
-    private boolean startedRefresh, readingPhone;
+    private boolean startedRefresh;
+    private String notice;
+    // One tracked phone read at a time; a request made meanwhile becomes a single follow-up read.
+    private final InFlight reading = new InFlight();
+    private static final int EXPLICIT = 1, NEW_INDEX = 2;
     private Pending proposed;
     // Accessed only by the data worker.
     private Index workerIndex;
@@ -74,10 +79,14 @@ public final class SourceController implements WaveData {
         EngineService.listen(engineListener);
         Engine active = EngineService.current();
         if (active != null && !active.finished()) engineChanged(active);
+        reading.begin(NEW_INDEX); // The first read is in flight from here; a resume or Check Again meanwhile joins it.
         worker.execute(() -> {
-            try { store = new SourceStore(this.context.getFilesDir()); }
-            catch (IOException e) { post(() -> { firstLoadError = message(e); render(); }); }
-            readPhone(false, true);
+            try {
+                store = new SourceStore(this.context.getFilesDir());
+                String saved = store.notice();
+                if (saved != null) post(() -> { notice = saved; actionError = saved; render(); });
+            } catch (IOException e) { post(() -> { firstLoadError = message(e); render(); }); }
+            readTracked(NEW_INDEX);
         });
     }
 
@@ -105,21 +114,32 @@ public final class SourceController implements WaveData {
     }
 
     @Override public void checkRoot() {
-        if (readingPhone) return;
         root = Root.CHECKING;
         render();
-        schedulePhone(true, false);
+        schedulePhone(EXPLICIT);
     }
 
-    @Override public void recheckPhone() { if (root != Root.CHECKING) schedulePhone(false, false); }
+    @Override public void recheckPhone() { schedulePhone(0); }
 
-    private void schedulePhone(boolean explicit, boolean newIndex) {
-        if (closed || readingPhone) return;
-        readingPhone = true;
-        worker.execute(() -> readPhone(explicit, newIndex));
+    /** Main thread. Starts a read unless one is in flight; then the request is merged into its single follow-up. */
+    private void schedulePhone(int flags) {
+        if (closed || !reading.begin(flags)) return;
+        submit(worker, () -> readTracked(flags));
     }
 
-    private void readPhone(boolean explicit, boolean newIndex) {
+    /** A read that holds the gate. However it ends, the gate must be let go or no read would ever run again. */
+    private void readTracked(int flags) {
+        try { readPhone((flags & EXPLICIT) != 0, (flags & NEW_INDEX) != 0, true); }
+        catch (RuntimeException e) { post(this::readEnded); }
+    }
+
+    private void readEnded() {
+        int again = reading.finish();
+        if (again != 0) submit(worker, () -> readTracked(again));
+    }
+
+    /** Untracked reads (after a change the worker itself made) always run and see the latest store. */
+    private void readPhone(boolean explicit, boolean newIndex, boolean tracked) {
         if (store != null && (newIndex || workerIndex == null)) workerIndex = store.index();
         Inventory state = new Inventory();
         state.free = Formatter.formatFileSize(context, new StatFs(context.getFilesDir().getPath()).getAvailableBytes());
@@ -170,9 +190,11 @@ public final class SourceController implements WaveData {
         final boolean haveRoot = granted;
         final String rootText = label;
         post(() -> {
-            root = haveRoot ? Root.OK : Root.NONE;
-            rootLabel = rootText;
-            readingPhone = false;
+            // While the user's Check Again waits behind this read, the screen keeps saying it is checking.
+            if (!(tracked && reading.waiting(EXPLICIT))) {
+                root = haveRoot ? Root.OK : Root.NONE;
+                rootLabel = rootText;
+            }
             inventory = state; catalog = model; shown = currentIndex;
             if (shown != null && shown.sources().stream().anyMatch(s -> s.manifest != null)) firstLoadError = null;
             render();
@@ -180,6 +202,7 @@ public final class SourceController implements WaveData {
                 startedRefresh = true;
                 refreshAll();
             }
+            if (tracked) readEnded();
         });
     }
 
@@ -200,16 +223,16 @@ public final class SourceController implements WaveData {
         SourceStore sources = store;
         if (closed || sources == null || !refreshing.add(sourceId)) return;
         sourceErrors.remove(sourceId);
-        actionError = null;
+        if (actionError != null && !actionError.equals(notice)) actionError = null;
         render();
         submit(network, () -> {
             try {
                 sources.refresh(sourceId);
                 submit(worker, () -> {
                     post(() -> refreshing.remove(sourceId));
-                    readPhone(false, true);
+                    readPhone(false, true, false);
                 });
-            } catch (IOException e) {
+            } catch (IOException | RuntimeException e) {
                 post(() -> {
                     refreshing.remove(sourceId);
                     sourceErrors.put(sourceId, message(e));
@@ -233,7 +256,7 @@ public final class SourceController implements WaveData {
         request(worker, () -> {
             if (!(preview.token instanceof SourceStore.Preview)) throw new IOException("Fetch the source again before adding it");
             sources().add((SourceStore.Preview) preview.token);
-            readPhone(false, true);
+            readPhone(false, true, false);
             return null;
         }, callback);
     }
@@ -241,7 +264,7 @@ public final class SourceController implements WaveData {
     @Override public void remove(String sourceId, Result<Void> callback) {
         request(worker, () -> {
             sources().remove(sourceId);
-            readPhone(false, true);
+            readPhone(false, true, false);
             return null;
         }, callback);
     }
@@ -345,7 +368,7 @@ public final class SourceController implements WaveData {
     private void rootAction(String script) {
         request(worker, () -> {
             if (!root(script).ok()) throw new IOException("That didn't work");
-            readPhone(false, false);
+            readPhone(false, false, false);
             return null;
         }, new Result<Void>() {
             @Override public void ok(Void value) { actionError = null; render(); }
@@ -392,6 +415,7 @@ public final class SourceController implements WaveData {
         submit(executor, () -> {
             try { T value = work.run(); post(() -> callback.ok(value)); }
             catch (IOException | Plan.Refused e) { post(() -> callback.failed(message(e))); }
+            catch (RuntimeException e) { post(() -> callback.failed("Wave could not finish the request")); }
         });
     }
     private void submit(ExecutorService executor, Runnable task) {

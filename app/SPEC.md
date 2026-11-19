@@ -258,13 +258,21 @@ The source screens can use `com.wave.xp3.core.sources` without Android calls:
   issues, package rows, sections and counts. `all()`, `get(packageId)`,
   `sections()` and `search(query)` use merged candidates: highest version,
   then earliest source, including the winner's type. Search ranks name
-  matches before summary or description. A blank query has no results.
+  matches before summary or description. A blank query has no results and
+  a query returns at most `Search.MAX_RESULTS` (200) rows, best first. An
+  index keeps at most 16 MiB of manifests in memory; packages past that are
+  listed in the source's `issues`, and the first sources are served first.
 - `Compat.of(entry, phone)` separates a blocking reason from an advisory
   firmware note. `Status.of(entry.manifest, phoneState)` reads actual APK or
   Magisk state through `Status.Phone`, including pending changes.
 - `sources.json` is the atomic pointer to each immutable cached generation in
-  `sources/<source-id>/tree/<HEAD>/`. Rebuild the index after refresh or removal;
-  old icon paths may no longer exist. A missing or invalid icon means use the
+  `sources/<source-id>/tree/<HEAD>/`. Each generation carries a digest of its
+  files (no per-file sync: a thousand fsyncs take minutes on flash); a tree that
+  fails it shows as damaged and is refetched in full. The previous generation is
+  kept for one more switch so a snapshot on screen keeps its icons; an unreadable
+  `sources.json` is set aside as `sources/damaged.json` and `SourceStore.notice()`
+  says so. Rebuild the index after refresh or removal; old icon paths may no
+  longer exist. A missing or invalid icon means use the
   initial tile. Decode icons at display size, not at the source's pixel size.
   The catalog's URL is safe to display; `sources.json` can contain Basic-auth
   credentials and must be excluded from backup.

@@ -38,10 +38,17 @@ public final class Compat {
             !pkg.requires.device.contains(phone.device)) {
             reason = "Not compatible with this device";
         } else if (pkg.requires.sdk > phone.sdk) {
-            reason = "Requires Android SDK " + pkg.requires.sdk + " or later";
+            reason = "Needs " + androidName(pkg.requires.sdk) + " or later";
         }
         String note = !pkg.requires.firmware.isEmpty() && !pkg.requires.firmware.contains(phone.fingerprint) ?
             "Not tested on this firmware" : null;
         return new Compat(reason, note);
+    }
+
+    private static final String[] ANDROID = {"5.0", "5.1", "6.0", "7.0", "7.1", "8.0", "8.1", "9", "10", "11", "12", "12", "13", "14", "15", "16"};
+
+    /** What a person calls an API level: "Android 9", falling back to "Android SDK N" for levels it doesn't know. */
+    static String androidName(long sdk) {
+        return sdk >= 21 && sdk - 21 < ANDROID.length ? "Android " + ANDROID[(int) (sdk - 21)] : "Android SDK " + sdk;
     }
 }

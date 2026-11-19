@@ -38,6 +38,9 @@ public final class SourceStore {
     private final Path list, root;
     private final Fetcher fetcher;
     private Map<String, Source> sources;
+    /** Generations whose files were checked against their digest in this process (ours, or verified on first read). */
+    private final Set<Path> verified = new HashSet<>();
+    private String notice;
 
     interface Fetcher { Update fetch(String url, String known) throws IOException; }
 
@@ -122,7 +125,11 @@ public final class SourceStore {
         root = filesDir.toPath().resolve("sources");
         this.fetcher = fetcher;
         sources = load();
+        sweep();
     }
+
+    /** Set when the saved source list could not be read as a whole and part or all of it was set aside, else null. */
+    public synchronized String notice() { return notice; }
 
     public synchronized List<Source> sources() {
         return Collections.unmodifiableList(new ArrayList<>(sources.values()));
@@ -175,7 +182,7 @@ public final class SourceStore {
         synchronized (this) {
             before = require(id);
             Path tree = active(before);
-            known = tree != null && Files.isRegularFile(tree.resolve("wave.json"), LinkOption.NOFOLLOW_LINKS) ? before.commit : null;
+            known = tree != null && intact(tree) ? before.commit : null;
         }
         Update update = fetcher.fetch(before.fetchUrl, known);
         if (!COMMIT.matcher(update.commit).matches()) throw new IOException("Invalid source HEAD");
@@ -221,7 +228,12 @@ public final class SourceStore {
     /** Immutable package/index metadata rebuilt from the currently committed cached trees; no network. */
     public synchronized Index index() {
         List<Index.Source> views = new ArrayList<>();
-        for (Source source : sources.values()) views.add(Index.read(source, active(source)));
+        Index.Budget budget = new Index.Budget(Index.MAX_MANIFEST_BYTES);
+        for (Source source : sources.values()) {
+            Path tree = active(source);
+            views.add(tree != null && Files.isDirectory(tree, LinkOption.NOFOLLOW_LINKS) && !intact(tree) ?
+                Index.damaged(source) : Index.read(source, tree, budget));
+        }
         return new Index(views);
     }
 
@@ -245,19 +257,102 @@ public final class SourceStore {
                 if (!allowed || entry.getValue().length > Tree.MAX_FILE) throw new IOException("Invalid cached source path or file size");
                 Path path = staging.resolve(relative);
                 Files.createDirectories(path.getParent());
-                write(path, entry.getValue());
+                // No per-file sync: a thousand fsyncs take minutes on flash. The digest below makes a torn write detectable.
+                try (FileOutputStream out = new FileOutputStream(path.toFile())) { out.write(entry.getValue()); }
             }
+            MessageDigest sum = digest();
+            List<String> names = new ArrayList<>(files.keySet());
+            Collections.sort(names);
+            for (String name : names) feed(sum, name, files.get(name));
+            write(staging.resolve(SUM), hex(sum.digest()).getBytes(StandardCharsets.UTF_8));
             // Staging is wholly written before any reader can see it. A failed list rename leaves the old generation active.
             // The only same-HEAD rebuild is repair of an already missing/corrupt snapshot.
             erase(destination);
+            verified.remove(destination);
             Files.move(staging, destination, StandardCopyOption.ATOMIC_MOVE);
             replace(next);
+            verified.add(destination);
         } finally { eraseQuietly(staging); }
-        if (old != null && !old.equals(destination)) eraseQuietly(old);
-        // Clean up abandoned transactions (an interruption before the list rename leaves an orphan).
+        // The previous generation stays for one more switch: a snapshot still on screen holds paths into it for its icons.
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(parent)) {
-            for (Path child : stream) if (!child.equals(destination)) eraseQuietly(child);
+            for (Path child : stream) if (!child.equals(destination) && !child.equals(old)) { eraseQuietly(child); verified.remove(child); }
         } catch (IOException ignored) { /* The live tree is already published. */ }
+    }
+
+    private static final String SUM = ".sum", DAMAGED = "damaged.json";
+
+    private static MessageDigest digest() {
+        try { return MessageDigest.getInstance("SHA-256"); }
+        catch (NoSuchAlgorithmException e) { throw new AssertionError(e); }
+    }
+
+    private static void feed(MessageDigest sum, String name, byte[] data) {
+        sum.update(name.getBytes(StandardCharsets.UTF_8));
+        sum.update((byte) 0);
+        sum.update(java.nio.ByteBuffer.allocate(8).putLong(data.length).array());
+        sum.update(data);
+    }
+
+    private static String hex(byte[] hash) {
+        StringBuilder out = new StringBuilder(hash.length * 2);
+        for (byte b : hash) { out.append(Character.forDigit((b & 255) >>> 4, 16)); out.append(Character.forDigit(b & 15, 16)); }
+        return out.toString();
+    }
+
+    /** True when the generation holds exactly the files its digest was made from. Checked once per process. */
+    private boolean intact(Path tree) {
+        if (verified.contains(tree)) return true;
+        try {
+            Map<String, Path> found = new java.util.TreeMap<>();
+            Path marker = tree.resolve(SUM);
+            // A generation without a digest was written by an earlier Wave, which synced every file; trust it.
+            if (!Files.exists(marker, LinkOption.NOFOLLOW_LINKS)) return Files.isRegularFile(tree.resolve("wave.json"), LinkOption.NOFOLLOW_LINKS);
+            if (!Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS)) return false;
+            try (DirectoryStream<Path> top = Files.newDirectoryStream(tree)) {
+                for (Path a : top) {
+                    String name = a.getFileName().toString();
+                    if (SUM.equals(name)) continue;
+                    if (Files.isRegularFile(a, LinkOption.NOFOLLOW_LINKS)) found.put(name, a);
+                    else if (Files.isDirectory(a, LinkOption.NOFOLLOW_LINKS)) {
+                        try (DirectoryStream<Path> middle = Files.newDirectoryStream(a)) {
+                            for (Path b : middle) {
+                                if (!Files.isDirectory(b, LinkOption.NOFOLLOW_LINKS)) return false;
+                                try (DirectoryStream<Path> leaves = Files.newDirectoryStream(b)) {
+                                    for (Path c : leaves) {
+                                        if (!Files.isRegularFile(c, LinkOption.NOFOLLOW_LINKS)) return false;
+                                        found.put(name + "/" + b.getFileName() + "/" + c.getFileName(), c);
+                                    }
+                                }
+                            }
+                        }
+                    } else return false;
+                }
+            }
+            MessageDigest sum = digest();
+            for (Map.Entry<String, Path> file : found.entrySet()) feed(sum, file.getKey(), readBounded(file.getValue(), Tree.MAX_FILE));
+            String expected = new String(readBounded(marker, 128), StandardCharsets.UTF_8);
+            if (!expected.equals(hex(sum.digest()))) return false;
+            verified.add(tree);
+            return true;
+        } catch (IOException | RuntimeException e) { return false; }
+    }
+
+    /** Removes what an interrupted run left: staging folders, older generations, folders of removed sources. */
+    private void sweep() {
+        if (!Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS)) return;
+        try (DirectoryStream<Path> children = Files.newDirectoryStream(root)) {
+            for (Path child : children) {
+                if (DAMAGED.equals(child.getFileName().toString())) continue;
+                Source source = sources.get(child.getFileName().toString());
+                if (source == null) { eraseQuietly(child); continue; }
+                Path trees = child.resolve("tree");
+                Path live = active(source);
+                if (!Files.isDirectory(trees, LinkOption.NOFOLLOW_LINKS)) continue;
+                try (DirectoryStream<Path> generations = Files.newDirectoryStream(trees)) {
+                    for (Path generation : generations) if (!generation.equals(live)) eraseQuietly(generation);
+                }
+            }
+        } catch (IOException ignored) { /* Leftovers are harmless; the next switch cleans them. */ }
     }
 
     private static void write(Path path, byte[] data) throws IOException {
@@ -297,19 +392,45 @@ public final class SourceStore {
         Map<String, Source> result = new LinkedHashMap<>();
         result.put(builtIn.id, builtIn);
         if (!Files.exists(list, LinkOption.NOFOLLOW_LINKS)) return result;
-        try {
-            List<Object> entries = Json.array(Json.parse(new String(readBounded(list, MAX_STORE), StandardCharsets.UTF_8)));
-            if (entries.size() > MAX_SOURCES) throw new IllegalArgumentException();
-            for (Object item : entries) {
+        List<Object> entries;
+        try { entries = Json.array(Json.parse(new String(readBounded(list, MAX_STORE), StandardCharsets.UTF_8))); }
+        catch (IOException | RuntimeException e) {
+            // Truncated, corrupt or not ours: keep it for the owner to inspect and start from the default source.
+            setAside(true);
+            notice = "Wave could not read its list of sources, so only the default source is shown.";
+            return result;
+        }
+        int skipped = Math.max(0, entries.size() - MAX_SOURCES);
+        for (Object item : entries.subList(0, entries.size() - skipped)) {
+            try {
                 Map<String, Object> values = Json.object(item);
                 String commit = (String) values.get("commit");
                 long lastRefresh = ((java.math.BigDecimal) values.get("lastRefresh")).longValueExact();
                 if (lastRefresh < 0 || !commit.isEmpty() && !COMMIT.matcher(commit).matches()) throw new IllegalArgumentException();
                 Source source = new Source((String) values.get("url"), (String) values.get("name"), commit, lastRefresh);
-                if (result.put(source.id, source) != null && !source.builtIn) throw new IllegalArgumentException();
-            }
-            return result;
-        } catch (RuntimeException e) { throw new IOException("Could not read Wave's source list"); }
+                Source before = result.get(source.id);
+                if (before != null && !source.builtIn) throw new IllegalArgumentException();
+                result.put(source.id, source);
+            } catch (IOException | RuntimeException e) { skipped++; }
+        }
+        if (skipped > 0) {
+            setAside(false);
+            notice = skipped == 1 ? "Wave could not read one of its saved sources and left it out." :
+                "Wave could not read " + skipped + " of its saved sources and left them out.";
+            // Write the usable part back, so this is told once; the original stays in damaged.json.
+            try { save(result); } catch (IOException ignored) { /* The next change saves it. */ }
+        }
+        return result;
+    }
+
+    /** Keeps the unreadable list as sources/damaged.json (inside the folder the backup rules exclude), moving it when nothing could be used from it. */
+    private void setAside(boolean move) {
+        Path copy = root.resolve(DAMAGED);
+        try {
+            Files.createDirectories(root);
+            if (move) Files.move(list, copy, StandardCopyOption.REPLACE_EXISTING);
+            else Files.copy(list, copy, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException ignored) { /* Reading continues without it; nothing is lost that was readable. */ }
     }
 
     private void save(Map<String, Source> next) throws IOException {
