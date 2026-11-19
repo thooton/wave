@@ -135,6 +135,17 @@ moving; resolve open questions when the relevant brief has evidence.
    reads a code off a monitor reliably. Task 14 records the spike and
    chooses a transport. Default to setup-file import if reliable scanning
    cannot be demonstrated or hardware is unavailable.
+   *Spike (task 14):* the XP3800 has one back camera, fixed focus, stills
+   2592x1944, preview at most 1920x1080; three camera apps answer
+   IMAGE_CAPTURE, so a capture intent opens a chooser. No library is
+   needed: Authenticator already carries a QR decoder of its own
+   (`authenticator/android/core/.../qr/`). Not shown: reliable reads off
+   a monitor, which needs a person aiming the phone. *Transport chosen:
+   the setup file* (`spec/setup-payload.md`: Import from the app's own
+   folder, or the system file picker, which works with the d-pad). The
+   QR chunk format (`WS1/i/n/id8/part`) is specified and parsed by
+   `Config.Chunks` in P `common/core`, with no scanner behind it yet;
+   revisit once someone has tried aiming at a screen.
 2. **SQLite upgrade (not shipping).** The original `argon_sqlite` work is
    not committed upstream and was excluded from the import. No module or
    NDK job; revisit only after the upstream code and API checks are ready.
