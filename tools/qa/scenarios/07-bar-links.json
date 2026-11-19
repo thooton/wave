@@ -1,0 +1,99 @@
+{
+  "name": "Sources bar: Add opens Add a Source and Back returns, Refresh spins then returns (07, browse fixture)",
+  "fixture": "browse",
+  "steps": [
+    {
+      "name": "Wave Home",
+      "action": "launch",
+      "wait_ms": 800,
+      "text_all": [
+        "Welcome to Wave"
+      ]
+    },
+    {
+      "name": "Open Sources",
+      "key": "DPAD_RIGHT",
+      "text_all": [
+        "All Sources",
+        "Refresh",
+        "Add"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Up from the top row reaches the bar, on Add",
+      "key": "DPAD_UP",
+      "text_all": [
+        "Refresh",
+        "Add"
+      ],
+      "focus_on": "Add",
+      "focus_moved": true
+    },
+    {
+      "name": "Add opens Add a Source",
+      "key": "ENTER",
+      "before_text": [
+        "Refresh",
+        "Add"
+      ],
+      "wait_ms": 600,
+      "text_all": [
+        "Add a Source"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Down from the address field to its Add button (Back in the field deletes a character)",
+      "key": "DPAD_DOWN",
+      "focus_on": "Add",
+      "focus_moved": true
+    },
+    {
+      "name": "Back from the button returns to Sources",
+      "key": "BACK",
+      "wait_ms": 500,
+      "text_all": [
+        "All Sources",
+        "Refresh",
+        "Add"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Up again reaches the bar, on Add",
+      "key": "DPAD_UP",
+      "focus_on": "Add",
+      "focus_moved": true
+    },
+    {
+      "name": "Left reaches Refresh",
+      "key": "DPAD_LEFT",
+      "focus_on": "Refresh",
+      "focus_moved": true
+    },
+    {
+      "name": "Refresh starts a refresh (spinner in the bar; read the capture, the tree is not readable while it spins)",
+      "key": "ENTER",
+      "before_text": [
+        "Refresh",
+        "Add"
+      ],
+      "wait_ms": 500,
+      "changed": true
+    },
+    {
+      "name": "The refresh ends and the link returns",
+      "action": "capture",
+      "wait_ms": 3000,
+      "text_all": [
+        "Refresh",
+        "Add",
+        "All Sources"
+      ],
+      "text_none": [
+        "Refreshing"
+      ]
+    }
+  ]
+}
