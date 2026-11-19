@@ -11,64 +11,70 @@ You need Git, Python 3 and an account on a host that serves Git over HTTPS
 permanent URL, such as a GitHub release. Wave itself has no signing or
 account requirements for sources.
 
-## 1. Get the checker
+## 1. Get the tool and make the source
 
 ```sh
 git clone https://github.com/thooton/wave
 alias wavesrc="$PWD/wave/tools/wavesrc/wavesrc"
+wavesrc new sams-apps --name "Sam's Apps" --maintainer Sam --id com.sam.hello
+cd sams-apps && git init -b main
+wavesrc lint .                       # passes: it is a valid source already
 ```
 
-`wavesrc` is plain Python 3 with no dependencies. Options are written
-`--option=value`.
+`wavesrc` is plain Python 3 with no dependencies; options are written
+`--option=value` or `--option value`. `new` writes seven files:
 
-## 2. Make a repository for the source and nothing else
-
-```sh
-mkdir sams-apps && cd sams-apps
-git init -b main
-mkdir -p applications/hello
 ```
+wave.json                     the source: name, maintainer, sections, featured
+icon.png                      its icon (96x96, generated; replace it)
+applications/example-app/     a placeholder package (id from --id)
+  package.json
+  icon.png
+system/.gitkeep               the System section, for modules (Wave ignores the file)
+README.md                     what to do next
+.gitignore                    keeps APKs, zips and keys out of the repository
+```
+
+`--id` is the example package's id, which should be your app's Android
+package name. Without it you get `com.example.app`. The placeholder points
+at `https://example.invalid/...`, so `lint` accepts it and `verify` refuses
+it until you put in a real download: that is the "not finished" signal.
+`new` won't overwrite a source: if any of those files exist it writes nothing
+and says so; `--force` overwrites just those files and leaves the rest of
+the folder alone.
 
 Use a repository of its own. Wave downloads the whole latest commit (up to 8
 MiB, see [limits](source-format.md#how-wave-fetches-a-source)), so a source
 inside a repository full of code or screenshots is refused: "That source is
 over the 8 MB Wave fetches. Keep only the source there."
 
-Layout, two levels: a section folder, then one folder per package.
-
-```
-wave.json
-icon.png                      (optional, for the source)
-applications/                 a section
-  hello/                      a package
-    package.json
-    icon.png                  (optional, for the package)
-```
-
+The layout is two levels, a section folder and then one folder per package.
 Folder names are lowercase letters, digits and `-`. Anything that doesn't
 fit is ignored without a message on the phone, so `Applications/` or
 `applications/hello world/` would just not exist; `wavesrc lint` tells you.
+Add modules as `system/<name>/package.json`.
 
-## 3. Describe the source
+## 2. Describe the source
 
-`wave.json`:
+Open `wave.json`; everything in it is yours to edit:
 
 ```json
 {
   "wave": 1,
   "name": "Sam's Apps",
-  "description": "Small apps for the XP3800.",
+  "description": "Apps and system mods for the Sonim XP3800.",
   "maintainer": "Sam",
-  "sections": { "applications": "Applications" },
-  "featured": ["com.example.hello"]
+  "sections": { "applications": "Applications", "system": "System" },
+  "featured": ["com.sam.hello"]
 }
 ```
 
 Only `wave` and `name` are required. `name` and `maintainer` are what a
 person sees when deciding whether to trust the source: the dialog reads
-"Add it only if you trust" followed by the maintainer.
+"Add it only if you trust" followed by the maintainer. `featured` should list
+ids that exist in the source; lint warns when one doesn't.
 
-## 4. Host the binary and measure it
+## 3. Host the binary and measure it
 
 Upload the finished APK (or module zip) where its URL never changes and
 never serves different bytes. On GitHub, create a release with a version tag
@@ -85,18 +91,19 @@ stat -c %s hello-1.0.0.apk                 # size in bytes (macOS: stat -f %z)
 aapt2 dump badging hello-1.0.0.apk | head -1
 ```
 
-The last line prints `name='com.example.hello'` and `versionName='1.0.0'`.
+The last line prints `name='com.sam.hello'` and `versionName='1.0.0'`.
 Those are the package's `id` and `version`. For a Magisk module, `id` and
 `version` come from `module.prop` inside the zip
 (`unzip -p mod.zip module.prop`).
 
-## 5. Write the package
+## 4. Fill in the package
 
-`applications/hello/package.json`:
+Rename `applications/example-app` to your package's name, and edit its
+`package.json`:
 
 ```json
 {
-  "id": "com.example.hello",
+  "id": "com.sam.hello",
   "type": "apk",
   "name": "Hello",
   "summary": "Says hello",
@@ -123,20 +130,18 @@ Those are the package's `id` and `version`. For a Magisk module, `id` and
 - Every field is listed, with its limits, in the
   [source format](source-format.md#packagejson).
 
-## 6. Icons
+## 5. Icons
 
-Optional but they make the list readable. A PNG, square, at most 64 KB and at
-most 1024 pixels; 96x96 is what Wave draws. With ImageMagick:
+`new` generated a coloured tile for each, so the list is readable from the
+start. Replace them with your own: a PNG, square, at most 64 KB and at most
+1024 pixels; 96x96 is what Wave draws. Without an `icon.png` Wave draws a
+coloured tile with the package's initial.
 
 ```sh
-magick -size 96x96 xc:'#3366cc' icon.png            # a solid tile, to start
-cp icon.png applications/hello/icon.png
 file applications/hello/icon.png                     # PNG image data, 96 x 96
 ```
 
-Without an icon Wave draws a coloured tile with the package's initial.
-
-## 7. Check it
+## 6. Check it
 
 ```sh
 wavesrc lint .
@@ -145,16 +150,18 @@ wavesrc verify .
 ```
 
 - `lint` checks every file against the format, offline. Fix each line it
-  prints that does not say `warning`.
+  prints that does not say `warning`. It passes on the scaffold from the start,
+  so run it after every edit.
 - `lint --download` also downloads each binary and checks that its package
   name and version are the ones in the manifest, the way Wave will.
 - `verify` checks the downloads only: HTTPS, the size and SHA-256 match, and
-  the URL does not point at something that moves.
+  the URL does not point at something that moves. It fails on the scaffold's
+  `example.invalid` placeholder, so a clean `verify` means you replaced it.
 
 A clean run prints nothing; warnings are printed but don't fail the run.
 The default source runs the same checks every night.
 
-## 8. Publish the repository and test the address
+## 7. Publish the repository and test the address
 
 ```sh
 git add -A && git commit -m "Sam's Apps"
@@ -174,7 +181,7 @@ curl -s -H 'Git-Protocol: version=2' \
 If that prints a `version 2` line, the host speaks what Wave needs. Private
 repositories need a token; see [source format](source-format.md#how-wave-fetches-a-source).
 
-## 9. Add it on the phone
+## 8. Add it on the phone
 
 In Wave, open the **Sources** tab, press the menu key and choose **Add a
 Source** (Home has the same row). The address field starts with
@@ -188,7 +195,7 @@ confirm first.
 Your package then appears under its section, in Search, and on the source's
 page if listed in `featured`.
 
-## 10. Release an update
+## 9. Release an update
 
 1. Build the new APK with a higher `versionCode` and the same signing key.
    Android refuses an update signed by another key or with a lower code.

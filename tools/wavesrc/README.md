@@ -1,6 +1,7 @@
 # wavesrc
 
 ```sh
+./tools/wavesrc/wavesrc new my-source --name "My Source" --id com.me.app   # a lint-clean scaffold
 ./tools/wavesrc/wavesrc lint spec/example-source
 ./tools/wavesrc/wavesrc verify /path/to/source-checkout
 python3 -m unittest discover -s tools/wavesrc

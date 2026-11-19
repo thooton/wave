@@ -16,7 +16,7 @@ from unittest import mock
 
 import artifact
 import cli
-from source import Invalid, LIMIT
+from source import Invalid, LIMIT, check_icon
 
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLE = ROOT / "spec/example-source"
@@ -238,6 +238,74 @@ class LintTest(Fixtures):
         self.mutate(LIST, lambda p: (p["download"].update(url="https://host/a.apk"),
                                      p.update(homepage="https://user:pw@host/")))
         self.assertLintError(LIST, "homepage must not carry a user name or password")
+
+
+class NewTest(Fixtures):
+    def new(self, *args):
+        return self.cli("new", self.tmp / "fresh", "--name", "Sam's Apps", "--id", "com.sam.hello", *args)
+
+    def test_the_scaffold_lints_clean_and_verify_refuses_it(self):
+        status, output = self.new("--maintainer", "Sam")
+        self.assertEqual(0, status, output)
+        fresh = self.tmp / "fresh"
+        self.assertEqual((0, ""), self.cli("lint", fresh))
+        status, output = self.cli("verify", fresh)
+        self.assertEqual(1, status, output)
+        self.assertIn("download failed", output)
+
+    def test_it_writes_what_the_format_requires(self):
+        self.new("--maintainer", "Sam")
+        fresh = self.tmp / "fresh"
+        header = read_json(fresh / "wave.json")
+        self.assertEqual(
+            {"wave": 1, "name": "Sam's Apps", "maintainer": "Sam",
+             "description": "Apps and system mods for the Sonim XP3800.",
+             "sections": {"applications": "Applications", "system": "System"},
+             "featured": ["com.sam.hello"]}, header)
+        package = read_json(fresh / "applications/example-app/package.json")
+        self.assertEqual(("com.sam.hello", "apk", "1.0.0"), (package["id"], package["type"], package["version"]))
+        self.assertTrue(package["download"]["url"].startswith("https://example.invalid/"))
+        for icon in ("icon.png", "applications/example-app/icon.png"):
+            data = (fresh / icon).read_bytes()
+            check_icon(data)
+            self.assertEqual((96, 96), struct.unpack(">II", data[16:24]))
+            self.assertLess(len(data), 4096)
+        self.assertTrue((fresh / "system").is_dir())
+        self.assertIn("*.apk", (fresh / ".gitignore").read_text())
+        self.assertIn("verify", (fresh / "README.md").read_text())
+
+    def test_the_maintainer_is_left_out_unless_given(self):
+        self.new()
+        self.assertNotIn("maintainer", read_json(self.tmp / "fresh" / "wave.json"))
+
+    def test_it_does_not_clobber_without_force(self):
+        self.new()
+        fresh = self.tmp / "fresh"
+        (fresh / "wave.json").write_text('{"wave": 1, "name": "Mine"}')
+        (fresh / "notes.txt").write_text("keep")
+        with self.assertRaises(SystemExit) as caught, contextlib.redirect_stderr(io.StringIO()) as err:
+            self.new()
+        self.assertEqual(1, caught.exception.code)
+        self.assertIn("--force", err.getvalue())
+        self.assertEqual("Mine", read_json(fresh / "wave.json")["name"])
+        status, output = self.new("--force")
+        self.assertEqual(0, status, output)
+        self.assertEqual("Sam's Apps", read_json(fresh / "wave.json")["name"])
+        self.assertEqual("keep", (fresh / "notes.txt").read_text())
+
+    def test_it_adds_to_an_existing_empty_or_unrelated_folder(self):
+        (self.tmp / "fresh").mkdir()
+        (self.tmp / "fresh" / "LICENSE").write_text("MIT")
+        self.assertEqual(0, self.new()[0])
+        self.assertEqual("MIT", (self.tmp / "fresh" / "LICENSE").read_text())
+
+    def test_bad_arguments_write_nothing(self):
+        for args in (("--name", "x" * 41, "--id", "a.b"), ("--name", "ok", "--id", "bad id"),
+                     ("--name=ok", "--id=-x"), ("--name", "", "--id", "a.b")):
+            with self.assertRaises(SystemExit) as caught, contextlib.redirect_stderr(io.StringIO()):
+                cli.main(["new", str(self.tmp / "none"), *args])
+            self.assertEqual(1, caught.exception.code)
+            self.assertFalse((self.tmp / "none").exists())
 
 
 class PublishTest(Fixtures):

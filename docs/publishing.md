@@ -6,6 +6,10 @@ and module ZIPs can be on GitHub Releases or any HTTPS host. Give each version
 its own asset URL and never overwrite a published asset. See the
 [source format](source-format.md) and the [example source](../spec/example-source/).
 
+Starting from nothing? `wavesrc new DIR --name NAME --id PACKAGE_ID` writes a
+source that lints clean, and [publishing a source](publishing-a-source.md)
+walks through filling it in.
+
 ## Publish locally
 
 Install Python 3.8 or later and Git. For APKs, install Android SDK Build Tools
