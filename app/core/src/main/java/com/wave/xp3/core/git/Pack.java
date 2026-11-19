@@ -14,7 +14,7 @@ import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
 /** A verified, self-contained SHA-1 pack; uninteresting objects remain compressed. */
-public final class Pack {
+final class Pack {
     public static final int MAX_PACK = 8 * 1024 * 1024;
     private static final int MAX_OBJECTS = 64_000;
     private static final int MAX_DELTA_OBJECT = MAX_PACK;

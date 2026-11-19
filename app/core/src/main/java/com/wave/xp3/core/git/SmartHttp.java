@@ -18,7 +18,14 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLException;
 
-/** Fetch-only Git protocol v2 on stateless smart HTTPS. No redirects or fallback. */
+/**
+ * Fetch-only Git protocol v2 on stateless smart HTTPS. No redirects or fallback.
+ *
+ * The Git client's only way out of this package is {@link #fetchTree(String, String)}
+ * and the address helpers, and all they throw is {@link SourceFailure}, whose message
+ * is written for the screen. lsRefs, fetch, Pack, Tree.files and PktLine stay
+ * package-private so no caller can meet Git's own errors (GitSelfTest checks this).
+ */
 public final class SmartHttp {
     private static final String SERVICE = "git-upload-pack";
     private static final String MIME = "application/x-" + SERVICE;
@@ -31,7 +38,7 @@ public final class SmartHttp {
     interface Connections { HttpURLConnection open(URI uri) throws IOException; }
     private interface Read<T> { T from(InputStream in) throws IOException; }
 
-    public SmartHttp(String url) throws IOException {
+    SmartHttp(String url) throws IOException {
         this(url, uri -> (HttpURLConnection) uri.toURL().openConnection());
     }
 
@@ -45,7 +52,7 @@ public final class SmartHttp {
         this.connections = connections;
     }
 
-    public static URI repositoryUri(String url) throws IOException {
+    public static URI repositoryUri(String url) throws SourceFailure {
         try {
             URI uri = new URI(url);
             if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null || uri.getPort() > 65535 ||
@@ -57,7 +64,7 @@ public final class SmartHttp {
     }
 
     /** Safe to display and use as an identity; userinfo and redundant trailing slashes are removed. */
-    public static String publicUrl(String url) throws IOException {
+    public static String publicUrl(String url) throws SourceFailure {
         URI uri = repositoryUri(url);
         String authority = uri.getRawAuthority();
         String path = uri.getRawPath();
@@ -86,7 +93,7 @@ public final class SmartHttp {
     }
 
     /** Every failure is a {@link SourceFailure}: its message is for the screen as it is. */
-    public Result fetchTree(String knownCommit) throws SourceFailure {
+    Result fetchTree(String knownCommit) throws SourceFailure {
         try {
             String id = lsRefs();
             return new Result(id, id.equals(knownCommit) ? null : Tree.files(fetch(id), id));
@@ -95,7 +102,7 @@ public final class SmartHttp {
         }
     }
 
-    public String lsRefs() throws IOException {
+    String lsRefs() throws IOException {
         advertise();
         return request("/" + SERVICE, command("ls-refs", "ref-prefix HEAD\n"), MIME + "-result", in -> {
             String head = null;
@@ -115,7 +122,7 @@ public final class SmartHttp {
         });
     }
 
-    public Pack fetch(String commit) throws IOException {
+    Pack fetch(String commit) throws IOException {
         if (commit == null || !Pack.isId(commit)) throw new IOException("Invalid Git commit id");
         advertise();
         if (!offers("shallow")) throw new SourceFailure(SourceFailure.Kind.UNSUPPORTED, "No shallow fetches");

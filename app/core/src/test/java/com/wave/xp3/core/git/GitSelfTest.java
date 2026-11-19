@@ -21,6 +21,7 @@ public final class GitSelfTest {
         check.run("Git packs", () -> packs(check));
         check.run("Git HTTP", () -> http(check));
         check.run("Source failures in plain words", () -> plainFailures(check));
+        check.run("The Git client throws only SourceFailure", () -> onlySourceFailures(check));
     }
 
     private static void packets(Check check) throws Exception {
@@ -209,6 +210,27 @@ public final class GitSelfTest {
                 check.same("plain HTTP", SourceFailure.Kind.ADDRESS, e.kind);
             }
         } finally { server.stop(0); }
+    }
+
+    /** Whatever leaves the package can only fail in the screen's words: no public method declares a bare IOException. */
+    private static void onlySourceFailures(Check check) {
+        Class<?>[] all = {SmartHttp.class, SmartHttp.Result.class, Tree.class, Pack.class, PktLine.class, SourceFailure.class};
+        for (Class<?> type : all) {
+            if (!java.lang.reflect.Modifier.isPublic(type.getModifiers())) continue;
+            java.util.List<java.lang.reflect.Executable> exits = new java.util.ArrayList<>();
+            exits.addAll(Arrays.asList(type.getDeclaredMethods()));
+            exits.addAll(Arrays.asList(type.getDeclaredConstructors()));
+            for (java.lang.reflect.Executable exit : exits) {
+                if (!java.lang.reflect.Modifier.isPublic(exit.getModifiers())) continue;
+                for (Class<?> thrown : exit.getExceptionTypes()) {
+                    boolean checked = Exception.class.isAssignableFrom(thrown) && !RuntimeException.class.isAssignableFrom(thrown);
+                    check.ok(type.getSimpleName() + "." + exit.getName() + " throws " + thrown.getSimpleName(),
+                        !checked || SourceFailure.class.isAssignableFrom(thrown));
+                }
+            }
+        }
+        check.ok("Pack is internal", !java.lang.reflect.Modifier.isPublic(Pack.class.getModifiers()));
+        check.ok("PktLine is internal", !java.lang.reflect.Modifier.isPublic(PktLine.class.getModifiers()));
     }
 
     private static String head() throws IOException { return new String(fixture("head.txt"), StandardCharsets.US_ASCII).trim(); }

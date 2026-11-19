@@ -18,7 +18,7 @@ public final class Tree {
     private Tree() {}
 
     /** Missing or oversized blobs are omitted, including blobs left out by a server filter. */
-    public static Map<String, byte[]> files(Pack pack, String commit) throws IOException {
+    static Map<String, byte[]> files(Pack pack, String commit) throws IOException {
         byte[] head = pack.commit(commit, 1024 * 1024);
         if (head == null || head.length < 46 || head[45] != '\n') throw new IOException("Git pack has no usable HEAD commit");
         String header = new String(head, 0, 45, StandardCharsets.US_ASCII);

@@ -7,7 +7,7 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
 /** Git's binary-safe packet-line framing. */
-public final class PktLine {
+final class PktLine {
     public static final int FLUSH = 0, DELIMITER = 1, RESPONSE_END = 2, DATA = 4;
     public static final int MAX_PAYLOAD = 65516;
     private static final String HEX = "0123456789abcdef";
