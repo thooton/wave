@@ -96,20 +96,29 @@ final class AppIcons {
             view.setImageDrawable(new BitmapDrawable(context.getResources(), hit));
             return;
         }
-        String tileKey = "tile|" + ref.id + "|" + ref.label + "@" + px;
+        final String tileKey = "tile|" + ref.id + "|" + ref.label + "@" + px;
         Bitmap tile = cache.get(tileKey);
-        if (tile == null) {
+        boolean hasArt = ref.file != null || ref.bytes != null || ref.installedPackage != null;
+        if (tile != null) {
+            view.setImageDrawable(new BitmapDrawable(context.getResources(), tile));
+        } else if (!hasArt) {
+            // The lettered tile is this icon: drawn now, so it never pops in.
             tile = round(tile(ref, px), px);
             cache.put(tileKey, tile);
+            view.setImageDrawable(new BitmapDrawable(context.getResources(), tile));
+        } else {
+            // The art is on its way: a plain tile of the same colour holds the
+            // place, and the drawing (lettered tile if the art fails) is the
+            // worker's, off the main thread.
+            view.setImageDrawable(Look.rounded(tileColor(ref.id), px / 2 * 0.225f));
         }
-        view.setImageDrawable(new BitmapDrawable(context.getResources(), tile));
-        if (ref.file == null && ref.bytes == null && ref.installedPackage == null) return;
+        if (!hasArt) return;
         worker.execute(() -> {
             Bitmap art = load(ref, px);
-            if (art == null) return;
-            final Bitmap done = round(art, px);
+            final boolean real = art != null;
+            final Bitmap done = real ? round(art, px) : round(tile(ref, px), px);
             main.post(() -> {
-                cache.put(key, done);
+                cache.put(real ? key : tileKey, done);
                 if (key.equals(view.getTag())) view.setImageDrawable(new BitmapDrawable(context.getResources(), done));
             });
         });

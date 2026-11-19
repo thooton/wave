@@ -49,7 +49,15 @@ public final class WaveActivity extends Activity {
     private final List<Screen> overlay = new ArrayList<>();
     private int tab;
     private Screen showing;
-    private final Runnable onChanged = this::changed;
+    /** The data's listener: news is applied at most once a frame, and not before the first. */
+    private final Runnable onChanged = this::changeLater;
+    private final Runnable applyChange = () -> {
+        changePending = false;
+        changed();
+    };
+    private boolean changePending;
+    private boolean firstFrameDrawn;
+    private boolean resumedOnce;
     private String lastActionError;
     private final List<String> turnedOffShown = new ArrayList<>();
     private boolean dialogOpen;
@@ -71,6 +79,21 @@ public final class WaveActivity extends Activity {
         root.addView(tabBar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         setContentView(root);
         registerForContextMenu(content);
+        // The first frame goes up with what is at hand (the bar, the tabs,
+        // Home saying "Loading…"); the sources the worker reads meanwhile
+        // follow in the next one, so a slow read never holds up the first.
+        root.getViewTreeObserver().addOnDrawListener(new android.view.ViewTreeObserver.OnDrawListener() {
+            @Override
+            public void onDraw() {
+                if (firstFrameDrawn) return;
+                firstFrameDrawn = true;
+                final android.view.ViewTreeObserver.OnDrawListener self = this;
+                root.post(() -> {
+                    root.getViewTreeObserver().removeOnDrawListener(self);
+                    if (changePending) content.postOnAnimation(applyChange);
+                });
+            }
+        });
 
         stacks.add(new ArrayList<>(Collections.<Screen>singletonList(new HomeScreen(this))));
         stacks.add(new ArrayList<>(Collections.<Screen>singletonList(new SourcesScreen(this))));
@@ -92,11 +115,15 @@ public final class WaveActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        data.recheckPhone();
+        // Opening the data just started reading the phone; coming back to
+        // Wave later reads it again (an app installed or removed meanwhile).
+        if (resumedOnce) data.recheckPhone();
+        resumedOnce = true;
     }
 
     @Override
     protected void onDestroy() {
+        content.removeCallbacks(applyChange);
         data.unlisten(onChanged);
         data.close();
         icons.close();
@@ -210,6 +237,12 @@ public final class WaveActivity extends Activity {
     // ------------------------------------------------------------------
     // Data
     // ------------------------------------------------------------------
+
+    private void changeLater() {
+        if (changePending) return;
+        changePending = true;
+        if (firstFrameDrawn) content.postOnAnimation(applyChange);
+    }
 
     private void changed() {
         snapshot = data.snapshot();
