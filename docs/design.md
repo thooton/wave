@@ -306,10 +306,12 @@ In `wave_packages`:
 1. Each package has a `wave/` folder beside its code: `package.json` with the
    fields that don't change per release (id, type, name, summary,
    description, author, section, depends...) and `icon.png`.
-2. CI builds everything on each push to master. For each package whose
-   version has no release yet, it creates the release `<name>-<version>` and
-   uploads the binary. Release assets are never replaced, so a manifest can't
-   point at a file that changed underneath it.
+2. CI builds the eligible packages on each push to master. For each package
+   whose version has no release yet, it creates `<name>-<version>` and
+   uploads the binary. Versioned release assets are never replaced. The
+   mod jobs build unsigned signing requests by default; mod release jobs
+   require authorized OEM-signed APKs matching those requests.
+   The separately maintained legacy `latest` release is rolling.
 3. CI then runs `wavesrc publish` (from `thooton/wave`, as a GitHub Action):
    it merges the static fields with version, URL, size, SHA-256 and the
    newest changes (from `git log`, as `.github/manifest.py` does today), and
@@ -329,13 +331,14 @@ use the same Action, or write manifests by hand and run `wavesrc lint`.
 | Books, Dictionary, List, Música, New Yorker, Print, Serve, Video, Weather | apk | As they are |
 | Canvas, Charge, Mail, Places, Authenticator, Flashcards | apk | Reworked so they don't need a baked Delta login (below) |
 | Messages Improved | module | From `messages_argon`: BMms, TelephonyProvider, ContactsProvider |
-| Launcher Improved | module | From `launcher_argon`; absorbs AppDrawer |
+| Launcher Improved | module | Stock launcher with an arrangeable tray |
 | Music Improved | module | From `music_argon` |
+| AppDrawer | apk | Still needed to open an app drawer from a programmable key |
 
-Out: HBSA. Source and Tablet move to a separate repo and source of their own.
-Their source and releases stay private (task 16). AppDrawer, Updater and
-Installer are retired. `camera_argon` is not part of this yet. The SQLite
-upgrade module is a candidate (`decisions.md`).
+Out: HBSA, Updater and Installer. Source and Tablet stay on the old channel
+until their separate private source is verified (task 16). The three mods
+stay unpublished until genuine OEM signing is available. `camera_argon`
+is not part of this yet; see `decisions.md` for SQLite.
 
 ### Apps that needed Delta
 

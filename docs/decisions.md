@@ -25,8 +25,9 @@ moving; resolve open questions when the relevant brief has evidence.
    all firmware builds. Firmware differences are not to be designed around.
    The stock APKs are committed to `wave_packages` so CI can build.
 8. **Default source contents**: every app in `../sonim` except HBSA (out),
-   Source and Tablet (own repo and source), AppDrawer (dropped; the launcher
-   mod absorbs it), Installer and Updater (retired). Canvas, Charge, Mail,
+   Source and Tablet (own repo and source), Installer and Updater (retired).
+   AppDrawer stays: the programmable key can't open the stock tray, and
+   the mod doesn't add a launchable component. Canvas, Charge, Mail,
    Places, Authenticator and Flashcards are reworked to not need a baked
    Delta login: the user supplies their own credentials, moved onto the phone
    by QR code from a generator tool, with Delta kept as a hidden alternative
@@ -111,9 +112,9 @@ moving; resolve open questions when the relevant brief has evidence.
    reads a code off a monitor reliably. Task 14 records the spike and
    chooses a transport. Default to setup-file import if reliable scanning
    cannot be demonstrated or hardware is unavailable.
-2. **The SQLite upgrade module** (`argon_sqlite`, replaces the system
-   `libsqlite.so`): publish it as its own package, fold it into Messages
-   Improved, or leave it out?
+2. **SQLite upgrade (not shipping).** The original `argon_sqlite` work is
+   not committed upstream and was excluded from the import. No module or
+   NDK job; revisit only after the upstream code and API checks are ready.
 3. **Nightly QA.** Delta's nightly QA runs on `thooton/sonim`. It follows the
    rename, but should it cover the mods and Wave too?
 4. **Private asset access.** Source and Tablet use a private repo and source

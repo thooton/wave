@@ -34,8 +34,8 @@ rules.
 | 09 | [The jailbreak page](09-site-jailbreak.md) | W | | [ ] |
 | 10 | [Landing page and setup-code generator](10-site-pages.md) | W | 14 for the generator | [ ] |
 | 11 | [Import the mods into wave_packages](11-mods-import.md) | P | 01 | [x] |
-| 12 | [Rename Argon to Wave in the mods](12-mods-rename.md) | P | 11 | [ ] |
-| 13 | [Releases and publishing from wave_packages CI](13-packages-ci.md) | P | 01, 02 | [ ] |
+| 12 | [Rename Argon to Wave in the mods](12-mods-rename.md) | P | 11 | [x] |
+| 13 | [Releases and publishing from wave_packages CI](13-packages-ci.md) | P | 01, 02 | [x] |
 | 14 | [Setup codes: apps without a baked login](14-app-setup-codes.md) | P | | [ ] |
 | 15 | [The default source](15-default-source.md) | R | 01, 02 | [x] |
 | 16 | [Source and Tablet in their own repo and source](16-private-source.md) | new | 13's CI pattern, 14's shared setup | [ ] |
@@ -58,6 +58,8 @@ Four agents can work without touching the same files: one on the app's core
 ## Work notes
 
 (Record completion evidence, decisions, and blocked checks here.)
+
+- **Device UI QA:** `tools/qa/` (`7a8901c`) provides serial-locked, d-pad-only scenarios, per-step screenshots, and an HTML report. Seven host tests pass. `python3 tools/qa/run.py --dry-run` passed on 8516067e with Wave 0.1.0 (code 1): offline Updates → MENU (Check Again) → BACK, 5.36% cropped-pixel change on both transitions, and no attributed crash or ANR. The temporary install was removed and the lock released. Local report: `.oak/tmp/wave-qa/foundation-smoke/index.html`. The 07 tab/source/package/queue scenarios await a compatible APK and fixture source.
 
 - **15 (local complete, GitHub pending):** Default source committed locally in `../wave_repository` (`a3c0049`); lint and download-mode lint pass on the intentionally empty source. Published the real Wave 0.1.0 APK into a disposable copy at `applications/wave` and linted the result. The only public legacy release is mutable `latest`, so no package points at it and nothing with an unavailable immutable binary is advertised. Hosted branch protection, the first real W/P publications and `lint --download` against populated remote assets need the [owner cutover](01-owner-checklist.md); none were attempted.
 
@@ -86,3 +88,6 @@ Four agents can work without touching the same files: one on the app's core
 - **00 done:** `site/mockups/app.html` draws all 46 screens at 240x320 with each frame's Left/Right, Up/Down, OK, Back and Menu; `site/mockups/shoot.sh` screenshots them to `site/mockups/shots/<id>.png` (headless Chromium) and every shot was checked at full size. Sizes were measured on 8516067e from the Updater (density 160, 24px status bar, 34px bar, hairline at y=58) and the text uses the phone's own Roboto files. Results, the d-pad path to every action, and notes for 07 are in `site/mockups/CHECKLIST.md`; the design choices are in `../design.md` section 4 ("The look and the keys") and `../decisions.md` working default 14.
 
 - **05 done:** Source preview and trust approval, transactional refresh, manifest validation, merged candidates, section views, search, compatibility and phone status live in `core.sources`. Standalone Git/source Java 8 tests passed (121); wired into `:app:core:selfTest`. `source_parity.py` agreed with `wavesrc lint` for all v1 fixtures, with the expected reader-only exception for unknown types. Search over 3,000 synthetic packages averaged 3.7 ms per query on the host. UI consumes the APIs in `app/SPEC.md`.
+
+- **12 (local complete, device pending):** P commits `34d9eba`, `8a6d346`, `eb0a3bc`, `7279e37`. All three renamed builds and host suites pass from a fresh clone; tray rename and preference fallback have host regression tests. Launcher and Music hooks regenerate from stock tags; Messages' committed hooks renamed by script. No old-mod/device handover test without authorized signed APKs and a recoverable test phone.
+- **13 (local implementation, remote validation pending):** P `34a553b`, `7279e37`. Workflow passes actionlint; release gate unit tests verify versions, same-version drift and nonempty generated credentials. Built and signature-checked Books and AppDrawer, generated the legacy manifest, published Books plus a synthetic module fixture into a scratch source over HTTPS, passed `wavesrc lint --download`, and confirmed repeat publication left all manifest/icon bytes unchanged. Real GitHub test requires repo cutover, `v1`, source token and an authorized signed mod. Full clean APK build also depends on task 14's Charge token-prerequisite removal. `latest` remains; AppDrawer stays for the programmable key.
