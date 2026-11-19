@@ -107,11 +107,25 @@ class Safety(unittest.TestCase):
             run.read_scenario(path)
         with tempfile.TemporaryDirectory() as temp:
             bad = Path(temp) / 'bad.json'
-            for step in ({'name': 'Unsafe', 'key': 'WAKEUP'}, {'name': 'Unsafe', 'key': 'ENTER'}):
+            for step in ({'name': 'Unsafe', 'key': 'WAKEUP'}, {'name': 'Unsafe', 'key': 'ENTER'},
+                         {'name': 'Short name', 'key': 'DOWN'}, {'name': 'Android name', 'key': 'KEYCODE_DPAD_DOWN'},
+                         {'name': 'Missing key'}):
                 bad.write_text(json.dumps({'name': 'bad', 'steps': [
                     {'name': 'Launch', 'action': 'launch'}, step]}), encoding='utf-8')
                 with self.assertRaises(run.HarnessError):
                     run.read_scenario(bad)
+
+    def test_unknown_key_fails_loudly_with_accepted_names(self):
+        with tempfile.TemporaryDirectory() as temp:
+            bad = Path(temp) / 'bad.json'
+            bad.write_text(json.dumps({'name': 'bad', 'steps': [
+                {'name': 'Launch', 'action': 'launch'}, {'name': 'Typo', 'key': 'KEYCODE_DOWN'}]}), encoding='utf-8')
+            with self.assertRaises(run.HarnessError) as caught:
+                run.read_scenario(bad)
+            message = str(caught.exception)
+            self.assertIn("'KEYCODE_DOWN'", message)
+            for key in run.KEYS:
+                self.assertIn(key, message)
 
 
 if __name__ == '__main__':

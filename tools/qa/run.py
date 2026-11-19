@@ -58,7 +58,8 @@ def read_scenario(path):
         if 'action' in step and ('key' in step or step['action'] not in ({'launch'} if n == 0 else {'capture'})):
             raise HarnessError(f'Step {n + 1}: expected launch first, then a key or capture.')
         if 'action' not in step and step.get('key') not in KEYS:
-            raise HarnessError(f'Step {n + 1}: invalid d-pad key.')
+            raise HarnessError(f'Step {n + 1} ({step["name"]}): unknown key {step.get("key")!r}. '
+                               'Accepted: ' + ', '.join(sorted(KEYS)) + '.')
         for field in ('before_text', 'text_all', 'text_any'):
             if field in step and (not isinstance(step[field], list) or not step[field]
                                   or not all(isinstance(s, str) and s.strip() for s in step[field])):
@@ -188,13 +189,29 @@ class Device:
             or self.text('shell', 'getprop', 'ro.product.device') != 'XP3800'):
             raise HarnessError(f'{SERIAL} must be an authorized XP3800 with Android fully booted.')
 
-    def start_health(self):
-        self.call('shell', 'log', '-p', 'i', '-t', 'WaveQa', self.marker)
+    @contextmanager
+    def monitor_health(self):
+        # Stream instead of fetching at the end: the small device log buffers
+        # can wrap even within one UI scenario. Only the health tags are kept.
+        args = self.prefix + ['logcat', '-b', 'main', '-b', 'system', '-b', 'events', '-T', '100', '-v', 'brief',
+                              'WaveQa:I', 'AndroidRuntime:E', 'ActivityManager:E', 'am_anr:I', 'am_crash:I', '*:S']
+        with tempfile.TemporaryFile() as stream, subprocess.Popen(args, stdout=stream, stderr=subprocess.DEVNULL) as logs:
+            def evidence():
+                if logs.poll() is not None:
+                    raise HarnessError('Logcat monitor stopped during the scenario; health is inconclusive.')
+                stream.seek(0)
+                return health_events(stream.read().decode(errors='replace'), self.marker)
 
-    def check_health(self):
-        text = self.text('logcat', '-b', 'main', '-b', 'system', '-b', 'events', '-d', '-v', 'brief',
-                         'WaveQa:I', 'AndroidRuntime:E', 'ActivityManager:E', 'am_anr:I', 'am_crash:I', '*:S')
-        return health_events(text, self.marker)
+            try:
+                self.call('shell', 'log', '-p', 'i', '-t', 'WaveQa', self.marker)
+                yield evidence
+            finally:
+                if logs.poll() is None:
+                    logs.terminate()
+                    try:
+                        logs.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        logs.kill()
 
     def foreground(self):
         text = self.text('shell', 'dumpsys', 'window', 'windows')
@@ -375,33 +392,37 @@ def device_run(device, apk, scenario, output, frames, notes):
         device.check_device()
         if device.present():
             raise HarnessError('Wave is already installed. The harness never replaces an existing install.')
-        device.start_health()
+        with device.monitor_health() as collect_health:
+            temporary_install(device, apk, scenario, output, frames, notes, collect_health)
+
+
+def temporary_install(device, apk, scenario, output, frames, notes, collect_health):
+    try:
+        result = device.text('install', str(apk), timeout=30)
+        if 'Success' not in result:
+            raise HarnessError('Wave install did not report Success.')
+        run_steps(device, scenario, output, frames)
+    finally:
         try:
-            result = device.text('install', str(apk), timeout=30)
-            if 'Success' not in result:
-                raise HarnessError('Wave install did not report Success.')
-            run_steps(device, scenario, output, frames)
+            if frames:
+                # Logcat must have time to record a five-second input ANR.
+                time.sleep(6)
+            evidence = collect_health()
+            notes.extend(evidence or ['No Wave FATAL EXCEPTION, recorded crash or ANR after the start marker.'])
+        except HarnessError as e:
+            evidence = None
+            notes.append(str(e))
         finally:
-            try:
-                if frames:
-                    # Logcat must have time to record a five-second input ANR.
-                    time.sleep(6)
-                evidence = device.check_health()
-                notes.extend(evidence or ['No Wave FATAL EXCEPTION, recorded crash or ANR after the start marker.'])
-            except HarnessError as e:
-                evidence = None
-                notes.append(str(e))
-            finally:
-                # The package was absent before this run. Never uninstall a pre-existing copy.
-                if device.present():
-                    removed = device.text('uninstall', PACKAGE, timeout=20)
-                    if removed != 'Success' or device.present():
-                        raise HarnessError('Temporary Wave install did not uninstall cleanly.')
-                    notes.append('Temporary Wave install removed.')
-            if evidence is None:
-                raise HarnessError('Health check inconclusive.')
-            if evidence:
-                raise CheckFailed('Crash or ANR detected; see health checks.')
+            # The package was absent before this run. Never uninstall a pre-existing copy.
+            if device.present():
+                removed = device.text('uninstall', PACKAGE, timeout=20)
+                if removed != 'Success' or device.present():
+                    raise HarnessError('Temporary Wave install did not uninstall cleanly.')
+                notes.append('Temporary Wave install removed.')
+        if evidence is None:
+            raise HarnessError('Health check inconclusive.')
+        if evidence:
+            raise CheckFailed('Crash or ANR detected; see health checks.')
 
 
 def report(output, title, metadata, frames, notes, status):
