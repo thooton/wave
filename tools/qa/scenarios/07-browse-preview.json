@@ -1,0 +1,15 @@
+{
+  "name": "Source, package and cancel a plan (07; fixture APK)",
+  "steps": [
+    {"name": "Wave Home", "action": "launch", "wait_ms": 2500, "text_all": ["Welcome to Wave"]},
+    {"name": "Open Sources", "key": "DPAD_RIGHT", "text_all": ["All Sources", "Example Source"], "changed": true},
+    {"name": "Focus the fixture source", "key": "DPAD_DOWN", "text_all": ["Example Source"], "focus_moved": true},
+    {"name": "Browse fixture sections", "key": "ENTER", "before_text": ["All Sources", "Example Source"], "text_all": ["Applications", "System"], "changed": true},
+    {"name": "Focus Applications", "key": "DPAD_DOWN", "text_all": ["Applications"], "focus_moved": true},
+    {"name": "Open Applications", "key": "ENTER", "before_text": ["Applications", "System"], "text_all": ["Applications", "List"], "changed": true},
+    {"name": "Show List details", "key": "ENTER", "before_text": ["Applications", "List"], "text_all": ["List", "GET"], "changed": true},
+    {"name": "Preview List install", "key": "ENTER", "before_text": ["List", "GET"], "text_all": ["Confirm", "Cancel", "List"], "changed": true},
+    {"name": "Cancel without installing", "key": "BACK", "text_all": ["List", "GET"], "changed": true},
+    {"name": "Back to Applications", "key": "BACK", "text_all": ["Applications", "List"], "changed": true}
+  ]
+}

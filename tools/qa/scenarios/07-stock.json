@@ -1,0 +1,6 @@
+{
+  "name": "Wave root gate on stock XP3800 (07)",
+  "steps": [
+    {"name": "Root unavailable", "action": "launch", "wait_ms": 2500, "text_all": ["This Phone Isn't Jailbroken", "Check Again"]}
+  ]
+}
