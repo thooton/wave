@@ -31,6 +31,7 @@ public final class SelfTest {
         check.run("Notes", () -> notes(check));
         check.run("Releases", () -> releases(check));
         check.run("Errors", () -> errors(check));
+        com.wave.xp3.core.git.GitSelfTest.run(check);
         if (!check.report()) System.exit(1);
     }
 

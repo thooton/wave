@@ -25,7 +25,7 @@ rules.
 | 00 | [Mockups of the app's screens](00-mockups.md) | W | | [ ] |
 | 01 | [Create and rename the repos](01-repos.md) | all | | [x] |
 | 02 | [wavesrc: lint and publish](02-wavesrc.md) | W | | [ ] |
-| 03 | [The git client](03-git-client.md) | W | 04 | [ ] |
+| 03 | [The git client](03-git-client.md) | W | 04 | [x] |
 | 04 | [App foundation from the Updater](04-app-foundation.md) | W | | [x] |
 | 05 | [Sources, index and search](05-sources-index.md) | W | 03, 04 | [ ] |
 | 06 | [Root and the install engine](06-root-install.md) | W | 04 | [ ] |
@@ -74,3 +74,5 @@ Four agents can work without touching the same files: one on the app's core
   `.github/workflows/build.yml` is written but nothing can be pushed from here.
 
 - **11 (local complete):** See [import record](11-import-record.md). All ten dex SHA-256 digests match committed upstream baselines; five unsigned requests preserve stock resources and manifest. Verified launcher/Music link checks. Installable zips require genuine OEM signatures; no signing material is available.
+
+- **03 done:** Git v2 self-tests replay a binary `git http-backend` exchange and use real plain, OFS/REF delta, and filtered packs. Live depth-1 fetch and unchanged refresh passed on GitHub (`octocat/Hello-World`), GitLab (`gitlab-org/gitlab-test`), Codeberg (`Codeberg/pages-server`), sourcehut (`~sircmpwn/aerc`), and the local example source (6 files). A 1,000-package local CGI source fetched and parsed in 1.03 s with a 32 MiB heap cap (5 MiB in use after the last young GC). Regenerate fixtures or start the loopback source with `app/core/test-tools/git_fixture.py`.
