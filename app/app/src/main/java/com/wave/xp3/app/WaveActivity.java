@@ -523,7 +523,12 @@ public final class WaveActivity extends Activity {
             focus.getLocationInWindow(at);
             content.getLocationInWindow(base);
             y = Math.max(0, Math.min(at[1] - base[1] + focus.getHeight(), content.getHeight()));
+            // A whole page in focus (Details): the menu goes over its top third.
+            if (focus.getHeight() > content.getHeight() / 2) y = content.getHeight() / 3f;
         }
+        // Under the row when it fits, else as low as it fits whole (a menu item is about 32dp).
+        float tall = Look.dp(this, 32) * items.titles.size() + Look.dp(this, 16);
+        y = Math.max(0, Math.min(y, content.getHeight() - tall));
         content.showContextMenu(x, y);
     }
 
@@ -572,7 +577,7 @@ public final class WaveActivity extends Activity {
         if (withDetails) menu.add("Details", () -> details(p, sourceId));
         if (p.state == WaveData.State.OFF) menu.add("Turn On", () -> data.turnOn(p.id));
         boolean installed = p.state != WaveData.State.NONE && p.state != WaveData.State.PENDING_REMOVAL;
-        if (installed && p.state != WaveData.State.PENDING_INSTALL && !Rows.unfit(p)) {
+        if (installed && p.state != WaveData.State.PENDING_INSTALL && p.state != WaveData.State.UPDATE && !Rows.unfit(p)) {
             menu.add("Reinstall", () -> plan(Collections.singletonList(p.id), WaveData.Action.REINSTALL));
         }
         if (installed && !p.id.equals(getPackageName())) {

@@ -98,7 +98,10 @@ final class InstalledScreen extends Screen {
             app.packageMenu(menu, (Pkg) ((Kit.Row) focus).about, true, null);
             Pkg p = (Pkg) ((Kit.Row) focus).about;
             if (p.newestChange != null) {
-                menu.add("What's New", () -> app.details(p, null));
+                // After Details, as the mockup's menu has it.
+                int at = menu.titles.indexOf("Details") + 1;
+                menu.titles.add(at, "What's New");
+                menu.actions.add(at, () -> app.details(p, null));
             }
         }
         int updates = app.snapshot.updates.size();

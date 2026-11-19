@@ -48,7 +48,9 @@ final class SourcesScreen extends Screen {
     @Override
     void bar(Bar bar) {
         if (refreshing()) bar.setSpinning(true);
-        else bar.setLink(0, "Refresh", true).setOnClickListener(v -> app.data.refreshAll());
+        // With nothing fetched and a failure, the page's Try Again is the refresh.
+        else if (!(app.snapshot.firstLoadError != null && nothingFetched(app.snapshot)))
+            bar.setLink(0, "Refresh", true).setOnClickListener(v -> app.data.refreshAll());
         bar.setLink(1, "Add", true).setOnClickListener(v -> app.push(new AddSourceScreen(app)));
     }
 
