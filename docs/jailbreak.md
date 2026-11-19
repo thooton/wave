@@ -138,8 +138,12 @@ other partitions. Nothing in this site touches `/system`.
   single-slot partition is 32 MiB and has a 2048-byte-page Android boot header.
   For stock restore verify the whole partition, not only the populated prefix.
 - The earlier community research in `../rphone/ROOTING.md` used Magisk 24.0 and
-  patched the boot image on the phone. PC-side patching black-screened. This
-  report is not evidence that a particular patch will boot on another build.
+  patched the boot image on the phone. PC-side patching black-screened. Our
+  finding (see **Rooted test phone** below): the stock boot carries an AVB 1.0
+  signature, the Magisk app re-signs after patching and `boot_patch.sh` alone
+  does not, which is the likely cause of that black screen rather than where
+  the patch ran. This is not evidence that a particular patch boots on
+  another build.
 - Magisk can deny adb shell even if the root installation works. If the owner
   needs Rescue, check the Magisk app’s Superuser access settings and review
   the Shell prompt. The browser does not grant itself access.
@@ -174,6 +178,58 @@ removed with CRCs recalculated. Synthetic boot payloads and programmer slices
 exercise the captured framing without redistributing either binary. The
 Sahara/Firehose references are bkerler/edl and commaai/qdl.js.
 
+## Rooted test phone (8516067e)
+
+**The project's XP3800 (serial 8516067e) is rooted as of 2026-11-19**, at the
+owner's request, by a desktop procedure; the site itself still does not patch
+or write boot images.
+
+| Item | Value |
+| :--- | :--- |
+| Build | `Sonim/XP3832/XP3800:8.1.0/3A.0.1-02-8.1.0-11.20.00/22:user/release-keys` |
+| Root | Magisk 24.0 (24000), app `com.topjohnwu.magisk` installed and set up, Zygisk off, no modules |
+| Stock `boot` (way back) | `~/Documents/wave-phone-backups/8516067e/boot-stock.img` and `boot-stock-repeat.img`, 33,554,432 B, SHA-256 `489269c42090f3505394cd062cd9d95eed981bbdb837d491faa7803f65979455` |
+| Flashed `boot` (way forward) | `boot-magisk.img` in the same folder, 19,641,640 B, SHA-256 `49eb168c1ee38caf8a4680c7c213ef041680ad6d5457e2548fa5f0687fe7d81d`; full-partition read `boot-magisk-partition.img` `648f3508…5d93` (`SHA256SUMS-magisk`) |
+| Superuser policy | uid 2000 (shell) allowed forever. `com.wave.xp3` deliberately not pre-granted, so ROOT-TESTING 06.1 can test Magisk's prompt |
+
+Get root from adb: `adb -s 8516067e shell su -c id` prints
+`uid=0(root) gid=0(root) groups=0(root) context=u:r:magisk:s0` with no prompt.
+
+How the image was made, all on the phone as the adb shell user from the
+verified stock backup: Magisk 24.0's `armeabi-v7a` binaries with its
+`boot_patch.sh` (KEEPVERITY, KEEPFORCEENCRYPT, RECOVERYMODE all false, which
+is what the app picks on this unencrypted, non-system-as-root phone and what
+the app-made reference image records). The result was then signed with
+Magisk's own `com.topjohnwu.magisk.signing.SignBoot` from the APK, run on the
+phone with `dalvikvm` (`-sign`, then `-verify` prints `Signature is VALID`).
+Only `boot` was written, over EDL (bkerler/edl, pinned programmer `e6f2dbcf…2767`),
+at sector 281696. Readback: the first 19,641,640 bytes match the image, the
+padding to the next sector is zero and the rest of the partition is still
+stock. A second, separate EDL read later gave the same result. It booted in
+about 30 s, root survives reboots, and the 21 `*.xp3` packages and Wi-Fi state
+(off) are unchanged. Commands are in `../rphone/ROOTING.md` step 4b.
+
+**The signature finding.** Stock `boot` ends in a valid AVB 1.0
+`BootSignature` (1320 bytes, target `/boot`, the public AOSP verity test key,
+certificate SHA-256 `8ad127ab…3b86`). `boot_patch.sh`/`magiskboot` do not
+sign: their `new-boot.img` is 32 MiB with zeros after the payload. The Magisk
+app signs afterwards, which is why its image (`../rphone/boot_magisk.img`, from
+another unit) is payload plus 1320 bytes. Both recompress the kernel (about
+7.7 MB of the kernel region changes either way), so the missing signature,
+not PC-side recompression, is the likely reason ROOTING.md's PC patch
+black-screened. We did not flash an unsigned image to prove it. Our signed
+image has the reference image's structure exactly: header offsets, payload
+19,640,320 bytes, signature length and certificate. Note that 24.0's
+`util_functions.sh` names the signer class `com.topjohnwu.signing.SignBoot`,
+which is not in the 24.0 APK.
+
+Two things to know on this phone. Magisk's su prompt times out to deny after
+10 s and can be answered by stray d-pad keys; one such prompt stored "deny
+forever" for Shell during setup, and it had to be switched on in the
+Superuser tab. To get back to stock while Android boots: `adb reboot edl`, then
+write `boot-stock.img` and verify the whole partition (ROOTING.md section 9).
+A phone that does not boot needs a cold EDL start (battery pull).
+
 ## Verification
 
 - **Linux, physical stock XP3800:** `Sonim/XP3832/XP3800:8.1.0/3A.0.1-02-8.1.0-11.20.00/22:user/release-keys`.
@@ -182,7 +238,8 @@ Sahara/Firehose references are bkerler/edl and commaai/qdl.js.
   `489269c42090f3505394cd062cd9d95eed981bbdb837d491faa7803f65979455`.
   The owner’s copies and `SHA256SUMS` are in
   `~/Documents/wave-phone-backups/8516067e/`, never in Git. The phone reset
-  back to Android and remained unrooted; no partitions were written.
+  back to Android and remained unrooted; no partitions were written. (It was
+  rooted later; see **Rooted test phone** above.)
 - **ADB protocol on Linux hardware:** the same JavaScript adb client ran
   over a temporary libusb bridge, using an already authorized desktop key.
   It verified shell stdout/stderr/exit 7 and pushed, pulled, and removed a
