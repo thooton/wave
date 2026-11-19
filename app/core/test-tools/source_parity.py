@@ -19,6 +19,7 @@ FIXTURES = {
     'bad-package': ('package.json', 'applications/list/package.json', (1, 1)),
     'bad-date': ('package.json', 'applications/list/package.json', (1, 1)),
     'bad-icon': ('icon.png', 'applications/list/icon.png', (1, 1)),
+    'huge-icon': ('icon.png', 'applications/list/icon.png', (1, 1)),
     'unknown-type': ('package.json', 'applications/list/package.json', (0, 1)),
 }
 
