@@ -89,7 +89,11 @@ public final class DebugActivity extends Activity implements EngineService.Liste
         Phone phone = new Phone(this);
         List<String> ids = new ArrayList<>(file.packages.keySet());
         for (Plan.Request r : file.requests) ids.add(r.id);
-        Map<String, Plan.Installed> installed = phone.installed(ids, true);
+        // Modules are read through root only when the plan has one or root has
+        // worked here before, as the screens do; so apps also run on a stock phone.
+        boolean modules = RootShell.known(this);
+        for (Plan.Package p : file.packages.values()) if (p.kind == Plan.Kind.MODULE) modules = true;
+        Map<String, Plan.Installed> installed = phone.installed(ids, modules);
         Plan plan;
         try {
             plan = Plan.make(file.requests, file.packages, installed, Phone.device(), getPackageName());

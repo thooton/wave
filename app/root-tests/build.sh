@@ -8,6 +8,9 @@
 #   app/root-tests/build.sh
 #   (cd app/root-tests/build && python3 -m http.server 8765)
 #   adb -s <serial> reverse tcp:8765 tcp:8765
+#
+# With WAVE_NEXT_APK=<a Wave debug APK with a higher versionCode> it also
+# writes self-update.json, the plan for Wave updating itself.
 set -eu
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -94,4 +97,18 @@ plan("no-space", [("install", "wave_test_huge")],
      [{"id": "wave_test_huge", "type": "module", "version": "1.0",
        "download": {"url": base + "/big.zip", "size": 500 * 1024 * 1024, "sha256": "0" * 64}}])
 EOF
+if [ -n "${WAVE_NEXT_APK:-}" ]; then
+    cp "$WAVE_NEXT_APK" "$out/wave-next.apk"
+    next=$("$tools/aapt2" dump badging "$out/wave-next.apk" | sed -n "s/^package: .*versionName='\([^']*\)'.*/\1/p")
+    python3 - "$out" "$base" "$next" <<'EOF2'
+import hashlib, json, os, sys
+out, base, version = sys.argv[1:]
+data = open(os.path.join(out, "wave-next.apk"), "rb").read()
+with open(os.path.join(out, "self-update.json"), "w") as f:
+    json.dump({"source": "root-tests", "requests": [{"op": "install", "id": "com.wave.xp3"}],
+               "packages": [{"id": "com.wave.xp3", "type": "apk", "name": "Wave", "version": version,
+                             "download": {"url": base + "/wave-next.apk", "size": len(data),
+                                          "sha256": hashlib.sha256(data).hexdigest()}}]}, f, indent=1)
+EOF2
+fi
 ls -la "$out"
