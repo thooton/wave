@@ -29,16 +29,28 @@ final class QueueScreen extends Screen {
     private Kit.Foot foot;
     private TextView[] buttons;
     private boolean finished;
+    private boolean started;
     private final List<String> failuresShown = new ArrayList<>();
+
+    /** The last run's finished queue, still in the snapshot until the new run's first news. */
+    private final String stale;
 
     QueueScreen(WaveActivity app) {
         super(app);
+        WaveData.QueueView q = app.snapshot.queue;
+        stale = q != null && q.finished ? signature(q) : null;
+    }
+
+    private static String signature(WaveData.QueueView q) {
+        StringBuilder b = new StringBuilder(q.finished ? "done" : "run");
+        for (QueueItem item : q.items) b.append('|').append(item.pkg.id).append(':').append(item.step).append(':').append(item.failure);
+        return b.toString();
     }
 
     @Override
     String title() {
         WaveData.QueueView q = app.snapshot.queue;
-        if (q != null && q.finished) return "Done";
+        if (q != null && q.finished && started) return "Done";
         if (q != null) {
             boolean removing = true;
             for (QueueItem item : q.items) if (item.step != WaveData.Step.REMOVING && item.step != WaveData.Step.WAITING) removing = false;
@@ -74,6 +86,13 @@ final class QueueScreen extends Screen {
     void update(WaveData.Snapshot s) {
         WaveData.QueueView q = s.queue;
         column.removeAllViews();
+        if (q != null && stale != null && !started && stale.equals(signature(q))) {
+            // The new run hasn't reported yet: neither the old rows, nor their alerts, nor Done.
+            Ring ring = Ring.spinnerBox(app);
+            column.addView(Kit.message(app, ring, null, null, null, null), Kit.fill(Kit.dp(app, 200)));
+            return;
+        }
+        started = true;
         if (q == null) {
             column.addView(Kit.message(app, null, "Nothing to Do", null, null, null), Kit.fill(Kit.dp(app, 200)));
             showFoot(true, false);
