@@ -239,8 +239,21 @@ tested on a desktop JVM. Operations:
 | Read module state | list `/data/adb/modules` and `modules_update` with each `module.prop` and its `disable`/`remove`/`update` flags |
 | Reboot | `svc power reboot` |
 
-The jailbreak pre-grants Wave in Magisk's policy database, so the user never
-has to answer a superuser prompt with a d-pad.
+Root is the user's to grant: Wave asks for it (opens `su`) only when the
+user does something that needs it, and Magisk's own prompt or Superuser
+screen decides; nothing grants Wave root silently. (An earlier draft had the
+jailbreak pre-grant Wave in Magisk's policy database; that was dropped, see
+decisions.) On a phone without root, Wave installs apps through the
+Updater's Installer as before and can't do modules.
+
+The code: `core/root` (`Scripts`, `Frame`, `ProcessShell`, `PmResult`,
+`Modules`, `Watchdog`) and `core/install` (`Plan`, `Download`, `Verify`,
+`Receipts`, `Engine`), all plain Java and tested on the desktop against a
+fake `su` and a pretend `/data/adb` (`app/core/src/test/.../Sandbox.java`);
+in `:app`, `RootShell`, `Phone` and `EngineService`. A module also goes on
+the watchdog's pending list when it is installed, and the watchdog's
+scripts are put in place (or updated) as part of the first plan that
+installs a module.
 
 ### Storage on the phone
 
@@ -269,6 +282,26 @@ scripts into Magisk's `post-fs-data.d` and `service.d`:
   says which mod was turned off and why.
 - If boot hasn't completed after a few minutes, `service.d` reboots, which
   triggers the case above.
+
+In detail (the scripts are `app/core/src/main/resources/.../root/watchdog-*.sh`,
+versioned by a `# wave-watchdog: N` line):
+
+- `post-fs-data.d` moves `pending` to `trying`. If `trying` is already
+  there, the boot that first tried those modules never settled, so it
+  touches `disable` in both `modules/<id>` and `modules_update/<id>` and
+  logs `time, id, reason` to `/data/adb/wave/disabled` (`boot-timeout` after
+  a forced reboot, else `boot-incomplete`).
+- `service.d` acts only while `trying` exists. Settled means
+  `sys.boot_completed=1` and `system_server` keeping the same pid for 60 s;
+  a shutdown asked for after boot completed counts as settled too, so a
+  quick restart doesn't cost a good mod. Not settled after 300 s: one
+  reboot (`setprop sys.powerctl reboot`), marked `forced`; never a second
+  forced reboot in a row (`forced.last`), so a phone that doesn't boot for
+  other reasons isn't put in a reboot loop.
+- A launcher that crashes after boot completed isn't watched: the framework
+  is up, and the launcher's own fallbacks and Rescue cover it. Watching it
+  would risk turning off good mods.
+- Without `/data/adb/wave` both scripts do nothing.
 
 This rests on the order of Magisk 24.0's early boot, checked in its source
 (`native/jni/core/bootstages.cpp`, `post_fs_data`): the scripts in
