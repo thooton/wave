@@ -110,8 +110,8 @@ page. The safety net for a mod that does break a phone is the boot watchdog
 Adding a source means trusting its maintainer with root, since modules run as
 root. Wave says so when a source is added. The chain is: HTTPS to the git
 host, then the SHA-256 in the manifest pins the binary. Only `https://` is
-accepted, for sources and downloads. APK signatures aren't a trust anchor (our
-shared key is a public debug keystore); Android still refuses an update signed
+accepted, for sources and downloads. APK signatures aren't a trust anchor (Wave doesn't
+pin a key); Android still refuses an update signed
 with a different key, and Wave reports that plainly instead of failing
 silently. Signed sources are left for a later format version.
 

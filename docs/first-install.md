@@ -21,7 +21,7 @@ folder `.oak/tmp/temp4/fi/`, which isn't committed.
 
 - **The test app.** `com.wave.xp3.demo` ("Wave Demo") is one activity that
   shows its version. It was built with aapt2, javac and d8, then signed with
-  the shared key (`signing/debug.keystore`) as 1.0.0 (code 1), 1.1.0 (code 2)
+  the debug key (`signing/debug.keystore`; test builds only, never publishable) as 1.0.0 (code 1), 1.1.0 (code 2)
   and 1.2.0 (code 3). Each APK is 12,788 bytes.
 - **The source.** A Git repository with its own `wave.json` ("Wave Demo
   Source", one section). Each version was added by `tools/wavesrc/wavesrc

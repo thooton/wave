@@ -29,6 +29,7 @@ android {
     }
 }
 
-// Debug and release builds alike are signed with the shared key, which the
-// copies on the phone were signed with too (see that file).
+// Release builds are signed with the release key from WAVE_KEYSTORE_* (never in
+// this repository); with none set they fall back to the public debug key and
+// say so, and the release gate refuses that APK (see that file).
 apply from: rootProject.file("signing/signing.gradle")

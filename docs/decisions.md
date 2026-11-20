@@ -83,10 +83,15 @@ moving; resolve open questions when the relevant brief has evidence.
 
 ## Working defaults
 
-1. **Wave's package name is `com.wave.xp3`**, signed with the shared key from
-   `wave_packages/signing`.
-2. **Package names and the signing key of the existing apps don't change**, so
-   Wave adopts what is already on a phone.
+1. **Wave's package name is `com.wave.xp3`**, signed with the release key
+   (never in a repository; see `docs/security.md`). It was first meant to use the
+   shared key in `wave_packages/signing`, which is public.
+2. **Package names of the existing apps don't change**, so Wave adopts what is
+   already on a phone. *Amended 2026-11-20:* nor did their signing key, until
+   the security review found that key public (`signing/debug.keystore`). Nothing
+   had been released, so every app is signed with a new release key before the
+   first publication, and the copies now on the phone are uninstalled once and
+   reinstalled. After that publication the release key must never change.
 3. **Release assets are immutable**, one release per package version
    (`<name>-<version>`), replacing the rolling `latest` release. The old
    `latest` release and `manifest.json` stay until the migration checklist

@@ -36,9 +36,20 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       # :core's plain-Java self-tests (git client, scripts and parsers, ...)
-      # and the release APK, signed with the shared key in signing/.
+      # and the release APK. It is signed with the release key from the
+      # repository secrets. A pull request or fork has none and falls back to
+      # the PUBLIC debug key in signing/, which the release gate refuses to
+      # publish; a push to master is published, so it must have the key.
       - name: Self-test and build
-        run: ./gradlew --no-daemon :app:core:selfTest :app:app:selfTest :app:app:assembleRelease
+        env:
+          WAVE_KEYSTORE_BASE64: ${{ secrets.WAVE_KEYSTORE_BASE64 }}
+          WAVE_KEYSTORE_PASSWORD: ${{ secrets.WAVE_KEYSTORE_PASSWORD }}
+          WAVE_KEY_ALIAS: ${{ secrets.WAVE_KEY_ALIAS }}
+          WAVE_KEY_PASSWORD: ${{ secrets.WAVE_KEY_PASSWORD }}
+          WAVE_REQUIRE_RELEASE_KEY: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && '1' || '' }}
+        run: |
+          python3 -m unittest discover -s signing -p 'test_check_signer.py'
+          ./gradlew --no-daemon :app:core:selfTest :app:app:selfTest :app:app:assembleRelease
 
       - name: Name the APK
         run: cp app/app/build/outputs/apk/release/app-release.apk wave.apk

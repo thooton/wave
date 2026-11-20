@@ -45,6 +45,73 @@ scopes are the steps to take slowly.
    can judge the redistribution rights. **Check:** you are content for all
    of it to be public. If not, stop here.
 
+## 0a. Make the release signing key (before anything is published)
+
+Every APK Wave and the apps publish must be signed with a key only you hold.
+Until now a public debug key (`signing/debug.keystore`, password `android`,
+committed to W and P) signed everything. Anyone who can read the repository
+could build an APK that Android accepts as an update to Wave, and Wave holds
+root. The build now signs release builds with a key from environment variables,
+refuses to fall back to the debug key when it is told the build will be
+published, and the release gates (`signing/check_signer.py`) refuse to publish
+an APK signed with a public key. You make the key once.
+
+1. Generate it, on your own machine, outside any repository:
+   ```sh
+   keytool -genkeypair -keystore ~/wave-release.p12 -storetype PKCS12 \
+     -alias wave -keyalg RSA -keysize 4096 -validity 36500 -dname "CN=Wave, O=thooton"
+   ```
+   It asks for a password: choose a long one. (For a PKCS12 file the key's
+   password is the same as the file's.) **Check:**
+   `keytool -list -keystore ~/wave-release.p12` shows one `PrivateKeyEntry`
+   called `wave`.
+2. **Back it up** now: the file and its password, in a password manager and on
+   one offline copy. If you lose it, no installed app can ever be updated
+   again (Android refuses an update signed by a different key; each app would
+   have to be uninstalled, with its data). If it leaks, say so and make a new
+   one; every copy on a phone is then uninstalled and reinstalled once.
+3. Store it as four secrets in **both** `thooton/wave` and
+   `thooton/wave_packages` (Settings → Secrets and variables → Actions, or
+   from a terminal in a clone, which prompts for the value so it doesn't
+   enter your shell history):
+   ```sh
+   for repo in thooton/wave thooton/wave_packages; do
+     base64 -w0 ~/wave-release.p12 | gh secret set WAVE_KEYSTORE_BASE64 -R $repo
+     gh secret set WAVE_KEYSTORE_PASSWORD -R $repo     # the password from step 1
+     gh secret set WAVE_KEY_ALIAS -R $repo --body wave
+     gh secret set WAVE_KEY_PASSWORD -R $repo          # the same password
+   done
+   ```
+   **Check:** both repositories list all four names under Repository secrets.
+4. Pin the key, so a release signed with any other key is refused too. In W
+   and in P, as a one-line file, then commit and push it with the rest:
+   ```sh
+   keytool -list -v -keystore ~/wave-release.p12 -alias wave | sed -n 's/.*SHA256: //p' | tr -d ':' | tr A-F a-f \
+     > signing/release-key.sha256
+   ```
+   **Check:** the file is one 64-character hex line, and the same in both
+   repositories.
+5. Know what it does to CI. A pull request or fork has no secrets, so its
+   build signs with the public debug key and says so loudly; that APK is never
+   published. A push to `master` is published, so its build sets
+   `WAVE_REQUIRE_RELEASE_KEY=1` and **fails** if the four secrets are missing.
+   Do this step before the first push to `master` of either repository.
+6. Know what it does to the phone. The apps now on the phone are signed with
+   the debug key (App Drawer with its own old key), so Android will not install
+   a release-signed APK over them: uninstall each one first (`adb uninstall
+   <package>`), once, and install the new ones. That loses their data, which
+   is fine while the phone is not in production, and is the reason to do this
+   before real use rather than after.
+7. A local release build with the key (not needed for CI):
+   ```sh
+   read -rs WAVE_KEYSTORE_PASSWORD; export WAVE_KEYSTORE_PASSWORD WAVE_KEY_PASSWORD=$WAVE_KEYSTORE_PASSWORD
+   WAVE_KEYSTORE_FILE=~/wave-release.p12 WAVE_KEY_ALIAS=wave ./gradlew :app:app:assembleRelease
+   apksigner verify --print-certs app/app/build/outputs/apk/release/app-release.apk
+   ```
+   The build prints `WAVE SIGNING: release key` first; **Check:** the
+   certificate digest matches `signing/release-key.sha256`. Never put any of
+   the four values in a file, URL or command line that is committed or logged.
+
 ## 1. Rename `sonim` to `wave_packages` (hard to undo)
 
 1. Back up what old phones download today, in case step 9 needs undoing:

@@ -19,12 +19,11 @@ live default source, and Wave on the phone lists the published apps.
 self-update, and the first-phone run against a real source
 ([brief 17](tasks/17-first-phone.md)).
 
-**Decide first:** `signing/debug.keystore` (password `android`) signs Wave and
-the six apps, and sits in both W and P. Once either repository is public the
-key is public: anyone can build an APK Android takes as an update to Wave (which
-keeps its root grant) or to any of the apps. The key can't change (decision 2),
-so the choice is whether the repositories that hold it are public, or only the
-built APKs and the source are. Details in [the security review](security.md).
+**Do first:** make the release signing key (checklist step 0a). `signing/debug.keystore`
+(password `android`) used to sign Wave and the apps and sits in both W and P, so it is
+public once either is; builds now sign releases with a key from the environment and
+the release gates refuse a debug-signed APK ([the security review](security.md)). Until
+the owner sets the four `WAVE_KEY*` secrets, a push to `master` fails its build on purpose.
 
 **Know first:** pushing P (checklist step 9) is a real release. CI replaces the
 assets of the `latest` release, so every phone still on the old Updater is
