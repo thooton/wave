@@ -24,6 +24,9 @@ items about 32px); fixture icons are lettered tiles where the mockups have
 the apps' art; the section's menu says Refresh Sources. `phone/x-*.png` are extra
 states with no frame (Remove's confirm, Reboot Now? on Later).
 
+Five frames (wave-home, sources, details-get, installed, search-results: the landing page's gallery) were
+re-shot the same way on Wave 0.7.25 (`23a67de`, debug build, fixture `browse`); the rest above are still 0.7.12.
+
 Ten of them are real data from the rooted phone instead (Wave 0.7.20 at
 `15dc337`, Magisk 24.0): no-root, details-module, queue-confirm,
 queue-progress, queue-reboot, wave-home-reboot, installed-reboot,
