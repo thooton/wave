@@ -35,7 +35,7 @@ START_AT_LEAST = 50   # battery percent: a run starts at or above this, so a lon
 STOP_BELOW = 30       # and stops, cleaning up, if it falls below this
 PACKAGE = 'com.wave.xp3'
 ADB = ['adb', '-s', SERIAL]
-MAIN = PACKAGE + '/com.wave.xp3.MainActivity'
+MAIN = PACKAGE + '/com.wave.xp3.app.WaveActivity'
 NONE = 9223372036854775807
 
 
