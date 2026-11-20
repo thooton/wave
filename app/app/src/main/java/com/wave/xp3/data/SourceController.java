@@ -69,6 +69,7 @@ public final class SourceController implements WaveData {
     private String notice;
     // One tracked phone read at a time; a request made meanwhile becomes a single follow-up read.
     private final InFlight reading = new InFlight();
+    private final java.util.concurrent.atomic.AtomicBoolean rereadQueued = new java.util.concurrent.atomic.AtomicBoolean();
     private static final int EXPLICIT = 1, NEW_INDEX = 2;
     private Pending proposed;
     // Accessed only by the data worker.
@@ -242,7 +243,7 @@ public final class SourceController implements WaveData {
                 sources.refresh(sourceId);
                 submit(worker, () -> {
                     post(() -> refreshing.remove(sourceId));
-                    readPhone(false, true, false);
+                    readAfterRefresh();
                 });
             } catch (IOException | RuntimeException e) {
                 post(() -> {
@@ -254,6 +255,19 @@ public final class SourceController implements WaveData {
                     render();
                 });
             }
+        });
+    }
+
+    /**
+     * Worker. Reads the sources and the phone again after a source refreshed, once for however many sources finished
+     * while the last read ran: with 100 sources refreshing together, a read for each would be 100 reads, each slower
+     * than the refresh it follows. A source that finishes during a read is picked up by the one that follows.
+     */
+    private void readAfterRefresh() {
+        if (!rereadQueued.compareAndSet(false, true)) return;
+        submit(worker, () -> {
+            rereadQueued.set(false);
+            readPhone(false, true, false);
         });
     }
 

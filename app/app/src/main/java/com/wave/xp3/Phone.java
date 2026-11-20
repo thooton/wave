@@ -14,6 +14,7 @@ import com.wave.xp3.core.root.Shell;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,15 +34,14 @@ public final class Phone implements Engine.Platform {
 
     /** The installed copy of each app in `ids` (others are left out). */
     public Map<String, Plan.Installed> apps(Iterable<String> ids) {
+        // One call for what the phone has, then a lookup per id: asking per id costs a call to the system each,
+        // and an exception for every package that isn't there, which with thousands of packages listed is seconds.
+        Map<String, PackageInfo> here = new HashMap<>();
+        for (PackageInfo info : context.getPackageManager().getInstalledPackages(0)) here.put(info.packageName, info);
         Map<String, Plan.Installed> out = new LinkedHashMap<>();
-        PackageManager pm = context.getPackageManager();
         for (String id : ids) {
-            try {
-                PackageInfo info = pm.getPackageInfo(id, 0);
-                out.put(id, new Plan.Installed(id, Plan.Kind.APK, version(info), false));
-            } catch (PackageManager.NameNotFoundException e) {
-                // Not installed.
-            }
+            PackageInfo info = here.get(id);
+            if (info != null) out.put(id, new Plan.Installed(id, Plan.Kind.APK, version(info), false));
         }
         return out;
     }

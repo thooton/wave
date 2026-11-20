@@ -37,6 +37,7 @@ public final class SourcesSelfTest {
         check.run("Empty, maximal and very large sources", () -> extremes(check));
         check.run("Store failures in plain words", () -> plainFailures(check));
         check.run("What a source's page lists as not read", () -> notRead(check));
+        check.run("An index read again after one source changed", () -> reread(check));
     }
 
     private static byte[] edited(byte[] json, String from, String to) {
@@ -701,6 +702,62 @@ public final class SourcesSelfTest {
             long refused = limited.issues.values().stream().filter(text -> text.startsWith("Not loaded")).count();
             check.same("every other package says why", 400 - limited.packages.size(), (int) refused);
             check.ok("the source itself still reads", limited.manifest != null);
+        } finally { erase(root); }
+    }
+
+    /** What an index says, as text: per source its packages and why others were left out. */
+    private static String describe(Index index) {
+        StringBuilder out = new StringBuilder();
+        for (Index.Source source : index.sources()) {
+            out.append(source.info.name).append(" [").append(source.info.commit.isEmpty() ? "-" : source.info.commit.substring(0, 2)).append("] ");
+            for (Index.Entry e : source.packages) out.append(e.manifest.id).append(' ').append(e.manifest.version).append(", ");
+            out.append(source.issues).append(source.headerProblem).append('\n');
+        }
+        return out.toString();
+    }
+
+    private static void reread(Check check) throws Exception {
+        Path root = Files.createTempDirectory("wave-reread-test");
+        try {
+            Map<String, byte[]> files = example();
+            AtomicReference<SourceStore.Update> payload = new AtomicReference<>(new SourceStore.Update(HEAD_A, files));
+            SourceStore store = new SourceStore(root.toFile(), (url, commit) -> payload.get());
+            SourceStore.Source one = store.add(store.preview("https://one.test/s")), two = store.add(store.preview("https://two.test/s"));
+            Index first = store.index();
+            check.same("the same index again is the same sources", first.source(one.id), store.index().source(one.id));
+            check.same("and what a store that has never read it says", describe(new SourceStore(root.toFile(), (url, commit) -> payload.get()).index()),
+                describe(store.index()));
+
+            // One source gets a new commit with one more package: only it is read again.
+            Map<String, byte[]> more = new LinkedHashMap<>(files);
+            more.put("applications/list2/package.json", edited(files.get(LIST), "com.list.xp3", "com.list2.xp3"));
+            payload.set(new SourceStore.Update(HEAD_B, more));
+            store.refresh(one.id);
+            Index second = store.index();
+            check.same("a source that didn't change is not read again", first.source(two.id), second.source(two.id));
+            check.ok("the one that did is", first.source(one.id) != second.source(one.id));
+            check.same("with its new package", first.source(one.id).packages.size() + 1, second.source(one.id).packages.size());
+            check.same("same as a fresh read", describe(new SourceStore(root.toFile(), (url, commit) -> payload.get()).index()), describe(second));
+
+            // A refresh that finds nothing new still moves the source's own details (when it was refreshed), so it is read again.
+            store.refresh(one.id);
+            check.same("same commit, same packages", describe(second), describe(store.index()));
+            check.ok("the refresh time is not stale", store.index().source(one.id).info.lastRefresh >= second.source(one.id).info.lastRefresh);
+
+            // Removing a source and adding another changes what is left.
+            store.remove(two.id);
+            Index third = store.index();
+            check.same("the other stays", second.source(one.id).packages.size(), third.source(one.id).packages.size());
+            check.ok("the removed one is gone", third.source(two.id) == null);
+            check.same("same as a fresh read", describe(new SourceStore(root.toFile(), (url, commit) -> payload.get()).index()), describe(third));
+
+            // A copy damaged on disk is shown as damaged on the next read after the store is opened again, and repaired by a refresh.
+            Path generation;
+            try (DirectoryStream<Path> children = Files.newDirectoryStream(root.resolve("sources").resolve(one.id).resolve("tree"))) { generation = children.iterator().next(); }
+            Files.write(generation.resolve("applications/list2/package.json"), utf8("{}"));
+            SourceStore reopened = new SourceStore(root.toFile(), (url, commit) -> payload.get());
+            check.ok("a damaged copy is damaged", reopened.index().source(one.id).headerProblem != null);
+            check.ok("and a damaged copy is looked at every time", reopened.index().source(one.id).headerProblem != null);
         } finally { erase(root); }
     }
 

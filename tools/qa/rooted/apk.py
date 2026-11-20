@@ -25,7 +25,7 @@ STORE = 'app/core/src/main/java/com/wave/xp3/core/sources/SourceStore.java'
 MANIFEST = 'app/app/src/debug/AndroidManifest.xml'
 
 
-def build(commit, work):
+def build(commit, work, default_url='https://localhost:4483/mods.git', tag='rooted-qa'):
     cert, _ = source.certificate(work)
     scratch = work / 'apk-src'
     shutil.rmtree(scratch, ignore_errors=True)
@@ -37,7 +37,7 @@ def build(commit, work):
     shutil.copy(ROOT / 'local.properties', scratch)
     store = scratch / STORE
     text = store.read_text()
-    patched, n = re.subn(r'(DEFAULT_URL = )"[^"]*"', r'\1"https://localhost:4483/mods.git"', text)
+    patched, n = re.subn(r'(DEFAULT_URL = )"[^"]*"', lambda m: m.group(1) + '"' + default_url + '"', text)
     if n != 1:
         raise SystemExit('SourceStore.DEFAULT_URL not found; update rooted/apk.py')
     store.write_text(patched)
@@ -54,7 +54,7 @@ def build(commit, work):
     shutil.copy(cert, res / 'raw/rooted_qa_cert.pem')
     env = dict(os.environ, JAVA_HOME=os.environ.get('JAVA_HOME', '/usr/lib/jvm/java-21-openjdk'))
     subprocess.run(['./gradlew', '--offline', '-q', ':app:app:assembleDebug'], cwd=scratch, env=env, check=True)
-    out = work / f'wave-rooted-qa-{commit[:12]}.apk'
+    out = work / f'wave-{tag}-{commit[:12]}.apk'
     shutil.copy(scratch / 'app/app/build/outputs/apk/debug/app-debug.apk', out)
     return out
 
@@ -63,6 +63,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--commit', default='HEAD')
     parser.add_argument('--work', type=Path, default=ROOT / '.oak/tmp/wave-qa/rooted-work')
+    parser.add_argument('--default-url', default='https://localhost:4483/mods.git', help='the built-in source (the stress run uses its own server)')
+    parser.add_argument('--tag', default='rooted-qa', help='APK file name part')
     args = parser.parse_args()
     sha = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', args.commit], text=True).strip()
-    print(build(sha, args.work.resolve()))
+    print(build(sha, args.work.resolve(), args.default_url, args.tag))

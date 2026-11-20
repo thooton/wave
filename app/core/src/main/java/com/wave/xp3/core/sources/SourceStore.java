@@ -19,6 +19,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -273,13 +274,48 @@ public final class SourceStore {
     public synchronized Index index() {
         List<Index.Source> views = new ArrayList<>();
         Index.Budget budget = new Index.Budget(Index.MAX_MANIFEST_BYTES);
+        Map<String, Reading> now = new HashMap<>();
         for (Source source : sources.values()) {
+            Reading before = readings.get(source.id);
+            long room = budget.left();
+            // A source that hasn't changed since it was last read is not read again. Its packages come out the
+            // same if the room it had then is the room it has now, or it was never short of room and still isn't.
+            if (before != null && before.info == source && (before.room == room || !before.refused && before.used <= room)) {
+                budget.skip(before.refused ? before.after : room - before.used, before.refused);
+                views.add(before.view);
+                now.put(source.id, before);
+                continue;
+            }
             Path tree = active(source);
-            views.add(tree != null && Files.isDirectory(tree, LinkOption.NOFOLLOW_LINKS) && !intact(tree) ?
-                Index.damaged(source) : Index.read(source, tree, budget));
+            boolean damaged = tree != null && Files.isDirectory(tree, LinkOption.NOFOLLOW_LINKS) && !intact(tree);
+            Index.Budget mine = new Index.Budget(room);
+            Index.Source view = damaged ? Index.damaged(source) : Index.read(source, tree, mine);
+            budget.skip(mine.left(), mine.refused());
+            views.add(view);
+            // A damaged copy is looked at again every time: a repair must show at once.
+            if (!damaged) now.put(source.id, new Reading(source, room, room - mine.left(), mine.left(), mine.refused(), view));
         }
+        readings = now;
         return new Index(views);
     }
+
+    /** What one source's last read came to, kept while the source is the same (see {@link #index()}). */
+    private static final class Reading {
+        final Source info;
+        final long room, used, after;
+        final boolean refused;
+        final Index.Source view;
+        Reading(Source info, long room, long used, long after, boolean refused, Index.Source view) {
+            this.info = info;
+            this.room = room;
+            this.used = used;
+            this.after = after;
+            this.refused = refused;
+            this.view = view;
+        }
+    }
+
+    private Map<String, Reading> readings = new HashMap<>();
 
     private Path active(Source source) {
         return source.commit.isEmpty() ? null : root.resolve(source.id).resolve("tree").resolve(source.commit);

@@ -167,12 +167,18 @@ public final class Index {
     /** What is left of the memory a whole index may use for manifests; the sources read first are served first. */
     static final class Budget {
         private long left;
+        private boolean refused;
         Budget(long bytes) { left = bytes; }
         boolean take(long bytes) {
-            if (bytes > left) { left = 0; return false; }
+            if (bytes > left) { left = 0; refused = true; return false; }
             left -= bytes;
             return true;
         }
+        long left() { return left; }
+        /** Whether a package was left out for want of room (the budget stays empty from then on). */
+        boolean refused() { return refused; }
+        /** Takes what a source read earlier would take, without reading it again. */
+        void skip(long leftAfter, boolean wasRefused) { left = leftAfter; refused = refused || wasRefused; }
     }
 
     /** A source whose saved copy failed its integrity check: shown with the reason and no packages until it is refreshed. */
