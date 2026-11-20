@@ -91,15 +91,12 @@ moving; resolve open questions when the relevant brief has evidence.
 
 ## Working defaults
 
-1. **Wave's package name is `com.wave.xp3`**, signed with the release key
-   (never in a repository; see `docs/security.md`). It was first meant to use the
-   shared key in `wave_packages/signing`, which is public.
-2. **Package names of the existing apps don't change**, so Wave adopts what is
-   already on a phone. *Amended 2026-11-20:* nor did their signing key, until
-   the security review found that key public (`signing/debug.keystore`). Nothing
-   had been released, so every app is signed with a new release key before the
-   first publication, and the copies now on the phone are uninstalled once and
-   reinstalled. After that publication the release key must never change.
+1. **Wave's package name is `com.wave.xp3`**, signed for local builds and
+   releases with the checked-in public debug key. There is no signing setup.
+2. **Existing package names and signing keys stay the same**, so Wave adopts
+   installed apps and updates them in place. AppDrawer keeps its separate
+   checked-in public key. The owner accepts that anyone can sign an APK
+   Android will accept as an update; get APKs from a trusted source.
 3. **Release assets are immutable**, one release per package version
    (`<name>-<version>`), replacing the rolling `latest` release. The old
    `latest` release and `manifest.json` stay until the migration checklist

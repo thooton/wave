@@ -29,7 +29,5 @@ android {
     }
 }
 
-// Release builds are signed with the release key from WAVE_KEYSTORE_* (never in
-// this repository); with none set they fall back to the public debug key and
-// say so, and the release gate refuses that APK (see that file).
+// Local and published APKs use the checked-in public debug key.
 apply from: rootProject.file("signing/signing.gradle")

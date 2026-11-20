@@ -191,43 +191,14 @@ were fixed (below). Nothing the server sends is ever a shell word without
   on every phone that refreshes it. Protection is the account's own (a hardware
   key or a TOTP, and a source that is only ever pushed to from one machine).
   Signed sources are listed in the design as later.
-- **The signing key was a public debug key. Fixed (2026-11-20, before anything
-  was published).** `signing/debug.keystore` (password `android`) signed every
-  app in the family, release too, and was committed to both `wave` and
-  `wave_packages`, so once those were readable by others anyone could build an
-  APK that Android accepts as an update to Wave or any of the six apps, with
-  their data and, for Wave, its root grant (Magisk grants by uid). It was
-  fixable only because nothing had been released, so no installed copy
-  depends on the old key (decision 2 is amended to say so). Now:
-  - Release builds sign with a key from the environment (`WAVE_KEYSTORE_BASE64`
-    or `WAVE_KEYSTORE_FILE`, `WAVE_KEYSTORE_PASSWORD`, `WAVE_KEY_ALIAS`,
-    `WAVE_KEY_PASSWORD`; CI secrets), in `signing/signing.gradle` and, for App
-    Drawer, `launcher/build.sh` in `wave_packages`. The owner makes the key once
-    (`docs/tasks/01-owner-checklist.md`, step 0a); it is never in a repository.
-  - Without those variables a release build still falls back to the debug key,
-    so a pull request or a local trial builds, but it prints a boxed warning
-    saying so, the build summary lists the key of every APK, and half-set
-    variables are an error. A build that will be published sets
-    `WAVE_REQUIRE_RELEASE_KEY=1` (CI does, for pushes to `master`) and then a
-    missing key fails the build.
-  - The release gates refuse a debug-signed APK:
-    `signing/check_signer.py` checks every APK against
-    `signing/public-key-digests.txt` (the debug key and the old App Drawer key)
-    and, once the owner records the release key's digest in
-    `signing/release-key.sha256`, against that. `release_wave.py` here,
-    `release_package.py` and the legacy `latest` job in `wave_packages` call it
-    before anything is uploaded.
-  - `debug.keystore` stays, for debug builds and tests only. **Nothing signed
-    with it, or with the old App Drawer key, may ever be published**; the gate
-    enforces that, and the keystores remain in the git history for good, which
-    is why their digests are on the list.
-  - Verified with a throwaway key: the release APK's `apksigner verify
-    --print-certs` shows it; with no key the build warns and the gate exits 1;
-    with `WAVE_REQUIRE_RELEASE_KEY=1` and no key the build fails.
-  - Left for the owner: make the key, set the four secrets in both repositories
-    and record its digest. Until then a push to `master` fails its build, on
-    purpose. Phones with apps signed by the old key need those uninstalled once
-    (the phone is not in production).
+- **APK signing keys are intentionally public** (high impact, accepted for
+  the hobbyist release). `signing/debug.keystore` signs Wave and the Gradle
+  apps in both local builds and releases. AppDrawer keeps its own checked-in
+  public key for update compatibility. Anyone can sign an APK that Android
+  accepts as an update to one of these apps, potentially inheriting its data
+  or root grant. Use the official asset URLs and the source's SHA-256 hashes
+  rather than trusting an APK by its signature alone. Sonim's OEM signing
+  requirement for system mods is unchanged.
 - **A source can claim any name.** The add dialog now also shows the address
   the source was added from (new, `AddSourceScreen.trust`), because the name,
   icon and maintainer are the source's own text. A look-alike source still has

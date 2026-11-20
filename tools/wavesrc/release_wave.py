@@ -10,9 +10,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "signing"))
-import check_signer  # noqa: E402  (the key gate; see signing/check_signer.py)
-from artifact import aapt2_command, run  # noqa: E402
+from artifact import aapt2_command, run
 from source import Invalid
 
 VERSION = r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
@@ -70,14 +68,6 @@ def main():
     parser.add_argument("--check", action="store_true", help="check APK and local tags without GitHub calls")
     args = parser.parse_args()
     version, code = apk(args.binary)
-    # Never publish an APK signed with a key whose private half is public (the
-    # debug key in signing/). --check is the build's own self-test: it says what
-    # the gate will do and does not fail.
-    why = check_signer.refusal(args.binary)
-    if why and not args.check:
-        raise Invalid(why)
-    if why:
-        print(f"NOT PUBLISHABLE: {why}", file=sys.stderr)
     tag = f"wave-{version}"
     tags = released_tags()
     if sorted(tags + [tag], key=lambda t: tuple(map(int, t[5:].split("."))))[-1] != tag:

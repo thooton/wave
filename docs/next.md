@@ -1,7 +1,7 @@
 # Next: what needs the owner
 
 Read [status](status.md) first. Everything below is blocked on a person with
-a GitHub login, a signing key or the phone in their hand. Ordered by how much
+a GitHub login, authorized OEM signing or the phone in their hand. Ordered by how much
 each one unblocks. Nothing here has been pushed or published yet.
 
 ## 1. The GitHub cutover
@@ -19,11 +19,9 @@ live default source, and Wave on the phone lists the published apps.
 self-update, and the first-phone run against a real source
 ([brief 17](tasks/17-first-phone.md)).
 
-**Do first:** make the release signing key (checklist step 0a). `signing/debug.keystore`
-(password `android`) used to sign Wave and the apps and sits in both W and P, so it is
-public once either is; builds now sign releases with a key from the environment and
-the release gates refuse a debug-signed APK ([the security review](security.md)). Until
-the owner sets the four `WAVE_KEY*` secrets, a push to `master` fails its build on purpose.
+**Signing needs no setup.** Builds and releases use the checked-in public
+key. Catalog mirroring in CI is optional; a local owner can publish catalog
+entries over SSH without a separate publishing token.
 
 **Know first:** pushing P (checklist step 9) publishes real releases in
 `wave_packages` and writes to the Wave default source. It does not update

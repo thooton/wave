@@ -35,21 +35,10 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      # :core's plain-Java self-tests (git client, scripts and parsers, ...)
-      # and the release APK. It is signed with the release key from the
-      # repository secrets. A pull request or fork has none and falls back to
-      # the PUBLIC debug key in signing/, which the release gate refuses to
-      # publish; a push to master is published, so it must have the key.
-      - name: Self-test and build
-        env:
-          WAVE_KEYSTORE_BASE64: ${{ secrets.WAVE_KEYSTORE_BASE64 }}
-          WAVE_KEYSTORE_PASSWORD: ${{ secrets.WAVE_KEYSTORE_PASSWORD }}
-          WAVE_KEY_ALIAS: ${{ secrets.WAVE_KEY_ALIAS }}
-          WAVE_KEY_PASSWORD: ${{ secrets.WAVE_KEY_PASSWORD }}
-          WAVE_REQUIRE_RELEASE_KEY: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && '1' || '' }}
+      - name: Self-test and build with the checked-in debug key
         run: |
-          python3 -m unittest discover -s signing -p 'test_check_signer.py'
           ./gradlew --no-daemon :app:core:selfTest :app:app:selfTest :app:app:assembleRelease
+          "$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/apksigner" verify --min-sdk-version 27 app/app/build/outputs/apk/release/app-release.apk
 
       - name: Name the APK
         run: cp app/app/build/outputs/apk/release/app-release.apk wave.apk
@@ -127,9 +116,9 @@ jobs:
         id: pages
         uses: actions/deploy-pages@v4
   publish-wave:
-    name: Publish Wave to the default source
+    name: Publish Wave release
     needs: app
-    if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request' && vars.WAVE_PUBLISH_ENABLED == 'true'
+    if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -151,19 +140,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RETRY_PUBLISH: ${{ inputs.retry-publish }}
-          SOURCE_TOKEN: ${{ secrets.WAVE_REPOSITORY_TOKEN }}
         run: |
-          if [[ -z "$SOURCE_TOKEN" ]]; then
-            echo 'WAVE_REPOSITORY_TOKEN: required when WAVE_PUBLISH_ENABLED is true' >&2
-            exit 1
-          fi
           export AAPT2="$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/aapt2"
           options=()
           if [[ "$RETRY_PUBLISH" == true ]]; then options+=(--retry-publish); fi
           python3 tools/wavesrc/release_wave.py wave.apk "${options[@]}"
 
       - uses: ./publish
-        if: steps.release.outputs.binary != ''
+        if: steps.release.outputs.binary != '' && vars.WAVE_PUBLISH_ENABLED == 'true'
         with:
           source-repository: thooton/wave_repository
           source-token: ${{ secrets.WAVE_REPOSITORY_TOKEN }}

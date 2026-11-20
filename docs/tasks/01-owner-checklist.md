@@ -44,72 +44,13 @@ scopes are the steps to take slowly.
    Only you can judge the redistribution rights. If the history is not
    ready to be public, do not push it to a public repo.
 
-## 0a. Make the release signing key (before anything is published)
+## 0a. APK signing (no setup)
 
-Every APK Wave and the apps publish must be signed with a key only you hold.
-Until now a public debug key (`signing/debug.keystore`, password `android`,
-committed to W and P) signed everything. Anyone who can read the repository
-could build an APK that Android accepts as an update to Wave, and Wave holds
-root. The build now signs release builds with a key from environment variables,
-refuses to fall back to the debug key when it is told the build will be
-published, and the release gates (`signing/check_signer.py`) refuse to publish
-an APK signed with a public key. You make the key once.
-
-1. Generate it, on your own machine, outside any repository:
-   ```sh
-   keytool -genkeypair -keystore ~/wave-release.p12 -storetype PKCS12 \
-     -alias wave -keyalg RSA -keysize 4096 -validity 36500 -dname "CN=Wave, O=thooton"
-   ```
-   It asks for a password: choose a long one. (For a PKCS12 file the key's
-   password is the same as the file's.) **Check:**
-   `keytool -list -keystore ~/wave-release.p12` shows one `PrivateKeyEntry`
-   called `wave`.
-2. **Back it up** now: the file and its password, in a password manager and on
-   one offline copy. If you lose it, no installed app can ever be updated
-   again (Android refuses an update signed by a different key; each app would
-   have to be uninstalled, with its data). If it leaks, say so and make a new
-   one; every copy on a phone is then uninstalled and reinstalled once.
-3. Store it as four secrets in **both** `thooton/wave` and
-   `thooton/wave_packages` (Settings → Secrets and variables → Actions, or
-   from a terminal in a clone, which prompts for the value so it doesn't
-   enter your shell history):
-   ```sh
-   for repo in thooton/wave thooton/wave_packages; do
-     base64 -w0 ~/wave-release.p12 | gh secret set WAVE_KEYSTORE_BASE64 -R $repo
-     gh secret set WAVE_KEYSTORE_PASSWORD -R $repo     # the password from step 1
-     gh secret set WAVE_KEY_ALIAS -R $repo --body wave
-     gh secret set WAVE_KEY_PASSWORD -R $repo          # the same password
-   done
-   ```
-   **Check:** both repositories list all four names under Repository secrets.
-4. Pin the key, so a release signed with any other key is refused too. In W
-   and in P, as a one-line file, then commit and push it with the rest:
-   ```sh
-   keytool -list -v -keystore ~/wave-release.p12 -alias wave | sed -n 's/.*SHA256: //p' | tr -d ':' | tr A-F a-f \
-     > signing/release-key.sha256
-   ```
-   **Check:** the file is one 64-character hex line, and the same in both
-   repositories.
-5. Know what it does to CI. A pull request or fork has no secrets, so its
-   build signs with the public debug key and says so loudly; that APK is never
-   published. A push to `master` is published, so its build sets
-   `WAVE_REQUIRE_RELEASE_KEY=1` and **fails** if the four secrets are missing.
-   Do this step before the first push to `master` of either repository.
-6. Know what it does to the phone. The apps now on the phone are signed with
-   the debug key (App Drawer with its own old key), so Android will not install
-   a release-signed APK over them: uninstall each one first (`adb uninstall
-   <package>`), once, and install the new ones. That loses their data, which
-   is fine while the phone is not in production, and is the reason to do this
-   before real use rather than after.
-7. A local release build with the key (not needed for CI):
-   ```sh
-   read -rs WAVE_KEYSTORE_PASSWORD; export WAVE_KEYSTORE_PASSWORD WAVE_KEY_PASSWORD=$WAVE_KEYSTORE_PASSWORD
-   WAVE_KEYSTORE_FILE=~/wave-release.p12 WAVE_KEY_ALIAS=wave ./gradlew :app:app:assembleRelease
-   apksigner verify --print-certs app/app/build/outputs/apk/release/app-release.apk
-   ```
-   The build prints `WAVE SIGNING: release key` first; **Check:** the
-   certificate digest matches `signing/release-key.sha256`. Never put any of
-   the four values in a file, URL or command line that is committed or logged.
+Local builds and releases use the public `signing/debug.keystore` checked into
+both build repos. AppDrawer keeps its own checked-in public key so existing
+copies can update. There are no signing passwords to enter or Actions secrets
+to set. Anybody can sign a replacement APK with these keys; only install APKs
+from a source you trust. Sonim OEM signing for system mods is separate.
 
 ## 1. Create `thooton/wave_packages` separately
 
@@ -118,8 +59,7 @@ an APK signed with a public key. You make the key once.
    or change releases in `thooton/sonim` for this rollout.
 2. Confirm the local `../wave_packages` origin is
    `https://github.com/thooton/wave_packages.git`. Leave its first push to
-   step 9. Complete signing setup (0a) after the empty repos exist and
-   before the first pushes to their `master` branches.
+   step 9. No signing setup is required.
 3. Verify the legacy branch and manifest independently:
    ```sh
    git ls-remote https://github.com/thooton/sonim.git refs/heads/master refs/tags/latest
@@ -137,8 +77,7 @@ an APK signed with a public key. You make the key once.
    ```
 3. **Check:**
    - `git ls-remote origin master` matches `git rev-parse master`.
-   - In Actions, the **Build** run on `master` is green. Its "Publish Wave"
-     job is skipped, which is expected.
+   - In Actions, the **Build** run on `master` is green. It creates a Wave release; catalog mirroring is skipped by default.
    - Its **Deploy the website** job fails until step 4; that's fine.
 4. **If Build fails:** read the failing step's log, fix it locally, commit
    and push again. Never force-push `master`.
@@ -206,10 +145,11 @@ no files.
 4. **If Lint fails with "unable to resolve action":** `v1` is missing or
    points at a commit without `lint/`. Redo step 3.
 
-## 6. Make the source publishing token (scope matters)
+## 6. Optional: make the automatic catalog publishing token
 
-CI in W and P pushes manifests to R with this token. The publish action
-takes a token, not a deploy key.
+Omit this step if you will publish catalog entries locally over SSH. APK
+releases are created either way. For automatic mirroring from CI, the publish
+action takes a token scoped to R, not a deploy key.
 
 1. Go to github.com/settings/personal-access-tokens/new and make a
    **fine-grained** token:
@@ -236,8 +176,10 @@ takes a token, not a deploy key.
 
 ## 7. First publication: Wave itself
 
-1. In `thooton/wave`, open Settings → Secrets and variables → Actions →
-   Variables → New repository variable: `WAVE_PUBLISH_ENABLED` = `true`.
+1. For automatic mirroring, set `WAVE_PUBLISH_ENABLED` to `true` under
+   Actions variables in each build repo where you set the token. Otherwise
+   publish the manifest locally after CI, using the exact release APK (see
+   [Publishing](../publishing.md)).
 2. In Actions, choose **Build**, then Run workflow on `master`.
 3. **Check:**
    - The release `wave-<versionName>` (from `app/app/build.gradle`) exists in `thooton/wave` with one APK.
