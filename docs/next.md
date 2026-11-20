@@ -7,7 +7,7 @@ each one unblocks. Nothing here has been pushed or published yet.
 ## 1. The GitHub cutover
 
 **Do:** follow the numbered list in [the owner checklist](tasks/01-owner-checklist.md)
-(renames, push W, tag `v1`, Pages, default source, publishing token, branch
+(create separate repos, push W, tag `v1`, Pages, default source, publishing token, branch
 protection, first publication, push P). Do step 0's test run and the review in
 its step 2 before anything is pushed.
 
@@ -25,13 +25,9 @@ public once either is; builds now sign releases with a key from the environment 
 the release gates refuse a debug-signed APK ([the security review](security.md)). Until
 the owner sets the four `WAVE_KEY*` secrets, a push to `master` fails its build on purpose.
 
-**Know first:** pushing P (checklist step 9) is a real release. CI replaces the
-assets of the `latest` release, so every phone still on the old Updater is
-offered updates to the apps changed in P's 87 commits, including the six that
-lose their built-in login (each carries the old login over once). The
-immutable `<app>-<version>` releases can't be taken back; `latest` can, from the backup
-the checklist has you make. The old channel must stay until the migration
-checks in brief 17 pass ([decisions](decisions.md), working default 3).
+**Know first:** pushing P (checklist step 9) publishes real releases in
+`wave_packages` and writes to the Wave default source. It does not update
+`thooton/sonim` or the legacy release used by existing Updater installs.
 
 ## 2. Decide on the `stock-*` tags
 
@@ -42,7 +38,7 @@ step 9 or leave them local.
 
 **Know it worked:** the choice is written down in [decisions](decisions.md).
 If they stay private, the mods' regeneration scripts (`git diff stock-messages`
-and friends, in `../sonim/mods/AGENTS.md`) only work in your clone.
+and friends, in `../wave_packages/mods/AGENTS.md`) only work in your clone.
 
 **Unblocks:** the push of P (step 9), and anyone else rebuilding the mods.
 
@@ -77,8 +73,9 @@ they stay on P's legacy channel ([decisions](decisions.md), open item 4).
 
 ## 5. Things only a person at the phone can do
 
-The phone is rooted (Magisk 24.0). The rooted QA suite removes Wave when it ends, so build and install the current Wave (0.7.25) first; see [ROOT-TESTING.md](../app/ROOT-TESTING.md)
-(its "Still open" list and sections 06 and 08). Use `tools/qa/phone-lock.sh`.
+The test phone is rooted (Magisk 24.0). See [ROOT-TESTING.md](../app/ROOT-TESTING.md)
+(its "Still open" list and sections 06 and 08). Reserve the phone with
+[`phone-run.sh`](../tools/qa/README.md) for the whole session.
 
 - **Volume Down safe mode.** Hold the side Volume Down key from power-on
   until the home screen. **Worked if** Magisk disables every module (a

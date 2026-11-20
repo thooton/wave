@@ -195,16 +195,13 @@ function rebootBanner(f, what = 'Messages Improved') {
   return `<div class="banner${f ? ' f' : ''}">${G.reboot('#007AFF')}<div class="tx"><b>Reboot to Finish</b><span style="color:#8E8E93">${what} starts after a reboot</span></div><div class="cap${f ? ' press' : ''}">REBOOT</div></div>`;
 }
 function homePage(o = {}) {
-  return (o.reboot ? rebootBanner(o.focus === 'reboot') : '') + welcome +
-    H('Featured') +
-    browseRow(P.msgs, { f: o.focus === 'msgs' }) +
-    browseRow(P.mail, { f: o.focus === 'mail', last: true }) +
-    `<div class="gap"></div>` +
-    linkRow('What is Wave', { icon: `<img src="icons/wave.svg">`, f: o.focus === 'about' }) +
-    linkRow('Add a Source', { icon: `<div class="tile" style="background:#34C759;font-size:20px;font-weight:400">+</div>`, f: o.focus === 'add', last: true }) +
+  const rootStatus = o.noRoot
+    ? linkRow('Root access not granted', { icon: G.warn('#FF9500'), size: 14, f: true })
+    : `<div class="row link"><div style="width:14px">${G.tick('#248A3D')}</div><div class="tx"><div class="nm">Root access granted</div></div></div>`;
+  return rootStatus + (o.reboot ? rebootBanner(o.focus === 'reboot') : '') + welcome +
     H('This Phone') +
     `<div class="facts">` +
-    fact('Model', 'XP3800') + fact('Android', '8.1, build 8A.0.5-11') + fact('Root', 'Magisk 24.0') + fact('Storage', '1.3 GB free', { last: true }) +
+    fact('Model', 'XP3800') + fact('Android', '8.1, build 8A.0.5-11') + fact('Root', o.noRoot ? 'Not granted' : 'Magisk 24.0') + fact('Storage', '1.3 GB free', { last: true }) +
     `</div>` + H('Community') +
     `<div class="facts">` + fact('Code', 'github.com/thooton/wave', { blue: false }) + fact('Website', 'thooton.github.io/wave', { last: true }) + `</div><div class="gap"></div>`;
 }
@@ -236,28 +233,24 @@ const FRAMES = [];
 function F(group, id, title, keys, html, note) { FRAMES.push({ group, id, title, keys, html, note }); }
 
 // ---- Wave tab
-F('Wave tab', 'wave-home', 'Wave tab: welcome, Featured',
-  K(TABS_LR, 'Move one row (Featured, What is Wave, Add a Source); below the last, the page scrolls to the phone facts.',
-    'Opens the package\'s details.', BACK_TOP, 'On a package: Get, Details. Always: Refresh Sources.'),
-  screen({ tab: 0, badge: 2, bar: { title: 'Home' }, page: homePage({ focus: 'msgs' }) }),
-  'Opens on this tab. Featured is the default source\'s `featured` list.');
-F('Wave tab', 'wave-home-more', 'Wave tab, scrolled: links, This Phone',
-  K(TABS_LR, 'Up/Down move between What is Wave and Add a Source; Down on Add a Source scrolls the facts in, as a ScrollView does.',
-    'What is Wave: opens it. Add a Source: opens Add a Source on the Sources tab.', BACK_TOP, 'Refresh Sources.'),
-  screen({ tab: 0, badge: 2, bar: { title: 'Home' }, page: homePage({ focus: 'add' }), scroll: 199 }),
+F('Wave tab', 'wave-home', 'Wave tab: root access granted',
+  K(TABS_LR, 'Up/Down scroll to the phone facts and community links.',
+    'Nothing.', BACK_TOP, 'Refresh Sources.'),
+  screen({ tab: 0, badge: 2, bar: { title: 'Home' }, page: homePage() }),
+  'The green check shows when Wave has root. Add a Source is on the Sources tab.');
+F('Wave tab', 'wave-home-no-root', 'Wave tab: root access not granted',
+  K(TABS_LR, 'Down scrolls to the phone facts and community links.',
+    'Opens the root instructions.', BACK_TOP, 'Refresh Sources.'),
+  screen({ tab: 0, badge: 2, bar: { title: 'Home' }, page: homePage({ noRoot: true }) }),
+  'The orange warning is the first focus stop.');
+F('Wave tab', 'wave-home-more', 'Wave tab, scrolled: This Phone and Community',
+  K(TABS_LR, 'Up/Down scroll.', 'Nothing.', BACK_TOP, 'Refresh Sources.'),
+  screen({ tab: 0, badge: 2, bar: { title: 'Home' }, page: homePage(), scroll: 76 }),
   'The facts and links are text, not focus stops: nothing to press there.');
 F('Wave tab', 'wave-home-reboot', 'Wave tab with a reboot pending',
-  K(TABS_LR, 'The Reboot row is the first row; Down moves on to Featured.', 'On REBOOT: reboots now (svc power reboot).', BACK_TOP, 'Reboot, Refresh Sources.'),
+  K(TABS_LR, 'Root is shown first; Reboot is the first focus stop.', 'On REBOOT: opens a confirmation dialog.', BACK_TOP, 'Reboot, Refresh Sources.'),
   screen({ tab: 0, badge: 2, bar: { title: 'Home' }, page: homePage({ reboot: true, focus: 'reboot' }) }),
-  'Shown while a module change waits for a reboot. The same row heads Installed.');
-F('Wave tab', 'wave-about', 'What is Wave',
-  K('Previous / next tab.', 'Scroll two lines.', 'Nothing.', 'Back to Home.', 'Nothing.'),
-  screen({ tab: 0, badge: 2, bar: { back: 'Home', title: 'What is Wave' }, page:
-    `<div style="padding:10px 10px 0;font-size:13px;line-height:17px">` +
-    `<p style="margin:0 0 8px">Wave installs apps and system mods on this phone, and keeps them up to date.</p>` +
-    `<p style="margin:0 0 8px">They come from <b style="font-weight:500">sources</b>: lists of packages that anyone can publish on GitHub and the like. Wave starts with one, its own.</p>` +
-    `<p style="margin:0 0 8px">A system mod changes the phone itself, and starts after a reboot. If the phone doesn't finish starting with one, Wave turns it off again by itself.</p>` +
-    `<p style="margin:0">Anything Wave installs can be removed from Installed.</p></div>` }));
+  'Shown while a module change waits for a reboot. The same action heads Installed.');
 
 // ---- Sources tab
 F('Sources tab', 'sources', 'Sources',
@@ -493,7 +486,7 @@ F('Errors', 'error-network', 'No network (nothing fetched yet)',
   K(TABS_LR, 'Nothing.', 'Try Again: refreshes.', BACK_TOP, 'Refresh Sources.'),
   screen({ tab: 1, bar: { title: 'Sources', r: 'Add' }, page:
     `<div class="msg"><div class="t">Cannot Load Sources</div><div class="d">No network.</div><div class="btn press">Try Again</div></div>` }),
-  'The Updater\'s message screen, with its action as a button. Home shows the same in place of Featured.');
+  'The Updater\'s message screen, with its action as a button. Home is unchanged by source errors.');
 F('Errors', 'error-network-toast', 'No network (sources already fetched)',
   K(TABS_LR, 'As on Sources.', 'As on Sources.', BACK_TOP, 'As on Sources.'),
   screen({ tab: 1, badge: 2, bar: { l: 'Refresh', title: 'Sources', r: 'Add' }, page: sourcesPage({ focus: 'wave' }),

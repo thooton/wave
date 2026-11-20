@@ -18,7 +18,7 @@ puts the watchdog in place for 08).
 - Wave 0.7.17 debug (`ca10e4f`) for 06 to 08.3;
 - from 08.4 on, the same build with watchdog 4 (the fix below), as 0.7.19;
 - 08.1, 08.4 and 08.6 again with watchdog 5 (Wave 0.7.25, the cost fix
-  below), plus `phone.sh` (24 of 24).
+  below), plus 24 shell compatibility checks.
 
 Every step passed except these:
 - 06.5 can't run on this phone (too much free space);
@@ -64,63 +64,12 @@ Record each run's results in `docs/tasks/README.md` under 06 and 08 (see
 
 ## What is already proven, and what is assumed
 
-Two harnesses in `app/root-tests/magisk/` check the root side against the
-real Magisk 24.0 (from `../rphone/Magisk-v24.0.apk`) before any rooted
-phone is involved. Rerun both after changing anything in `core/root`:
-
-```sh
-app/root-tests/magisk/sim.py            # desktop, about 6 minutes (--fast: 2)
-app/root-tests/magisk/phone.sh <serial> # any XP3, rooted or not, 30 seconds
-```
-
-**`sim.py`** boots a pretend phone in a `bwrap` sandbox as often as each case
-needs. These parts are real:
-- the shell and its applets: Magisk's own busybox, taken from the APK. The
-  x86_64 build runs on the desktop; its applet table is byte-identical to
-  the armeabi-v7a build the XP3 gets, and `sim.py` checks that each run;
-- module installs: `magisk --install-module` runs the APK's
-  `util_functions.sh` `install_module` unchanged;
-- Wave's scripts, exactly as the app builds them (`Gen.java`), and the
-  `root-tests` modules;
-- what magiskd does at each stage (`boot.sh`, copied step by step from
-  v24.0's `bootstages.cpp`, `scripting.cpp` and `module.cpp`):
-  - the environment: `ASH_STANDALONE=1`, and `PATH` is init's plus `:/sbin`;
-  - post-fs-data.d runs only regular executable files, waiting for them at
-    most 35 seconds in all, before `modules_update` is moved into place and
-    the modules are collected;
-  - service.d runs in the background at late_start;
-  - safe mode writes `disable` into every module and runs no scripts;
-  - `remove` runs the module's `uninstall.sh`;
-- the layout: `/data/adb`, and `/sbin/.magisk/busybox/busybox`. The XP3
-  isn't system-as-root, so Magisk's tmpfs is `/sbin`.
-
-These parts are pretend: `getprop`, `setprop`, `/system/bin/reboot`, zygote
-and `system_server`, and mounting. The cases, all passing:
-- a good module settles;
-- the broken module hangs the boot, the watchdog reboots once, and the
-  module is turned off (`boot-timeout`);
-- a framework that keeps restarting leads to one reboot and the module
-  turned off;
-- a power cut gives `boot-incomplete`, and Turn On brings the module back;
-- a user restart right after boot keeps the module;
-- safe mode leaves the watchdog out, and Turn On recovers;
-- a slow neighbour in post-fs-data.d (see the risks below).
-
-**`phone.sh`** runs on the real XP3 as the shell user, only inside
-`/data/local/tmp/wave-sim`, and removes it afterwards. On `8516067e`
-(stock, Android 8.1) all 24 checks passed on 2026-11-19. That run used
-watchdog version 2. Version 3 changes only the default poll interval,
-which `phone.sh` sets itself, and version 4 adds only `sync`. Version 5
-(how system_server is followed, and the five-second look before boot
-completes) passed all 24 again on 2026-11-19. These parts are real:
-- Wave's root scripts under the phone's own `/system/bin/sh` (mksh R55),
-  its toybox and its `grep`, against a pretend `/data/adb`;
-- both watchdog halves under Magisk's armeabi-v7a busybox on the XP3's
-  kernel, with the phone's real `getprop sys.boot_completed` and `pidof
-  system_server`. The settle path ended in "boot settled".
-
-`setprop`, `reboot`, `chown` and `magisk` are stubs there that only record
-the call, so nothing can reboot or change the phone.
+Earlier runs exercised the watchdog under Magisk 24.0’s BusyBox on desktop
+and the XP3, and checked Wave’s root commands under the phone’s mksh and
+toybox in a temporary sandbox. All 24 on-device shell checks passed with
+watchdog versions 2 and 5. The separate simulators have been retired; use
+the host self-test above for pretend boots and this procedure for changes
+that need real Magisk or hardware.
 
 **Found and fixed on the phone: a crash soon after post-fs-data didn't
 count.** The XP3's `/data` is f2fs. f2fs keeps a rename only once it
@@ -134,15 +83,15 @@ the module off, which showed the logic was right and only durability was
 wrong. Watchdog 4 syncs whenever the early half changes anything, and when
 the late half clears `trying`. With it, the same cut without any sync gives
 `boot-incomplete`. The desktop tests now check that each change is synced
-(`RootTests`, "trial synced"). Neither `sim.py` nor the desktop tests can
-lose writes, which is why this only showed on the phone.
+(`RootTests`, "trial synced"). The desktop tests cannot
+reproduce lost writes, which is why this only showed on the phone.
 
 **Found and fixed: a user restart could cost a good mod.** The late half
 looked every five seconds. Android sets `sys.shutdown.requested` only a few
 seconds before the phone goes down, so a restart in the first minute after
 the home screen was often missed, and the next boot turned the module off
-as `boot-incomplete`. `sim.py` caught it at the real timings; the desktop
-tests hadn't, because they keep the property set. The watchdog now looks
+as `boot-incomplete`. The old Magisk simulator caught it at the real
+timings; the desktop tests hadn't, because they keep the property set. The watchdog now looks
 every second (version 3). Step 08.6 is the check on hardware.
 
 **Measured and fixed: what the watchdog costs.** Only a boot with a mod
@@ -231,9 +180,9 @@ minutes; a clean restart takes about 11 s to go down, and the watchdog sees
 
 ## Before you start
 
-- **The phone.** Use a rooted test phone, never one holding the owner's data
-  unless that data is backed up. It needs Magisk 24.0 and a saved copy of
-  the stock boot image (the site's Restore puts it back).
+- **The phone.** Use a reserved rooted test phone with Magisk 24.0 and a
+  verified stock boot backup. Hold the [phone lock](../tools/qa/README.md)
+  for the entire run. Do not run this on a phone holding unbacked-up data.
 - **Time.** About two hours. Section 08 has several reboots of up to eight
   minutes each.
 - **What gets written.** Nothing here writes `/system`. The test modules

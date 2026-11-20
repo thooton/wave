@@ -1,0 +1,418 @@
+/* Wave Installer. Layout, links, buttons and rules follow
+   https://checkra.in/css/style.css?v=2 (body, a, .release a.download-btn.primary, hr),
+   with Wave blue (#2495e6, from the launcher icon) in place of its periwinkle and
+   Cascadia Code in place of its Fira Code. */
+@font-face {
+    font-family: "Cascadia Code";
+    src: url("fonts/cascadia-code.woff2") format("woff2");
+    font-weight: 400 700;
+    font-display: swap;
+}
+
+/* checkra1n: body, .lead, a, .extra-info, hr */
+html {
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+}
+body {
+    margin: 0;
+    background: #191919;
+    color: #fff;
+    font:
+        16px/1.5 "Cascadia Code",
+        monospace;
+}
+a:link,
+a:visited {
+    text-decoration: none;
+    color: #2495e6;
+}
+a:link:hover,
+a:visited:hover {
+    color: #66b8f0;
+}
+b,
+strong {
+    font-weight: bold;
+}
+
+* {
+    box-sizing: border-box;
+}
+[hidden] {
+    display: none !important;
+}
+:focus-visible {
+    outline: 2px solid #2495e6;
+    outline-offset: 2px;
+}
+:where(h1, h2, main):focus {
+    outline: none;
+}
+.skip {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    padding: 6px 10px;
+    background: #000;
+}
+.skip:not(:focus),
+.visually-hidden {
+    clip-path: inset(50%);
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap;
+}
+
+/* Page: the step list on the left, a thin rule, the current step on the right with its action below. */
+.window {
+    width: min(100% - 2 * clamp(20px, 5vw, 48px), 960px);
+    margin-inline: auto;
+}
+.window {
+    margin-block: clamp(24px, 6vh, 56px);
+    display: grid;
+    grid-template-columns: 190px minmax(0, 1fr);
+    min-height: 340px;
+}
+.steps {
+    padding: 2px 24px 2px 0;
+    border-right: 1px solid rgba(255, 255, 255, 0.15);
+}
+.steps ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.steps button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 3px 8px;
+    border: 0;
+    background: none;
+    color: #888;
+    font: inherit;
+    font-size: 15px;
+    text-align: left;
+    cursor: pointer;
+}
+.steps button::before {
+    content: "";
+    flex: 0 0 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #555;
+}
+.steps button[data-past],
+.steps button[data-past]:disabled {
+    color: #aaa;
+}
+.steps button[data-past]::before {
+    background: #aaa;
+}
+.steps button[aria-current="step"]:disabled,
+.steps button[aria-current="step"] {
+    color: #fff;
+    font-weight: bold;
+}
+.steps button[aria-current="step"]::before {
+    background: #2495e6; /* Wave blue: the middle of the launcher icon's gradient */
+}
+.steps button:not(:disabled):hover {
+    color: #66b8f0;
+}
+.steps button:disabled {
+    background: none;
+    cursor: default;
+}
+
+.pane {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.content {
+    flex: 1;
+    max-width: calc(72ch + 32px);
+    padding: 0 0 0 32px;
+    overflow-wrap: anywhere;
+}
+.logo {
+    display: block;
+    margin-bottom: 12px;
+}
+h1,
+h2 {
+    margin: 0 0 8px;
+    font-size: 1.125rem;
+    font-weight: bold;
+}
+p,
+ol {
+    margin: 0;
+}
+p + p,
+ol + p {
+    margin-top: 8px;
+}
+.muted {
+    color: #aaa;
+}
+code {
+    font: inherit;
+}
+.instructions {
+    padding-left: 3ch;
+}
+.instructions li + li {
+    margin-top: 6px;
+}
+
+.field {
+    margin-top: 12px;
+}
+.field label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 15px;
+    font-weight: bold;
+}
+.field input {
+    display: block;
+    max-width: 100%;
+    font: inherit;
+    font-size: 14px;
+    color: #aaa;
+}
+.field small {
+    display: block;
+    margin-top: 4px;
+    font-size: 14px;
+    color: #aaa;
+}
+.downloads {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.status {
+    margin-top: 8px;
+    font-size: 15px;
+    color: #aaa;
+}
+.status:empty {
+    margin: 0;
+}
+.status[data-error] {
+    color: #ff7878;
+}
+progress {
+    display: block;
+    width: 100%;
+    height: 6px;
+    margin-top: 8px;
+    accent-color: #2495e6;
+}
+details {
+    margin-top: 8px;
+    font-size: 14px;
+}
+summary {
+    color: #2495e6;
+    cursor: pointer;
+}
+summary:hover {
+    color: #66b8f0;
+}
+pre {
+    margin: 6px 0 0;
+    max-height: 9rem;
+    overflow: auto;
+    padding: 8px;
+    background: #000;
+    color: #aaa;
+    font: inherit;
+    white-space: pre-wrap;
+}
+
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    max-width: calc(72ch + 32px);
+    padding: 20px 0 0 32px;
+}
+.forward {
+    margin-left: auto;
+}
+.forward,
+[data-actions] {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+/* checkra1n: .release a.download-btn.primary */
+button,
+.downloads a,
+input::file-selector-button {
+    padding: 5px 14px;
+    border: 0;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font: inherit;
+    font-size: 15px;
+    cursor: pointer;
+}
+.downloads a:link,
+.downloads a:visited {
+    color: #fff;
+}
+button:not(:disabled):hover,
+.downloads a:hover,
+input:not(:disabled)::file-selector-button:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+input::file-selector-button {
+    margin-right: 8px;
+}
+button:disabled,
+input:disabled::file-selector-button {
+    color: #888;
+    background: rgba(255, 255, 255, 0.05);
+    cursor: default;
+}
+button.primary {
+    font-weight: bold;
+}
+button.text-button {
+    padding-inline: 0;
+    background: none;
+    color: #2495e6;
+}
+button.text-button:not(:disabled):hover {
+    background: none;
+    color: #66b8f0;
+}
+#choose-files {
+    margin-top: 8px;
+}
+
+p + ol {
+    margin-top: 8px;
+}
+
+/* Quiet link under the step list (Root, Recovery), a gap between groups of steps. */
+.steps .aside {
+    margin: 16px 0 0 23px;
+    font-size: 14px;
+}
+.steps .aside a:link,
+.steps .aside a:visited {
+    color: #888;
+}
+.steps .aside a:link:hover,
+.steps .aside a:visited:hover {
+    color: #66b8f0;
+}
+.steps li.group {
+    margin-top: 12px;
+}
+
+/* Help that only some people need, folded on the step that needs it. */
+details.help {
+    margin-top: 16px;
+    font-size: 14px;
+    color: #aaa;
+}
+details.help p {
+    margin-top: 6px;
+}
+details.help code {
+    color: #fff;
+}
+
+/* Recovery: text field, checkbox, module list. */
+.field input[type="text"] {
+    width: 100%;
+    max-width: 64ch;
+    padding: 5px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+}
+.toggle {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-block: 12px 8px;
+    font-size: 15px;
+}
+.toggle input {
+    accent-color: #2495e6;
+}
+fieldset {
+    margin: 12px 0 0;
+    padding: 0;
+    border: 0;
+}
+legend {
+    padding: 0;
+    font-size: 15px;
+    font-weight: bold;
+}
+fieldset .toggle {
+    margin-top: 6px;
+}
+.row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+@media (max-width: 560px) {
+    .window {
+        grid-template-columns: minmax(0, 1fr);
+        min-height: 0;
+        margin-top: 20px;
+    }
+    .steps {
+        padding: 0 0 12px;
+        border-right: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .steps ol {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0 14px;
+    }
+    .steps button {
+        width: auto;
+        font-size: 14px;
+    }
+    .steps li.group {
+        margin-top: 0;
+    }
+    .steps .aside {
+        margin: 8px 0 0;
+    }
+    .content {
+        min-height: 200px;
+        padding: 16px 0 0;
+    }
+    .controls {
+        padding-left: 0;
+    }
+}

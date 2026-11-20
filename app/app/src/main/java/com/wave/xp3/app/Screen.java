@@ -208,7 +208,7 @@ abstract class Screen {
             if (!mark.hadFocus) return;
             View target = find(mark.key);
             if (target == null) target = find(fallbackKey);
-            if (target == null) target = firstFocusable(column);
+            if (target == null) target = firstFocusable(scroll);
             if (target != null) target.requestFocus();
         }
 

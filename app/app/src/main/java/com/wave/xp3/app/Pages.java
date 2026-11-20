@@ -162,15 +162,13 @@ final class Pages {
 
     // ------------------------------------------------------------------ Wave
 
-    /** What stands under Featured when there is nothing featured. */
-    static String featuredEmpty(Snapshot s) {
-        boolean refreshing = s.sources.isEmpty() || anyRefreshing(s);
-        return s.firstLoadError != null ? "Cannot load sources. " + s.firstLoadError : refreshing ? "Loading…" : "Nothing featured yet.";
-    }
-
-    /** The Root row of the Wave tab, or null when root works. */
-    static String rootRow(WaveData.Root root) {
-        return root == WaveData.Root.OK ? null : root == WaveData.Root.CHECKING ? "Checking…" : "Not granted";
+    /** Root access status at the top of the Wave tab. The tone applies to the icon. */
+    static Line rootStatus(WaveData.Root root) {
+        switch (root) {
+            case OK: return new Line("Root access granted", Tone.GREEN);
+            case NONE: return new Line("Root access not granted", Tone.ORANGE);
+            default: return new Line("Checking root access…", Tone.MUTED);
+        }
     }
 
     static String rootText(WaveData.Root root) {

@@ -1,51 +1,47 @@
 # Wave on the web
 
-The public site includes the XP3800 landing page, platform notes and app setup.
-It has no server-side component. `site/AGENTS.md` describes its layout,
-local preview and tests. Pages must be enabled with **GitHub Actions** as the
-source; no deployment is needed for a local preview.
+Two static pages, served from GitHub Pages at `thooton.github.io/wave/`:
 
-Run these commands from the repository root with Node 22 and Python 3.
-Output must be a new directory. Neither the site build nor the tests require
-an npm install or sibling checkout.
+- `index.html` (the site root) roots the Sonim XP3800 and installs Wave
+  (`src/root/rooting.mjs`).
+- `recovery/` turns off broken Magisk modules (`src/root/rescue.mjs`) and
+  writes the saved stock boot image back (`src/root/stock.mjs`);
+  `src/root/recovery.mjs` switches its panes.
+
+There is no server-side component. `site/AGENTS.md` has the rules for these
+pages. The Build workflow (`.github/workflows/build.yml`) tests and stages the
+site after building the APK, and deploys it from master; Pages must be enabled
+with **GitHub Actions** as the source.
+
+## Served files
+
+The deployed site serves everything the flow needs, so the user chooses no
+files. `build.py` stages them in `files/` with a `files.json` listing each
+file's size and SHA-256. The pages check each download against that list, and
+the programmer and Magisk against their pins as well:
+
+| Role | `build.py` option | Source in CI |
+| --- | --- | --- |
+| Wave APK | `--wave-apk PATH --wave-version X` | the `wave-apk` artifact from the same run |
+| Magisk 24.0 | `--magisk-apk PATH` (must be the official APK) | downloaded from the Magisk v24.0 release |
+| Sonim programmer | `--programmer PATH` (must be the pinned file) | downloaded from the repository variable `SONIM_PROGRAMMER_URL` |
+
+Anything not staged falls back to a file picker on the page. With all three
+staged, the rooting page skips its **Choose files** step.
+
+## Local build
+
+Run these from the repository root with Node 22 and Python 3. The output must
+be a new directory. Nothing needs an npm install.
 
 ```sh
 node --test site/tests/*.test.mjs site/src/protocols/tests/*.test.mjs
-python3 site/scripts/build.py /path/to/new/preview/wave
+python3 site/scripts/build.py /path/to/new/preview/wave [--programmer PATH --magisk-apk PATH --wave-apk PATH --wave-version X]
 python3 site/scripts/check_pages.py /path/to/new/preview/wave
-python3 -m unittest discover -s site/scripts
+python3 -m http.server --directory /path/to/new/preview 8000   # http://localhost:8000/wave/
 ```
 
-The setup form's descriptors are a snapshot of the six apps' `wave-setup.json`
-files in wave_packages. `site/setup/UPSTREAM` records the commit they came
-from (like `common/UPSTREAM`), and the snapshot's first line repeats it.
-When those files change, run `python3 site/scripts/sync_setup.py ../sonim`
-(reads that checkout's committed HEAD), review the diff and commit both
-files. To verify, run `python3 site/scripts/sync_setup.py ../sonim --check`:
-it regenerates from the recorded commit and fails on any difference, and
-only notes when wave_packages has newer descriptor changes. Without a path,
-`--check` verifies offline that the record and snapshot agree. The Pages
-workflow runs the offline check always, and the full one once the
-repository variable `WAVE_PACKAGES_CHECK` is `true` (secret
-`WAVE_PACKAGES_READ_TOKEN` if the repository is private).
-
 The checker covers relative URLs and fragments, HTML landmarks and label
-references, static module imports, and reachability of all staged assets.
-The landing page has no JavaScript and a 64 KiB asset budget; the whole
-artifact has a 260 KiB budget, uncompressed, not counting the Magisk and Wave
-APKs that `build.py --magisk-apk PATH --wave-apk PATH --wave-version X` can
-stage in `rooting/files/` (the checker verifies them against `files.json`). The five real
-phone screenshots on the landing page (`site/mockups/phone/`) are converted by
-`python3 site/scripts/screens.py` to 256-colour lossless WebP (about 37 kB in all;
-about 0.5% of pixels at most move by more than 4 levels, all anti-aliasing
-fringes). The script refuses a screen that changes more, and `--check` fails if
-the committed files are not what it would write. They are plain `<img>` elements
-with captions, no script.
-
-For a keyboard smoke test, serve the parent of the staged `wave` directory.
-Use Tab, Shift+Tab and Enter to follow the first skip link into each page,
-choose an app with the arrow keys, submit an empty form, and confirm focus
-returns to the named invalid field. The 320px-and-narrower layout uses a
-single column of navigation links for browsers with native directional
-focus. A browser that does not implement directional focus still needs Tab
-or equivalent access keys; the site does not override arrow-key scrolling.
+references, static module and CSS imports, reachability of every staged asset
+from `index.html`, and byte budgets. The site has a 300 KiB budget,
+uncompressed, which doesn't count `files/`.

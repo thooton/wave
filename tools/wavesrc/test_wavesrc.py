@@ -453,7 +453,7 @@ fi
             self.binary = Path(path).resolve()
             self.assertTrue(self.binary.is_file(), self.binary)
         else:
-            self.binary = ROOT.parent / "sonim/list/android/app/build/outputs/apk/release/app-release.apk"
+            self.binary = ROOT.parent / "wave_packages/list/android/app/build/outputs/apk/release/app-release.apk"
         try:
             aapt2 = artifact.aapt2_command(None)
         except Invalid:

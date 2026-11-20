@@ -5,9 +5,8 @@
 #
 #   tools/sync-common.sh [--check] [path-to-wave_packages]
 #
-# The path defaults to ../wave_packages beside this repo, or ../sonim (its
-# name before the rename) when that doesn't exist. The copy is of what is
-# committed there (git archive of HEAD), so local edits in wave_packages
+# The path defaults to ../wave_packages beside this repo. The copy is of
+# what is committed there (git archive of HEAD), so local edits in wave_packages
 # never leak in. Bump Wave's version when the copy changes what it builds.
 # --check compares the working copy with the exact recorded commit and
 # separately reports whether P has committed more changes since then.
@@ -23,13 +22,8 @@ if [ "$#" -gt 1 ]; then
     echo "usage: $0 [--check] [path-to-wave_packages]" >&2
     exit 2
 fi
-src=${1:-}
-if [ -z "$src" ]; then
-    for candidate in "$here/../wave_packages" "$here/../sonim"; do
-        if [ -d "$candidate/common" ]; then src=$candidate; break; fi
-    done
-fi
-if [ -z "$src" ] || [ ! -d "$src/common" ]; then
+src=${1:-"$here/../wave_packages"}
+if [ ! -d "$src/common" ]; then
     echo "sync-common: no wave_packages checkout found (pass its path)" >&2
     exit 1
 fi

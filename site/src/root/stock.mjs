@@ -7,6 +7,7 @@ import { bootBytes, checkBootImage, sha256 } from '../protocols/boot-image.mjs';
 import { verifyBootSignature, xp3800BootCertSha256 } from '../protocols/boot-signature.mjs';
 import { FirehoseBootWriter } from '../protocols/firehose-write.mjs';
 import { checkProgrammer } from '../protocols/sahara.mjs';
+import { fetchServed, servedFiles } from './served.mjs';
 
 const progress = $('progress');
 let busy = false, checked, programmer, beforeUrl;
@@ -124,5 +125,18 @@ $('write').addEventListener('click', () => task('write-status', async say => {
 }));
 
 window.addEventListener('pagehide', () => { if (beforeUrl) URL.revokeObjectURL(beforeUrl); });
+// The site may serve the programmer (build.py --programmer); then there is nothing to choose.
+async function loadServedProgrammer() {
+  const base = new URL('../files/', document.baseURI);
+  const { programmer: entry } = await servedFiles(base);
+  if (!entry) return;
+  const bytes = await fetchServed(base, entry);
+  await checkProgrammer(bytes);
+  if (programmer) return;
+  programmer = bytes;
+  $('programmer-pick').hidden = true;
+  render();
+}
 render();
+loadServedProgrammer().catch(() => {});
 if (!isWebUsb()) show($('write-status'), 'Writing needs WebUSB: Chrome or Edge on a secure (HTTPS) page.', true);

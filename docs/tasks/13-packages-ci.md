@@ -4,8 +4,8 @@
 
 ## Read first
 `../design.md` sections 7 and 8, `../source-format.md`,
-`../sonim/.github/workflows/build-apks.yml`, `../sonim/.github/manifest.py`,
-`../sonim/AGENTS.md` ("Releases", "Every change to an app bumps its
+`../wave_packages/.github/workflows/build-apks.yml`, `../wave_packages/.github/manifest.py`,
+`../wave_packages/AGENTS.md` ("Releases", "Every change to an app bumps its
 version").
 
 ## Goal
@@ -37,10 +37,9 @@ the default source, with nothing done by hand.
   releases, `gradle/retired-apps.txt`) and stay on phones that have them.
   Wave's manifest replaces nothing (decision 6): Installer is how Wave
   installs apps without root and is the device owner on those phones.
-- **The old channel**: keep publishing the rolling `latest` release with
-  `manifest.json` until 17's migration checklist verifies that all known
-  legacy devices update through Wave. If the inventory or migration status
-  is unknown, keep the job and continue publishing the Wave releases.
+- **The old channel**: leave the public `thooton/sonim` release with its
+  `manifest.json` in place for legacy devices. P's rolling `latest` is local
+  to the new repo and does not change what the old Updater downloads.
 - `AGENTS.md` updated: how shipping works now, and that `SPEC.md` rules and
   version bumps still apply.
 

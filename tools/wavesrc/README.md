@@ -16,7 +16,7 @@ future. Use `lint --download` for binary package ID and version checks.
 
 The tool and tests use the Python standard library; Git is needed for publishing
 and `aapt2` is needed to inspect APKs. The APK
-integration test uses the sibling `../sonim` List build if it exists, or builds
+integration test uses the sibling `../wave_packages` List build if it exists, or builds
 a tiny fixture with the installed SDK. Set `WAVESRC_TEST_APK` to exercise
 another APK. No tests contact GitHub or need network credentials.
 

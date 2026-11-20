@@ -10,7 +10,8 @@ What exists today (checked 2026-11-19, read-only):
 | Repo | Local folder | On GitHub |
 | :--- | :--- | :--- |
 | `thooton/wave` (W) | `wave` | not there |
-| `thooton/wave_packages` (P) | `sonim` (keep this name, decision 6) | still `thooton/sonim`, 87 commits behind local `master` |
+| `thooton/wave_packages` (P) | `wave_packages` | separate repo not hosted yet |
+| `thooton/sonim` (legacy) | `sonim` | unchanged, `master` and `latest` at `1f8a7d6` |
 | `thooton/wave_repository` (R) | `wave_repository` | not there |
 | `thooton/wave_private_packages` | `wave_private_packages` | not there |
 
@@ -18,10 +19,10 @@ The local `origin`s already point at the final URLs. So `git push` in a
 folder whose repo doesn't exist yet just fails; it doesn't go anywhere else.
 
 **Read this first.** Pushing P (step 9) is a release, not a backup:
-- Every phone still on the old Updater gets the new app versions from the
-  rolling `latest` release.
-- Each app gets an immutable versioned release.
-- Each app is published to the public default source.
+- Each eligible app gets an immutable versioned release in `wave_packages`
+  and is published to the public default source.
+- P's own rolling `latest` is separate. The original `sonim` repo and its
+  `latest` remain untouched, so old Updater installs do not switch to Wave.
 
 Everything before step 9 can be undone or is harmless. Step 9 and the token
 scopes are the steps to take slowly.
@@ -30,20 +31,18 @@ scopes are the steps to take slowly.
 
 1. Make sure everything is committed and the tests pass. Commands:
    ```sh
-   git status --short; git -C ../sonim status --short; git -C ../wave_repository status --short
+   git status --short; git -C ../wave_packages status --short; git -C ../wave_repository status --short
    JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew -q :app:core:selfTest
    python3 -m unittest discover -s tools/wavesrc -p 'test*.py'
    node --test site/tests/*.test.mjs site/src/protocols/tests/*.test.mjs
-   python3 site/scripts/sync_setup.py ../sonim --check
-   python3 -m unittest discover -s site/scripts
    ```
    **Check:** no stray changes you didn't mean to publish (P has the old
    `.claude/worktrees` deletions and `places/wave/`; leave those
    uncommitted). Each suite says OK.
-2. Review what goes public. Most of it is P's 87 new commits and the
-   `stock-*` tags, which hold code derived from Sonim's stock APKs. Only you
-   can judge the redistribution rights. **Check:** you are content for all
-   of it to be public. If not, stop here.
+2. Review what goes public: P's unpublished history and any `stock-*` tags
+   you choose to push. The tags hold code derived from Sonim's stock APKs.
+   Only you can judge the redistribution rights. If the history is not
+   ready to be public, do not push it to a public repo.
 
 ## 0a. Make the release signing key (before anything is published)
 
@@ -112,28 +111,21 @@ an APK signed with a public key. You make the key once.
    certificate digest matches `signing/release-key.sha256`. Never put any of
    the four values in a file, URL or command line that is committed or logged.
 
-## 1. Rename `sonim` to `wave_packages` (hard to undo)
+## 1. Create `thooton/wave_packages` separately
 
-1. Back up what old phones download today, in case step 9 needs undoing:
+1. At https://github.com/new, create `thooton/wave_packages` as a new,
+   empty repo (no README, .gitignore or license). Do not rename, push to,
+   or change releases in `thooton/sonim` for this rollout.
+2. Confirm the local `../wave_packages` origin is
+   `https://github.com/thooton/wave_packages.git`. Leave its first push to
+   step 9. Complete signing setup (0a) after the empty repos exist and
+   before the first pushes to their `master` branches.
+3. Verify the legacy branch and manifest independently:
    ```sh
-   mkdir -p ~/Documents/latest-backup && cd ~/Documents/latest-backup
-   for f in $(curl -fsSL https://api.github.com/repos/thooton/sonim/releases/tags/latest | python3 -c "import json,sys;[print(a['browser_download_url']) for a in json.load(sys.stdin)['assets']]"); do curl -fLO "$f"; done
-   ls | wc -l
+   git ls-remote https://github.com/thooton/sonim.git refs/heads/master refs/tags/latest
+   curl -fsL -o /dev/null https://github.com/thooton/sonim/releases/download/latest/manifest.json
    ```
-2. On github.com/thooton/sonim, open Settings → General → Repository name.
-   Type `wave_packages` and press Rename.
-3. **Check:** the old address still answers through GitHub's redirect.
-   Phones on the old Updater depend on it:
-   ```sh
-   curl -fsIL https://github.com/thooton/sonim/releases/download/latest/manifest.json | grep -i '^HTTP'
-   git ls-remote https://github.com/thooton/sonim master
-   ```
-   The last `HTTP` line should say 200, and `ls-remote` should print a hash.
-4. **If it doesn't:** rename it back to `sonim` at once, and the old URL
-   works again. Then find out why before trying again.
-5. **Irreversible hazard: never create a new repository named `sonim`.**
-   That breaks the redirect for good, and every phone on the old Updater
-   stops getting updates.
+   The old Updater depends on the original release URL, not a redirect.
 
 ## 2. Create `thooton/wave` and push W
 
@@ -147,7 +139,7 @@ an APK signed with a public key. You make the key once.
    - `git ls-remote origin master` matches `git rev-parse master`.
    - In Actions, the **Build** run on `master` is green. Its "Publish Wave"
      job is skipped, which is expected.
-   - **Public website** fails or is skipped until step 4; that's fine.
+   - Its **Deploy the website** job fails until step 4; that's fine.
 4. **If Build fails:** read the failing step's log, fix it locally, commit
    and push again. Never force-push `master`.
 
@@ -169,24 +161,34 @@ The other repos' workflows call `thooton/wave/lint@v1` and
 
 ## 4. Turn on Pages
 
+The Build workflow deploys the website (the rooting page and `recovery/`)
+after it builds the APK, on every push to `master`. The site serves the APK it
+just built, the official Magisk 24.0 and the Sonim programmer, so users choose
+no files.
+
 1. In `thooton/wave`, open Settings → Pages → Build and deployment →
    Source, and choose **GitHub Actions**.
-2. In Actions, choose **Public website**, then Run workflow on `master`.
-3. **Check:** each of these prints 200:
+2. Make the programmer available to CI. The programmer is Sonim's file, so
+   only you can judge whether it may be redistributed. Host the verified copy
+   (`prog_emmc_firehose_8909_ddr.mbn`, SHA-256 `e6f2dbcf…2767`) somewhere CI
+   can download it, and in Settings → Secrets and variables → Actions →
+   Variables set `SONIM_PROGRAMMER_URL` to that URL. `build.py` refuses any
+   other file. Without the variable the site still deploys, with a warning,
+   and the page asks users for the file.
+3. In Actions, re-run **Build** on `master`.
+4. **Check:** each of these prints 200:
    ```sh
-   for p in "" setup/ root/ rescue/ restore/; do curl -s -o /dev/null -w "%{http_code} $p\n" https://thooton.github.io/wave/$p; done
+   for p in "" recovery/ files/files.json; do curl -s -o /dev/null -w "%{http_code} $p\n" https://thooton.github.io/wave/$p; done
+   curl -s https://thooton.github.io/wave/files/files.json
    ```
-   Then open https://thooton.github.io/wave/setup/ and make a setup file
-   for any app. It downloads, and nothing is sent anywhere. `rooting/`,
-   `stock/` and `backup/` are published too (the owner put rooting in the
-   default build on 2026-11-20). To serve Magisk 24.0 and Wave from the site,
-   have the workflow pass `--magisk-apk` and `--wave-apk` to
-   `site/scripts/build.py`; without them the page asks for the files.
-4. **If it shows 404 or the deploy job fails:**
+   `files.json` lists `programmer`, `magisk` and `wave`. Open
+   https://thooton.github.io/wave/ in Chrome: after **Start** it goes
+   straight to **Connect phone**, with no **Choose files** step.
+5. **If it shows 404 or the deploy job fails:**
    - In Settings → Environments → `github-pages`, the deployment branch rule
      must allow `master`.
-   - Then run the workflow again. A Pages site can take a few minutes to
-     appear the first time.
+   - Then re-run Build. A Pages site can take a few minutes to appear the
+     first time.
 
 ## 5. Create `thooton/wave_repository` (the default source) and push R
 
@@ -234,12 +236,6 @@ takes a token, not a deploy key.
 
 ## 7. First publication: Wave itself
 
-Also in `thooton/wave`, once `thooton/wave_packages` is pushed, add the variable
-`WAVE_PACKAGES_CHECK` = `true` (and the secret `WAVE_PACKAGES_READ_TOKEN`, a
-read-only token, if that repository is private). The Pages workflow then
-verifies the setup-form snapshot against the commit recorded in
-`site/setup/UPSTREAM`. Without it, only the offline record check runs.
-
 1. In `thooton/wave`, open Settings → Secrets and variables → Actions →
    Variables → New repository variable: `WAVE_PUBLISH_ENABLED` = `true`.
 2. In Actions, choose **Build**, then Run workflow on `master`.
@@ -286,34 +282,30 @@ A real force push is now refused (GitHub only refuses it on a real push;
 don't test it on `master`). Then push an ordinary commit to R's `master`
 through CI in step 9; it must still go through.
 
-## 9. First package release: push P (a release to existing phones)
+## 9. First package release: push P
 
-**Before you push, know what happens.** CI starts on the push:
-1. It builds all 18 APKs.
-2. For each of the 16 apps in the default source, it creates an
-   **immutable** release `<app>-<version>` (for example `list-1.2.7`,
-   `appdrawer-…`) and publishes it into R.
-3. It **replaces the assets of the `latest` release.** Every phone on the
-   old Updater then sees updates to every app changed in the 87 commits.
-   That includes the six apps that no longer carry a built-in login: Places,
-   Mail, Charge, Authenticator, Flashcards and Canvas. Each carries the old
-   login over once on update.
+**Before you push, know what happens.** CI builds the APKs, creates immutable
+versioned releases in `wave_packages`, and publishes the eligible apps to R.
+It also has a rolling `latest` job in P. Neither job updates the original
+`thooton/sonim` repo or switches phones on the old Updater to the Wave channel.
 
-The versioned releases can't be taken back. `latest` can, from the backup
-in step 1.
-
-1. Push from W:
+1. From W, verify the destination and push:
    ```sh
-   git -C ../sonim push -u origin master
-   git -C ../sonim push origin refs/tags/stock-messages refs/tags/stock-launcher refs/tags/stock-music
+   git -C ../wave_packages remote get-url --push origin
+   git -C ../wave_packages push -u origin master
+   ```
+   The destination must be `https://github.com/thooton/wave_packages.git`.
+   Push the `stock-*` tags separately only if they passed step 0's review:
+   ```sh
+   git -C ../wave_packages push origin refs/tags/stock-messages refs/tags/stock-launcher refs/tags/stock-music
    ```
 2. **Check:**
    - Actions → **Build and publish XP3800 packages** is green. The
      `release-mods` job is skipped; see step 10.
    - Releases show one `<app>-<version>` per app, and `latest` with
      `manifest.json` and `versions.txt`.
-   - The old URL from step 1 still answers 200, and its `versions.txt`
-     lists the new versions.
+   - The old `thooton/sonim` manifest still answers 200; it does not list
+     the new Wave releases.
    - Rerun the clone and `lint --download` from step 7: all 17 packages
      (16 apps plus Wave) pass.
    - On the phone, Wave lists them under Applications.
@@ -322,13 +314,8 @@ in step 1.
      changed after its release tag. Bump it in P, commit, push.
    - **Release made but the manifest wasn't pushed:** Run workflow with
      **retry-publish**.
-   - **An app on old phones misbehaves:** put the old files back on `latest`
-     until it's fixed:
-     ```sh
-     cd ~/Documents/latest-backup && gh release upload latest * --clobber -R thooton/wave_packages
-     ```
-     The next push to P's `master` overwrites `latest` again, so fix the
-     app first.
+   - **A Wave app misbehaves after release:** fix it, bump its version, and
+     publish again. Do not change `thooton/sonim` as a Wave rollback.
 
 ## 10. Mods (not possible yet)
 
@@ -340,20 +327,13 @@ The three mods only install when signed with Sonim's own keys. Then:
 
 There is no signing material, so skip this. Nothing else depends on it.
 
-## 11. Old-name sweep
+## 11. Check the separation
 
-1. In `thooton/delta` (its nightly QA) and in W, P and R:
-   ```sh
-   git grep -nE 'thooton/sonim|\.\./sonim'
-   ```
-   Change live references to `thooton/wave_packages`. Keep:
-   - old Updater URL tests;
-   - historical notes;
-   - the local folder `../sonim`.
-2. In `wave_packages`, open Settings → Secrets and variables → Actions.
-   **Check:** `QA_DELTA_SERVER` and `QA_DEVICE_TOKEN` are still listed (a
-   rename keeps them). The **QA emulators** workflow runs when started by
-   hand.
+Verify that Wave publishing and package-development paths point to the new
+repos, not `thooton/sonim`. Leave Delta's existing Sonim nightly QA and the
+old Updater URL alone. If enabling QA separately in `wave_packages`, set
+`QA_DELTA_SERVER` and `QA_DEVICE_TOKEN` there. A new repo does not inherit
+secrets from `sonim`.
 
 <a id="source-and-tablet-private-cutover"></a>
 

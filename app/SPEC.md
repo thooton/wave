@@ -42,10 +42,11 @@ focus stop); Back goes back a screen, on a tab's first screen closes Wave
 the menu for the focused row. Up from a page's top row reaches the bar's
 link (Add, Update All; else Refresh).
 
-- **Wave** (title Home): Reboot to Finish row while a mod waits for a
-  reboot; the welcome header; Featured (the default source's), browse
-  rows; What is Wave; Add a Source (opens it on the Sources tab); without
-  root, a Root for System Mods row; then This Phone and Community as text.
+- **Wave** (title Home): root access status at the top. **Root access not
+  granted** has an orange warning icon and opens the root instructions;
+  **Root access granted** has a green check and is not an action. Then
+  Reboot to Finish if pending, the welcome header, This Phone and Community.
+  Add a Source is available from Sources, not Home.
 - **Sources**: Refresh (or a spinner) and Add on the bar; All Sources, then
   each source (icon, name, address; "Refreshing…" with a spinner, or the
   failure in red with a warning sign). Nothing fetched and a failure: the

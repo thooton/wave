@@ -10,19 +10,24 @@ import { checkPatchedBoot, verifyBootSignature, xp3800BootCertSha256 } from '../
 import { FirehoseBootReader } from '../protocols/firehose.mjs';
 import { FirehoseBootWriter, WriteCheckError } from '../protocols/firehose-write.mjs';
 import { checkProgrammer } from '../protocols/sahara.mjs';
+import { fetchServed, servedFiles } from './served.mjs';
 
 const KEY = 'wave-rooting-v1';
 const STAGES = ['check', 'backup', 'save', 'patch', 'flash', 'finish', 'done'];
-const TITLES = {
-  check: 'Step 2: connect the phone.', backup: 'Step 3: read the stock boot image in EDL.', save: 'Step 4: save the backup.',
-  patch: 'Step 5: patch on the phone.', flash: 'Step 6: write the patched boot in EDL.', finish: 'Step 7: check root and finish in Magisk.',
-  done: 'Rooted. Step 8: open Wave.',
-};
-const STEP_OF = { check: 'step-check', backup: 'step-backup', save: 'step-save', patch: 'step-patch', flash: 'step-flash', finish: 'step-finish', done: 'step-done' };
-const progress = $('progress'), log = $('log');
+const VIEWS = ['intro', 'files', ...STAGES];
+const progress = $('progress'), log = $('log'), activity = $('activity'), activityLog = $('activity-log');
+const steps = [...document.querySelectorAll('[data-step]')];
+const actions = [...document.querySelectorAll('[data-actions]')];
 let state = load(), busy = false, urls = [];
+let view = initialView(), activityView;
 const files = { programmer: null, magisk: null, wave: null };
-const staged = {};
+const LABELS = { programmer: 'Sonim programmer', magisk: 'Magisk 24.0 APK', wave: 'Wave APK' };
+const SERVED = new URL('files/', document.baseURI);
+let staged = {};
+const fetched = {};
+const has = name => !!(files[name] || staged[name]);
+// With every file served by the site, there is nothing to choose: skip that step.
+const allServed = () => !!(staged.programmer && staged.magisk && staged.wave);
 
 function load() {
   try {
@@ -62,14 +67,14 @@ async function getImage(name, hash) {
   const bytes = await store('readonly', s => s.get(name));
   if (!(bytes instanceof Uint8Array) || await sha256(bytes) !== hash) {
     throw new Error(name === 'stock'
-      ? 'This browser no longer has the backup. Choose your saved boot image in step 4 again.'
-      : 'This browser no longer has the patched image. Run step 5 again.');
+      ? 'This browser no longer has the backup. Choose your saved boot image again in Save backup.'
+      : 'This browser no longer has the patched image. Run Patch boot again.');
   }
   return bytes;
 }
 
 function note(text) {
-  log.hidden = false;
+  activityLog.hidden = false;
   log.textContent += (log.textContent ? '\n' : '') + text;
 }
 function setProgress(fraction) {
@@ -77,45 +82,101 @@ function setProgress(fraction) {
   if (fraction !== undefined) progress.value = Math.floor(fraction * 100);
 }
 
+function initialView() {
+  return state.stage === 'check' && !state.serial ? 'intro' : state.stage;
+}
+function selectView(next) {
+  view = next;
+  render();
+  $(`step-${view}`).querySelector('h1, h2').focus();
+}
+function canReview(step) {
+  if (busy || step === view) return false;
+  if (step === 'intro') return state.stage === 'check';
+  if (step === 'files') return view !== 'intro';
+  if (step === 'check' && state.stage === 'check' && view === 'intro') return false;
+  return step === state.stage || (step === 'check' && state.stage === 'backup')
+    || (step === 'patch' && state.stage === 'flash') || (step === 'finish' && state.stage === 'done');
+}
+
 function render() {
-  const index = STAGES.indexOf(state.stage);
-  show($('where'), isWebUsb() ? TITLES[state.stage] : 'WebUSB is not available here. Use Chrome or Edge on a secure (HTTPS) page.', !isWebUsb());
-  $('start-over').hidden = state.stage === 'check' && !state.serial;
-  for (const [stage, id] of Object.entries(STEP_OF)) {
-    const section = $(id);
-    if (stage === state.stage) section.setAttribute('aria-current', 'step'); else section.removeAttribute('aria-current');
-    section.toggleAttribute('data-past', STAGES.indexOf(stage) < index);
+  const supported = isWebUsb();
+  const can = stages => !busy && supported && stages.includes(state.stage);
+  const hasApks = has('magisk') && has('wave');
+  const missingFiles = (['backup', 'flash'].includes(view) && !has('programmer')) || (view === 'patch' && !hasApks);
+  const reached = state.stage === 'check' ? VIEWS.indexOf(view) : VIEWS.indexOf(state.stage);
+  $('where').hidden = supported;
+  $('start').disabled = !supported || busy;
+  $('start-over').hidden = initialView() === 'intro';
+  $('choose-files').hidden = !missingFiles;
+  $('choose-files').disabled = busy;
+  $('back').hidden = state.stage !== 'check' || !['files', 'check'].includes(view);
+  $('step-files-item').hidden = allServed() && view !== 'files';
+  $('back').disabled = busy;
+  $('resume').hidden = state.stage === 'check' || view === state.stage;
+  $('resume').disabled = busy;
+  $('continue').hidden = state.stage !== 'check';
+  $('continue').disabled = !supported || busy;
+  for (const step of steps) {
+    const name = step.dataset.step;
+    const selected = name === view;
+    $(`step-${name}`).hidden = !selected;
+    if (selected) step.setAttribute('aria-current', 'step');
+    else step.removeAttribute('aria-current');
+    step.toggleAttribute('data-past', VIEWS.indexOf(name) < reached);
+    step.disabled = !canReview(name);
   }
-  const can = stages => !busy && isWebUsb() && stages.includes(state.stage);
+  for (const group of actions) group.hidden = group.dataset.actions !== view;
+  activity.hidden = activityView !== view;
+  activityLog.hidden = activity.hidden || !log.textContent;
   $('check').disabled = !can(['check', 'backup']);
-  $('backup').disabled = !can(['backup']) || !files.programmer;
+  $('backup').disabled = !can(['backup']) || !has('programmer');
   $('saved').disabled = !can(['save']);
-  $('patch').disabled = !can(['patch', 'flash']) || !(files.magisk || staged.magisk) || !(files.wave || staged.wave);
-  $('flash').disabled = !can(['flash']) || !files.programmer;
+  $('patch').disabled = !can(['patch', 'flash']) || !hasApks;
+  $('flash').disabled = !can(['flash']) || !has('programmer');
   $('finish').disabled = !can(['finish', 'done']);
   $('grant').disabled = $('open-wave').disabled = !can(['done']);
   for (const id of ['programmer', 'magisk', 'wave', 'start-over']) $(id).disabled = busy;
-  $('save-image').hidden = $('save-manifest').hidden = !$('save-image').href;
+  $('save-image').hidden = !$('save-image').hasAttribute('href');
+  $('save-manifest').hidden = !$('save-manifest').hasAttribute('href');
 }
 
-async function task(statusId, action) {
+async function task(action) {
   if (busy) return;
   busy = true;
-  render();
-  const status = $(statusId);
+  const previousStage = state.stage;
+  const previousFocus = document.activeElement;
+  let succeeded = false;
+  activityView = view;
+  show(activity, '');
   log.textContent = '';
-  log.hidden = true;
+  activityLog.open = false;
+  render();
   try {
-    await action(message => show(status, message));
+    await action(message => show(activity, message));
+    succeeded = true;
   } catch (error) {
-    show(status, problem(error), true);
+    show(activity, problem(error), true);
     note(`Stopped: ${problem(error)}`);
   } finally {
     setProgress();
     busy = false;
-    render();
+    if (state.stage !== previousStage || (succeeded && view !== state.stage)) {
+      activityView = state.stage;
+      selectView(state.stage);
+    } else {
+      render();
+      if (document.activeElement === document.body && !previousFocus.disabled) previousFocus.focus();
+    }
   }
 }
+
+for (const step of steps) step.addEventListener('click', () => selectView(step.dataset.step));
+$('start').addEventListener('click', () => selectView(allServed() ? 'check' : 'files'));
+$('continue').addEventListener('click', () => selectView('check'));
+$('back').addEventListener('click', () => selectView(view === 'check' && !allServed() ? 'files' : 'intro'));
+$('resume').addEventListener('click', () => selectView(state.stage));
+$('choose-files').addEventListener('click', () => selectView('files'));
 
 // ---- Files ----
 async function readFile(input, check) {
@@ -142,52 +203,45 @@ for (const [id, check, label] of [['programmer', checkProgrammer, 'Programmer'],
     render();
   });
 }
-// A build may serve Magisk and Wave from this site (build.py --magisk-apk/--wave-apk).
+// A build may serve the programmer, Magisk and Wave from this site (build.py).
 async function loadStaged() {
-  let list;
-  try {
-    const response = await fetch('./files/files.json', { cache: 'no-cache' });
-    if (!response.ok) return;
-    list = await response.json();
-  } catch { return; }
-  for (const [name, entry] of Object.entries(list ?? {})) {
-    if (!['magisk', 'wave'].includes(name) || typeof entry?.file !== 'string' || !/^[A-Za-z0-9._-]+\.apk$/.test(entry.file)) continue;
-    staged[name] = entry;
-    $(`${name}-pick`).hidden = true;
-  }
-  if (staged.magisk || staged.wave) show($('files-status'), `This site provides ${[staged.magisk && 'Magisk 24.0', staged.wave && `Wave ${staged.wave.version ?? ''}`.trim()].filter(Boolean).join(' and ')}.`);
+  staged = await servedFiles(SERVED);
+  for (const name of Object.keys(staged)) $(`${name}-pick`).hidden = true;
+  const served = Object.keys(staged).filter(name => !files[name]);
+  if (served.length && !allServed()) show($('files-status'), `This site provides the ${served.map(name => LABELS[name]).join(' and ')}.`);
   render();
 }
 async function fileFor(name) {
   if (files[name]) return files[name];
   const entry = staged[name];
-  if (!entry) throw new Error(`Choose the ${name === 'magisk' ? 'Magisk 24.0' : 'Wave'} APK in step 1.`);
-  const response = await fetch(`./files/${entry.file}`);
-  if (!response.ok) throw new Error(`Could not download ${entry.file} from this site.`);
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  if (name === 'magisk') await checkMagiskApk(bytes);
-  else if (typeof entry.sha256 !== 'string' || await sha256(bytes) !== entry.sha256) throw new Error('The Wave APK from this site does not match its listed SHA-256.');
-  return bytes;
+  if (!entry) throw new Error(`Choose the ${LABELS[name]} in Choose files.`);
+  if (!fetched[name]) {
+    const bytes = await fetchServed(SERVED, entry);
+    if (name === 'programmer') await checkProgrammer(bytes);
+    if (name === 'magisk') await checkMagiskApk(bytes);
+    fetched[name] = bytes;
+  }
+  return fetched[name];
 }
 
 const connect = say => connectPhone(say, { expect: state.serial ? { serial: state.serial, fingerprint: state.fingerprint } : undefined });
-const openEdl = say => openEdlWith(say, files.programmer);
+const openEdl = async say => openEdlWith(say, await fileFor('programmer'));
 
 // ---- Steps ----
-$('check').addEventListener('click', () => task('check-status', async say => {
+$('check').addEventListener('click', () => task(async say => {
   const { adb, serial, fingerprint, battery } = await connect(say);
   try {
     const rooted = await adb.shell('command -v su; ls /sbin/magisk /sbin/su 2>/dev/null');
-    if (rooted.stdout.trim()) throw new Error('This phone already has su, so it is probably rooted. To start from stock, write its stock boot image back first (Stock boot).');
+    if (rooted.stdout.trim()) throw new Error('This phone already has su, so it is probably rooted. To start from stock, write its stock boot image back first (Recovery, linked under the steps).');
     note(`XP3800, serial ${serial}, battery ${battery}%.\n${fingerprint}`);
     await clearImages();
     save({ stage: 'backup', serial, fingerprint, stockSha: undefined, patchedSha: undefined });
-    say('Restarting into EDL. The screen stays dark; then continue with step 3.');
+    say('Restarting into EDL. The screen stays dark; then continue with Read boot.');
     await adb.reboot('edl');
   } finally { await adb.close(); }
 }));
 
-$('backup').addEventListener('click', () => task('backup-status', async say => {
+$('backup').addEventListener('click', () => task(async say => {
   const link = await openEdl(say);
   const reader = new FirehoseBootReader(link);
   let first;
@@ -216,7 +270,7 @@ $('backup').addEventListener('click', () => task('backup-status', async say => {
   note(`Stock boot: ${first.length} bytes, SHA-256 ${hash}. Two reads match; stock signature verifies.`);
   save({ stage: 'save', stockSha: hash, date: new Date().toISOString() });
   await offerBackup(first);
-  say(`Backup read.${resetNote} Save it (step 4) while Android starts.`);
+  say(`Backup read.${resetNote} Save it while Android starts.`);
 }));
 
 async function offerBackup(bytes) {
@@ -234,7 +288,7 @@ async function offerBackup(bytes) {
   render();
 }
 
-$('saved').addEventListener('change', () => task('save-status', async say => {
+$('saved').addEventListener('change', () => task(async say => {
   const file = $('saved').files[0];
   if (!file) return;
   if (file.size !== bootBytes) throw new Error('That file is not the 32 MiB boot image.');
@@ -243,10 +297,10 @@ $('saved').addEventListener('change', () => task('save-status', async say => {
   // A reload may have lost the browser's copy; the checked file replaces it.
   await putImage('stock', bytes);
   save({ stage: 'patch' });
-  say('The saved file matches the backup byte for byte. Keep it. Continue with step 5 once Android has started.');
+  say('The saved file matches the backup byte for byte. Keep it. Continue with Patch boot once Android has started.');
 }));
 
-$('patch').addEventListener('click', () => task('patch-status', async say => {
+$('patch').addEventListener('click', () => task(async say => {
   const stock = await getImage('stock', state.stockSha);
   const magisk = await fileFor('magisk'), wave = await fileFor('wave');
   const { adb } = await connect(say);
@@ -263,12 +317,12 @@ $('patch').addEventListener('click', () => task('patch-status', async say => {
     note(`Installed Magisk ${MAGISK.version} and Wave ${version}.`);
     await putImage('patched', patched);
     save({ stage: 'flash', patchedSha: await sha256(patched), patchedSize: patched.length });
-    say('Patched and checked. Restarting into EDL; then continue with step 6.');
+    say('Patched and checked. Restarting into EDL; then continue with Write boot.');
     await adb.reboot('edl');
   } finally { await adb.close(); }
 }));
 
-$('flash').addEventListener('click', () => task('flash-status', async say => {
+$('flash').addEventListener('click', () => task(async say => {
   const stock = await getImage('stock', state.stockSha), patched = await getImage('patched', state.patchedSha);
   await checkPatchedBoot(patched, stock);
   const link = await openEdl(say);
@@ -296,38 +350,38 @@ $('flash').addEventListener('click', () => task('flash-status', async say => {
         await writer.writeBoot(stock, { onProgress: (phase, done, total) => setProgress(done / total) });
         await writer.reset().catch(() => {});
         save({ stage: 'patch' });
-        throw new Error('The patched write did not verify, so the stock image was written back and verified, and Android is restarting. Nothing changed; run steps 5 and 6 again.');
+        throw new Error('The patched write did not verify, so the stock image was written back and verified, and Android is restarting. Nothing changed; run Patch boot and Write boot again.');
       } catch (restoreError) {
         if (/written back and verified/.test(restoreError.message)) throw restoreError;
-        throw new Error(`The patched write did not verify, and writing stock back failed too (${restoreError.message}). Don’t restart Android: take the battery out, start EDL cold, and write your saved backup with Stock boot.`);
+        throw new Error(`The patched write did not verify, and writing stock back failed too (${restoreError.message}). Don’t restart Android: take the battery out, start EDL cold, and write your saved backup on the Recovery page.`);
       }
     }
     if (!writer.touched) await writer.reset().catch(() => {});
-    else throw new Error(`${error.message} The write may be incomplete. Take the battery out, start EDL cold, and write your saved backup with Stock boot.`);
+    else throw new Error(`${error.message} The write may be incomplete. Take the battery out, start EDL cold, and write your saved backup on the Recovery page.`);
     throw error;
   }
   note(result.written ? `Wrote ${state.patchedSize} bytes at boot; the whole partition reads back as expected.` : 'boot already held the patched image; nothing was written.');
   save({ stage: 'finish' });
   say('Restarting Android.');
   await writer.reset().catch(() => note('The restart was not acknowledged: if the screen stays dark, hold the power key.'));
-  say('Written and verified. The first rooted start takes a little longer; then continue with step 7.');
+  say('Written and verified. The first rooted start takes a little longer; then continue with Verify root.');
 }));
 
-$('finish').addEventListener('click', () => task('finish-status', async say => {
+$('finish').addEventListener('click', () => task(async say => {
   const { adb } = await connect(say);
   try {
     const su = await adb.shell('ls -l /sbin/su');
     if (su.code !== 0 || !/->\s*\.?\/?magisk/.test(su.stdout)) {
-      throw new Error('Magisk did not start: /sbin/su is missing. If Android started normally, the stock image may still be in boot; run steps 5 and 6 again.');
+      throw new Error('Magisk did not start: /sbin/su is missing. If Android started normally, the stock image may still be in boot; run Patch boot and Write boot again.');
     }
     note('Magisk is running from the patched boot (/sbin/su → magisk).');
     await adb.shell(`monkey -p ${MAGISK.package} -c android.intent.category.LAUNCHER 1`);
     save({ stage: 'done' });
-    say('Root works. Magisk is open on the phone: if it shows “Requires Additional Setup”, choose OK and let the phone restart. Then step 8.');
+    say('Root works. Magisk is open on the phone: if it shows “Requires Additional Setup”, choose OK and let the phone restart. Then open Wave.');
   } finally { await adb.close(); }
 }));
 
-$('grant').addEventListener('click', () => task('done-status', async say => {
+$('grant').addEventListener('click', () => task(async say => {
   const { adb } = await connect(say);
   try {
     say('Answer Magisk’s prompt on the phone now: Grant (choose Forever to remember it).');
@@ -341,7 +395,7 @@ $('grant').addEventListener('click', () => task('done-status', async say => {
   } finally { await adb.close(); }
 }));
 
-$('open-wave').addEventListener('click', () => task('done-status', async say => {
+$('open-wave').addEventListener('click', () => task(async say => {
   const { adb } = await connect(say);
   try {
     const result = await adb.shell(`monkey -p ${WAVE_PACKAGE} -c android.intent.category.LAUNCHER 1`);
@@ -353,18 +407,29 @@ $('open-wave').addEventListener('click', () => task('done-status', async say => 
 
 $('start-over').addEventListener('click', async () => {
   if (!confirm('Forget this page’s progress and its copies of the images? Your saved backup files are not touched.')) return;
+  busy = true;
+  render();
   await clearImages().catch(() => {});
   localStorage.removeItem(KEY);
   for (const url of urls) URL.revokeObjectURL(url);
   urls = [];
-  $('save-image').removeAttribute('href');
+  for (const id of ['save-image', 'save-manifest']) $(id).removeAttribute('href');
+  $('saved').value = '';
   state = load();
+  activityView = undefined;
+  show(activity, '');
   log.textContent = '';
-  log.hidden = true;
-  render();
+  busy = false;
+  selectView(initialView());
 });
 
 window.addEventListener('pagehide', () => { for (const url of urls) URL.revokeObjectURL(url); });
+show($('where'), 'Use Chrome or Edge on a secure page for WebUSB.', true);
 render();
 loadStaged();
-if (state.stage === 'save') getImage('stock', state.stockSha).then(offerBackup).catch(error => show($('save-status'), error.message, true));
+if (state.stage === 'save') getImage('stock', state.stockSha).then(offerBackup).catch(error => {
+  if (state.stage !== 'save') return;
+  activityView = 'save';
+  show(activity, error.message, true);
+  render();
+});

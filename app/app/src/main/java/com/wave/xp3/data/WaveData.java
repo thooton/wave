@@ -225,9 +225,7 @@ public interface WaveData extends AutoCloseable {
         }
         private Shelf shelf(String sourceId) { return sourceId == null ? all : bySource.getOrDefault(sourceId, Shelf.empty()); }
         public List<Pkg> featured(String sourceId) {
-            if (sourceId != null) return shelf(sourceId).featured;
-            for (Src source : sources) if (source.isDefault) return shelf(source.id).featured;
-            return Collections.emptyList();
+            return shelf(sourceId).featured;
         }
         public List<Section> sections(String sourceId) { return shelf(sourceId).sections; }
         public List<Pkg> packages(String sourceId, String folder) { return shelf(sourceId).packages(folder); }

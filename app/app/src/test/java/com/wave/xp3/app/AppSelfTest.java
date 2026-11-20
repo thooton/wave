@@ -23,8 +23,7 @@ import java.util.function.Predicate;
  * Everything in :app:app that decides something without needing a View, on a
  * desktop JVM: what the rows and pages say (Pages, Format), what a package
  * offers and what pressing it does (Actions), how the phone and the sources
- * become rows (CatalogModel) and the snapshot's lookups (WaveData), and that
- * every debug fixture is a coherent snapshot. Run with
+ * become rows (CatalogModel) and the snapshot's lookups (WaveData). Run with
  * {@code ./gradlew :app:app:selfTest}.
  */
 public final class AppSelfTest {
@@ -40,7 +39,6 @@ public final class AppSelfTest {
         check.run("Search states", () -> search(check));
         check.run("Snapshot lookups", () -> snapshots(check));
         com.wave.xp3.data.DataTests.run(check);
-        FixtureTests.run(check);
         if (!check.report()) System.exit(1);
     }
 
@@ -377,13 +375,9 @@ public final class AppSelfTest {
         check.same("alert text", "a: Over 64 KB\nb: summary is required", Pages.unreadableText(Arrays.asList("a: Over 64 KB", "b: summary is required"), Collections.emptyList()));
         check.same("alert text with icons", "a: x\n\nIcons ignored:\nb: y", Pages.unreadableText(Collections.singletonList("a: x"), Collections.singletonList("b: y")));
 
-        check.same("featured: error first", "Cannot load sources. Couldn't reach the source.", Pages.featuredEmpty(loading));
-        check.same("featured: refreshing", "Loading…", Pages.featuredEmpty(snapshot(null, Collections.singletonList(src("n", true, null, false, 0, 0)), none, none)));
-        check.same("featured: no sources yet", "Loading…", Pages.featuredEmpty(snapshot(null, Collections.emptyList(), none, none)));
-        check.same("featured: nothing", "Nothing featured yet.", Pages.featuredEmpty(snapshot(null, Collections.singletonList(never), none, none)));
-        check.same("root row hidden when it works", null, Pages.rootRow(WaveData.Root.OK));
-        check.same("root row: checking", "Checking…", Pages.rootRow(WaveData.Root.CHECKING));
-        check.same("root row: not granted", "Not granted", Pages.rootRow(WaveData.Root.NONE));
+        check.same("root status: granted", "GREEN:Root access granted", Pages.rootStatus(WaveData.Root.OK).toString());
+        check.same("root status: checking", "MUTED:Checking root access…", Pages.rootStatus(WaveData.Root.CHECKING).toString());
+        check.same("root status: not granted", "ORANGE:Root access not granted", Pages.rootStatus(WaveData.Root.NONE).toString());
         check.same("root fact: yes", "Yes", Pages.rootText(WaveData.Root.OK));
         check.same("root fact: no", "No", Pages.rootText(WaveData.Root.NONE));
         List<String[]> facts = Pages.phoneFacts(snapshot(WaveData.Root.NONE, null), "XP3800", "8.1.0");
@@ -562,7 +556,8 @@ public final class AppSelfTest {
         Src two = new Src("two", "Two", "https://e.org/2", null, false, "", 1, 1, false, null, false);
         Snapshot s = new Snapshot(WaveData.Root.OK, null, null, Arrays.asList(one, two), all, by, Collections.emptyList(),
             Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), null, null);
-        check.same("featured of the default source is the home page's", Collections.singletonList(b), s.featured(null));
+        check.same("no featured across all sources", Collections.emptyList(), s.featured(null));
+        check.same("featured of the default source", Collections.singletonList(b), s.featured("one"));
         check.same("featured of a source", Collections.singletonList(c), s.featured("two"));
         check.same("featured of an unknown source", Collections.emptyList(), s.featured("nope"));
         check.same("all packages", Arrays.asList(a, b, c), s.packages(null, null));

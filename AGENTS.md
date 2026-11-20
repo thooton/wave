@@ -17,14 +17,15 @@ docs/tasks/             one brief per piece of work; README.md has the order
 spec/                   JSON Schemas and example-source/ (also the test fixture)
 app/                    the Wave app (Gradle: :app:core plain Java, :app:app Android)
 common/                 copy of wave_packages/common (don't edit here; sync it)
-site/                   landing page, device guide and setup-file generator
+site/                   the website: rooting page (site root) and recovery/
 tools/wavesrc/          lint, verify and publish for sources
 cydia_images/           screenshots of Cydia, the reference for the app's screens
 ```
 
-On this machine use `../sonim` for `wave_packages`, `../wave_repository` for
-its default source and `../wave_private_packages` for the separate private
-source. A new clone may use the GitHub name `../wave_packages` instead.
+On this machine use `../wave_packages` for package development,
+`../wave_repository` for the default source and `../wave_private_packages`
+for the private source. `../sonim` is a separate checkout of the legacy
+public repo, not the upstream of Wave's shared code.
 This checkout is `wave` locally and `thooton/wave` on GitHub.
 
 ## Rules
@@ -35,8 +36,8 @@ This checkout is `wave` locally and `thooton/wave` on GitHub.
   `docs/decisions.md`. Don't let code and docs disagree.
 - **Phone code**: Java 8 language level, nothing above API 27, no third-party
   dependencies in the app or its tests. `:core` is plain Java with a
-  `SelfTest` main class, as in `wave_packages`. Read `../sonim/AGENTS.md` and
-  `../sonim/DESIGN.md`; their conventions apply here.
+  `SelfTest` main class, as in `wave_packages`. Read `../wave_packages/AGENTS.md`
+  and `../wave_packages/DESIGN.md`; their conventions apply here.
 - **The site** may use third-party JavaScript. Keep it a static site.
 - **Every change to the app bumps its version** (`versionName` and
   `versionCode`), or it never reaches a phone.

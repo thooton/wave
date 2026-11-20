@@ -1,8 +1,0 @@
-{
-  "name": "Wave Home smoke (07)",
-  "steps": [
-    {"name": "Launch Wave", "action": "launch", "wait_ms": 1500, "text_all": ["Welcome to Wave", "Featured"]},
-    {"name": "Switch to Sources", "key": "DPAD_RIGHT", "text_any": ["All Sources", "Cannot Load Sources"], "changed": true},
-    {"name": "Return to Wave", "key": "DPAD_LEFT", "text_all": ["Welcome to Wave"], "changed": true}
-  ]
-}

@@ -105,7 +105,7 @@ manifests must never contain credentials; see
 | `maintainer` | no | A name, at most 60 characters. Shown in Sources and in the trust dialog |
 | `homepage` | no | An `https://` URL. Checked, not shown by Wave 0.7 |
 | `sections` | no | Folder name to display name (1 to 30 characters); a key that isn't a valid folder name makes `wave.json` unreadable. The order of the keys is the order shown. Folders not listed come after, alphabetically, named by their folder with a capital |
-| `featured` | no | At most 10 package ids to show on the source's page; the default source's are shown on the Wave tab. An id the source doesn't have is skipped, and `wavesrc lint` warns |
+| `featured` | no | At most 10 package ids to show on the source's page. An id the source doesn't have is skipped, and `wavesrc lint` warns |
 
 ## package.json
 

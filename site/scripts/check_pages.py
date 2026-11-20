@@ -8,9 +8,10 @@ import hashlib
 import json
 import sys
 
-BUNDLE_BUDGET = 260 * 1024
+BUNDLE_BUDGET = 300 * 1024  # Includes the Cascadia Code webfont; served files/ are not counted.
 LANDING_BUDGET = 64 * 1024
 IMPORT = re.compile(r'^\s*(?:import|export)\s+(?:[^;\'"\n]*?\bfrom\s+)?([\'"])([^\'"\n]+)\1', re.M)
+CSS_URL = re.compile(r'''\burl\(\s*(['"]?)([^'"\s)]+)\1\s*\)''', re.I)
 
 
 class Page(HTMLParser):
@@ -57,35 +58,35 @@ class Page(HTMLParser):
                 self.refs.extend((value or '').split())
 
 
-def staged_apks(root, errors):
-    """rooting/files/: APKs the rooting page fetches by name from files.json."""
-    folder = root / 'rooting/files'
+def staged_files(root, errors):
+    """files/: the programmer and APKs the pages fetch by name from files.json."""
+    folder = root / 'files'
     if not folder.exists():
         return set()
     listed = set()
     try:
         entries = json.loads((folder / 'files.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
-        errors.append('rooting/files: missing or invalid files.json')
+        errors.append('files: missing or invalid files.json')
         return {p for p in folder.rglob('*') if p.is_file()}
     for name, entry in entries.items():
         path = folder / entry.get('file', '')
-        if name not in ('magisk', 'wave') or not path.is_file() or path.parent != folder:
-            errors.append(f'rooting/files: bad entry {name}')
+        if name not in ('programmer', 'magisk', 'wave') or not path.is_file() or path.parent != folder:
+            errors.append(f'files: bad entry {name}')
             continue
         if hashlib.sha256(path.read_bytes()).hexdigest() != entry.get('sha256') or path.stat().st_size != entry.get('size'):
-            errors.append(f'rooting/files: {path.name} does not match files.json')
+            errors.append(f'files: {path.name} does not match files.json')
         listed.add(path)
     found = {p for p in folder.rglob('*') if p.is_file()}
-    errors.extend(f'rooting/files: unlisted file {p.name}' for p in sorted(found - listed - {folder / 'files.json'}))
+    errors.extend(f'files: unlisted file {p.name}' for p in sorted(found - listed - {folder / 'files.json'}))
     return found
 
 
 def check(root):
     errors = []
-    apks = staged_apks(root, errors)
+    served = staged_files(root, errors)
     pages = {p: Page(p) for p in root.rglob('*.html')}
-    files = {p for p in root.rglob('*') if p.is_file() and p.name != '.nojekyll'} - apks
+    files = {p for p in root.rglob('*') if p.is_file() and p.name != '.nojekyll'} - served
     edges = {p: set() for p in files}
     for path in sorted(files):
         page = pages.get(path)
@@ -96,6 +97,8 @@ def check(root):
             urls = [(match[2], False) for match in IMPORT.finditer(path.read_text(encoding='utf-8'))]
             if any(not url.startswith(('./', '../')) for url, _ in urls):
                 errors.append(f'{path.relative_to(root)}: non-relative module import')
+        elif path.suffix == '.css':
+            urls = [(match[2], False) for match in CSS_URL.finditer(path.read_text(encoding='utf-8'))]
         for url, external_allowed in urls:
             parts = urlsplit(url)
             if external_allowed and parts.scheme == 'https' and parts.hostname:

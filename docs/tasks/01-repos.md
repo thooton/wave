@@ -1,36 +1,31 @@
-# 01: Create and rename the repos
+# 01: Create separate Wave repos
 
 **Repos** all. **Needs** an authenticated GitHub session with the required
 repository permissions for the remote steps. **Blocks** 11, 13, 15.
 
 ## Goal
-The three repositories exist under their final names, locally and on GitHub.
+The Wave repos exist under their final names, locally and on GitHub. The
+legacy public `thooton/sonim` repo stays in place.
 
 ## Do
-1. Rename `thooton/sonim` to `thooton/wave_packages` on GitHub (history and
-   releases come along; GitHub redirects the old URL). Rename the local
-   folder `../sonim` to `../wave_packages` and fix its remote.
-2. Create `thooton/wave` and push this folder to it, or verify the existing
-   remote if already created. Use `wave` for the local folder where it can
-   be renamed safely (`../decisions.md`, open 6). Enable GitHub Pages for it
-   (source: the Actions workflow that 09 adds).
-3. Create `thooton/wave_repository`, empty, public.
-4. Give `wave_packages` CI a way to push to `wave_repository`: a deploy key
-   or fine-grained token, stored as the secret `WAVE_REPOSITORY_TOKEN`.
+1. Preserve the unpublished package commits and worktree in `../wave_packages`
+   and keep `../sonim` tracking `thooton/sonim`. Create a separate, empty
+   `thooton/wave_packages`; do not rename or push Wave work to `sonim`.
+2. Create `thooton/wave` and push this folder to it, or verify its remote if
+   already created.
+3. Create `thooton/wave_repository`, empty and public.
+4. Give `wave_packages` CI a token scoped to `wave_repository`, stored as
+   `WAVE_REPOSITORY_TOKEN`. Follow the [owner checklist](01-owner-checklist.md)
+   before the first push to the package repo's `master`, which publishes releases.
 
 ## Watch out
-- If remote access is missing, record the affected steps and finish any
-  independent local preparation. Leave active worktrees in place until
-  they can be moved safely.
+- If remote access is missing, finish the independent local preparation and
+  record hosted creation as pending.
 - **Phones on the old Updater** fetch
   `https://github.com/thooton/sonim/releases/download/latest/manifest.json`.
-  GitHub's redirect keeps that working after the rename; confirm with `curl
-  -I` before moving on, and don't create a new repo called `sonim`, which
-  would break the redirect.
-- Delta's nightly QA and anything else that names `thooton/sonim` (see
-  `../sonim/AGENTS.md` and thooton/delta) needs the new name.
-- Search every repo for the old paths afterwards (`rg -n "thooton/sonim|\.\./sonim"`).
+  That release and Delta's existing Sonim nightly QA stay with `sonim`, not
+  with Wave's new repos.
 
 ## Done when
-`git remote -v` is right in all three folders, the old manifest URL still
-answers, and `../decisions.md` open item 6 is closed.
+Each Wave checkout has its own GitHub remote, `../sonim` tracks the legacy
+public repo, and the old manifest URL still answers directly.

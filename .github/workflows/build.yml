@@ -60,6 +60,72 @@ jobs:
           path: wave.apk
           if-no-files-found: error
 
+  # The website: the rooting page at the site root and recovery/. It serves the
+  # Wave APK just built, the official Magisk 24.0 and the Sonim programmer, so
+  # the user chooses no files. Deployed to GitHub Pages from master.
+  site:
+    name: Website
+    needs: app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: wave-apk
+
+      - name: Test the site
+        run: node --test site/tests/*.test.mjs site/src/protocols/tests/*.test.mjs
+
+      # The programmer is not in the repository. Set the repository variable
+      # SONIM_PROGRAMMER_URL to where CI can download it; build.py refuses any
+      # file but the pinned one. Without it the page asks the user for the file.
+      - name: Fetch Magisk 24.0 and the Sonim programmer
+        env:
+          SONIM_PROGRAMMER_URL: ${{ vars.SONIM_PROGRAMMER_URL }}
+        run: |
+          curl -fsSL --retry 3 -o Magisk-v24.0.apk https://github.com/topjohnwu/Magisk/releases/download/v24.0/Magisk-v24.0.apk
+          if [[ -n "$SONIM_PROGRAMMER_URL" ]]; then
+            curl -fsSL --retry 3 -o prog_emmc_firehose_8909_ddr.mbn "$SONIM_PROGRAMMER_URL"
+          else
+            echo '::warning::SONIM_PROGRAMMER_URL is not set: the site will ask users for the programmer file.'
+          fi
+
+      - name: Stage the site
+        run: |
+          version=$(sed -n 's/^ *versionName "\(.*\)"$/\1/p' app/app/build.gradle)
+          options=(--magisk-apk Magisk-v24.0.apk --wave-apk wave.apk --wave-version "$version")
+          if [[ -f prog_emmc_firehose_8909_ddr.mbn ]]; then options+=(--programmer prog_emmc_firehose_8909_ddr.mbn); fi
+          python3 site/scripts/build.py "$RUNNER_TEMP/pages" "${options[@]}"
+          python3 site/scripts/check_pages.py "$RUNNER_TEMP/pages"
+
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+        with:
+          path: ${{ runner.temp }}/pages
+
+  deploy-site:
+    name: Deploy the website
+    needs: site
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: public-pages-deploy
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+    steps:
+      - name: Publish to Pages
+        id: pages
+        uses: actions/deploy-pages@v4
   publish-wave:
     name: Publish Wave to the default source
     needs: app

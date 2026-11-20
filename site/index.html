@@ -1,28 +1,135 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
-<title>Packages for your flip phone | Wave</title><link rel="icon" href="./assets/wave.svg"><link rel="stylesheet" href="./assets/site.css"></head>
-<body><a class="skip" href="#main">Skip to content</a>
-<header><div class="wrap top"><a class="brand" href="./" aria-label="Wave home"><img src="./assets/wave.svg" width="32" height="32" alt="">Wave</a><nav aria-label="Main"><a href="./root/">Device guide</a><a href="./setup/">App setup</a><a href="https://github.com/thooton/wave">GitHub ↗</a></nav></div></header>
-<main id="main" tabindex="-1" class="wrap">
-<section class="hero"><div><span class="kicker"><i></i> XP3 FIELD GUIDE <span>/</span> 01</span><h1>A package store<br>for your <em>flip phone.</em></h1><p class="lead">Wave is a package manager for the Sonim XP3800, designed for its d-pad. It brings apps, system mods and updates together. System mods require root access.</p>
-<div class="actions"><a class="button" href="root/">Root your phone <b aria-hidden="true">→</b></a><a class="plain" href="setup/">Set up an app</a></div><p class="caption">The device guide roots the phone from Chrome or Edge over USB with Magisk 24.0, after saving its stock boot image to your computer. Tested on one XP3800 with Chromium on Linux.</p></div>
-<figure class="plate"><div class="plate-label">FIG. 01 <span>/</span> WAVE HOME</div><div class="device"><img class="phone" src="assets/handset.svg" alt="" width="180" height="356"><img class="display" src="assets/screens/home.webp" alt="Wave’s Home screen on an XP3800, with Messages Improved and Mail featured" width="240" height="320"></div><figcaption>XP3800 <span>240 × 320</span></figcaption></figure></section>
-<section class="screens" aria-labelledby="screens-title"><div class="section-head"><span class="kicker">01 <span>/</span> THE APP</span><h2 id="screens-title">Wave on the XP3800</h2><p>Five screens of the app, each reached with the d-pad alone.</p></div>
-<ul class="shots">
-<li><figure><img src="assets/screens/home.webp" alt="Home: a welcome row, then Featured packages Messages Improved and Mail, and the four tabs Wave, Sources, Installed and Search" width="240" height="320" loading="lazy"><figcaption>Home</figcaption></figure></li>
-<li><figure><img src="assets/screens/sources.webp" alt="Sources: All Sources, Wave, XP3 Games and Sonim Tweaks, with Refresh and Add in the bar" width="240" height="320" loading="lazy"><figcaption>Sources</figcaption></figure></li>
-<li><figure><img src="assets/screens/details.webp" alt="Details for the app Canvas: a GET button, its size, a description and a What’s New note" width="240" height="320" loading="lazy"><figcaption>A package</figcaption></figure></li>
-<li><figure><img src="assets/screens/installed.webp" alt="Installed: Update All in the bar, and Updates for Charge and Music Improved" width="240" height="320" loading="lazy"><figcaption>Installed</figcaption></figure></li>
-<li><figure><img src="assets/screens/search.webp" alt="Search for “mus”, listing Music Improved and Música" width="240" height="320" loading="lazy"><figcaption>Search</figcaption></figure></li></ul>
-<p class="caption">Screenshots taken on a real Sonim XP3800 running a debug build of Wave (0.7.25) with sample packages, so the list is an example, not the catalog. The strip at the top is the phone’s own status bar; it shows a USB icon and carrier text because the pictures were taken over USB debugging. Each is 240 × 320 pixels, scaled to fit and reduced to 256 colours to keep the page small.</p></section>
-<section class="catalog"><div class="section-head"><span class="kicker">02 <span>/</span> THE CATALOG</span><h2>Inside the default source</h2><p>The default source is empty today. This is the collection planned for it: everyday apps, and optional changes to the stock phone.</p></div>
-<div class="grid"><article><span class="mark" aria-hidden="true">Aa</span><h3>Read &amp; explore</h3><p>Books, Dictionary, New Yorker, Weather and Places keep reference material within reach.</p></article>
-<article><span class="mark" aria-hidden="true">♫</span><h3>Media &amp; tools</h3><p>Música, Video, List, Print and Serve make room for the things you carry and share.</p></article>
-<article><span class="mark" aria-hidden="true">@</span><h3>Your accounts</h3><p>Mail, Canvas, Charge, Authenticator and Flashcards. Use the <a href="setup/">local setup tool</a> for supported apps.</p></article>
-<article><span class="mark" aria-hidden="true">≡</span><h3>System mods</h3><p>Messages Improved, Launcher Improved and Music Improved change stock apps and are not published yet. Mods take effect after a reboot.</p></article></div></section>
-<section class="row"><span class="kicker">03 <span>/</span> SOURCES</span><div><h2>Publish a collection</h2><p>A source is an HTTPS git repository with a manifest for each package. Keep release binaries at immutable URLs; include their sizes and hashes so Wave can verify each download.</p><div class="links"><a href="https://github.com/thooton/wave/blob/master/docs/source-format.md">Source format ↗</a><a href="https://github.com/thooton/wave/blob/master/docs/publishing.md">Publishing guide ↗</a></div></div></section>
-<section class="row"><span class="kicker">04 <span>/</span> TRUST</span><div><h2>Know who you install from</h2><p>Modules can run as root and read private data. A matching checksum detects a changed download, not a malicious maintainer. A broken module or boot image can stop the phone from starting. Wave’s boot watchdog restarts once and turns off a module that holds the boot; it was tested on one XP3800 with test modules, so it is no substitute for a backup. Keep personal files and a verified stock backup off the phone.</p><div class="links"><a href="rescue/">Rescue a booting phone →</a><a href="stock/">Put the stock boot back →</a></div></div></section>
-<section class="row"><span class="kicker">05 <span>/</span> COMMUNITY</span><div><h2>Made for a phone with keys</h2><p>Wave takes its cue from Cydia. Thanks to anonymousfliphones and flipphoneguy of the JTech Forums community for their XP3 research, and to the <a href="https://github.com/topjohnwu/Magisk">Magisk</a> project.</p><a href="https://github.com/thooton/wave">Follow development on GitHub ↗</a></div></section></main>
-<footer><div class="wrap foot"><span>Wave for the Sonim XP3800</span><a href="https://github.com/thooton/wave/issues">Report a problem ↗</a></div></footer></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#191919">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <title>Wave Installer</title>
+  <link rel="icon" href="assets/wave-icon.svg">
+  <link rel="stylesheet" href="assets/style.css">
+  <link rel="license" href="assets/fonts/cascadia-code-OFL.txt">
+  <script type="module" src="src/root/rooting.mjs"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <main id="main" class="window" aria-label="Wave Installer" tabindex="-1">
+    <nav class="steps" aria-label="Installation steps">
+      <ol>
+        <li><button type="button" data-step="intro" aria-controls="step-intro" aria-current="step" disabled>Introduction</button></li>
+        <li id="step-files-item"><button type="button" data-step="files" aria-controls="step-files" disabled>Choose files</button></li>
+        <li><button type="button" data-step="check" aria-controls="step-check" disabled>Connect phone</button></li>
+        <li><button type="button" data-step="backup" aria-controls="step-backup" disabled>Read boot</button></li>
+        <li><button type="button" data-step="save" aria-controls="step-save" disabled>Save backup</button></li>
+        <li><button type="button" data-step="patch" aria-controls="step-patch" disabled>Patch boot</button></li>
+        <li><button type="button" data-step="flash" aria-controls="step-flash" disabled>Write boot</button></li>
+        <li><button type="button" data-step="finish" aria-controls="step-finish" disabled>Verify root</button></li>
+        <li><button type="button" data-step="done" aria-controls="step-done" disabled>Open Wave</button></li>
+      </ol>
+      <p class="aside"><a href="recovery/">Recovery</a></p>
+    </nav>
+    <div class="pane">
+      <div class="content" id="content">
+        <section id="step-intro" aria-labelledby="intro-title">
+          <img class="logo" src="assets/wave-icon.svg" width="48" height="48" alt="">
+          <h1 id="intro-title" tabindex="-1">Welcome to Wave</h1>
+          <p class="muted">Root your Sonim XP3800 and install Wave.</p>
+          <p>This rewrites the phone’s boot partition. Keep the stock backup it saves.</p>
+        </section>
+        <section id="step-files" aria-labelledby="files-title" hidden>
+          <h2 id="files-title" tabindex="-1">Choose files</h2>
+          <div class="field" id="programmer-pick">
+            <label for="programmer">Sonim service programmer</label>
+            <input id="programmer" type="file" aria-describedby="programmer-note">
+            <small id="programmer-note"><code>prog_emmc_firehose_8909_ddr.mbn</code>, verified copy (SHA-256 <code>e6f2dbcf…2767</code>).</small>
+          </div>
+          <div class="field" id="magisk-pick">
+            <label for="magisk">Magisk 24.0 APK</label>
+            <input id="magisk" type="file" accept=".apk">
+            <small><a href="https://github.com/topjohnwu/Magisk/releases/tag/v24.0">Magisk release</a></small>
+          </div>
+          <div class="field" id="wave-pick">
+            <label for="wave">Wave APK</label>
+            <input id="wave" type="file" accept=".apk">
+            <small><a href="https://github.com/thooton/wave/releases">Wave releases</a></small>
+          </div>
+          <p class="status" id="files-status" role="status"></p>
+        </section>
+        <section id="step-check" aria-labelledby="check-title" hidden>
+          <h2 id="check-title" tabindex="-1">Connect your phone</h2>
+          <ol class="instructions">
+            <li>Charge to at least 40%. In <strong>About phone</strong>, select <strong>Build number</strong> seven times, then enable <strong>USB debugging</strong> in Developer options.</li>
+            <li>Connect only this phone with a data cable. Close desktop ADB (<code>adb kill-server</code>).</li>
+            <li>Approve USB debugging on the phone. Leave “Always allow” off.</li>
+          </ol>
+        </section>
+        <section id="step-backup" aria-labelledby="backup-title" hidden>
+          <h2 id="backup-title" tabindex="-1">Read stock boot</h2>
+          <p>The screen stays dark. Choose <strong>Qualcomm … 9008</strong> in the USB chooser.</p>
+          <details class="help">
+            <summary>The phone isn’t in the list</summary>
+            <p>Use <code>05c6:9008</code> only (<code>05c6:900e</code> is crash dump: take the battery out and start again).</p>
+            <p><strong>Windows:</strong> in Zadig, choose Options › List All Devices, select <code>05C6 9008</code>, replace its driver with WinUSB, then reload this page.</p>
+            <p><strong>Linux:</strong> allow the device with a udev rule (<code>SUBSYSTEM=="usb", ATTR{idVendor}=="05c6", ATTR{idProduct}=="9008", TAG+="uaccess"</code>). If it still can’t be claimed, <code>qcserial</code> holds it: <code>sudo modprobe -r qcserial</code>.</p>
+            <p>Close other phone tools and <code>adb</code>; only one program can use the phone at a time.</p>
+          </details>
+        </section>
+        <section id="step-save" aria-labelledby="save-title" hidden>
+          <h2 id="save-title" tabindex="-1">Save your backup</h2>
+          <p>Save both files off the phone, then select the saved boot image to verify it.</p>
+          <div class="downloads">
+            <a id="save-image" download hidden>Save boot image</a>
+            <a id="save-manifest" download hidden>Save manifest</a>
+          </div>
+          <div class="field">
+            <label for="saved">Saved boot image</label>
+            <input id="saved" type="file">
+          </div>
+        </section>
+        <section id="step-patch" aria-labelledby="patch-title" hidden>
+          <h2 id="patch-title" tabindex="-1">Patch boot</h2>
+          <p>Wait for Android to start, then reconnect. Approve USB debugging if asked.</p>
+        </section>
+        <section id="step-flash" aria-labelledby="flash-title" hidden>
+          <h2 id="flash-title" tabindex="-1">Write patched boot</h2>
+          <p>Choose <strong>Qualcomm … 9008</strong> again. Keep the phone connected until the write is verified.</p>
+        </section>
+        <section id="step-finish" aria-labelledby="finish-title" hidden>
+          <h2 id="finish-title" tabindex="-1">Verify root</h2>
+          <p>Wait for Android to start, then reconnect to verify root and open Magisk.</p>
+        </section>
+        <section id="step-done" aria-labelledby="done-title" hidden>
+          <h2 id="done-title" tabindex="-1">Open Wave</h2>
+          <p>If Magisk shows <strong>Requires Additional Setup</strong>, choose <strong>OK</strong> and wait for the restart.</p>
+          <p>Optional: grant USB root so <a href="recovery/#step-modules">Recovery</a> can turn off a broken Magisk module later. Approve it in Magisk on the phone.</p>
+        </section>
+        <button type="button" id="choose-files" class="text-button" hidden>Choose missing files</button>
+        <p class="status" id="activity" role="status"></p>
+        <label for="progress" id="progress-label" class="visually-hidden" hidden>Progress</label>
+        <progress id="progress" value="0" max="100" hidden></progress>
+        <details id="activity-log" hidden><summary>Details</summary><pre id="log"></pre></details>
+        <p class="status" id="where" role="status">JavaScript and WebUSB (Chrome or Edge) are required.</p>
+      </div>
+      <footer class="controls">
+        <button type="button" id="start-over" class="text-button" hidden>Start over</button>
+        <div class="forward">
+          <button type="button" id="back" hidden>Back</button>
+          <button type="button" id="resume" hidden>Return to current step</button>
+          <div data-actions="intro"><button type="button" class="primary" id="start" disabled>Start</button></div>
+          <div data-actions="files" hidden><button type="button" class="primary" id="continue" aria-describedby="files-status">Continue</button></div>
+          <div data-actions="check" hidden><button type="button" class="primary" id="check">Check &amp; restart into EDL</button></div>
+          <div data-actions="backup" hidden><button type="button" class="primary" id="backup">Read backup</button></div>
+          <div data-actions="patch" hidden><button type="button" class="primary" id="patch">Connect &amp; patch</button></div>
+          <div data-actions="flash" hidden><button type="button" class="primary" id="flash">Write boot</button></div>
+          <div data-actions="finish" hidden><button type="button" class="primary" id="finish">Check root</button></div>
+          <div data-actions="done" hidden>
+            <button type="button" id="grant">Ask for USB root</button>
+            <button type="button" class="primary" id="open-wave">Open Wave</button>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </main>
+</body>
+</html>

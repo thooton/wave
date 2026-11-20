@@ -11,8 +11,8 @@
 # failure, and on SIGINT/SIGTERM/SIGHUP (the signal is forwarded to COMMAND,
 # which gets 10 seconds before SIGKILL). It only ever removes a lock it made.
 # A holder that died without releasing is never stolen: ask the manager.
-# COMMAND sees WAVE_PHONE_LOCK_TOKEN, which tools/qa/run.py accepts as proof
-# that the lock is already held. Exit codes: 64 usage, 75 lock timeout.
+# COMMAND sees WAVE_PHONE_LOCK_TOKEN, which matches the lock owner line.
+# Exit codes: 64 usage, 75 lock timeout.
 set -u
 set -o pipefail
 

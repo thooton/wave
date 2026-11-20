@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Turn the apps' Android vector launcher icons (in ../sonim, which becomes
-wave_packages) into SVGs for the mockups, so the package rows show the icons
-Wave will show. Run from the repo root:
+"""Turn the apps' Android vector launcher icons in ../wave_packages into SVGs
+for the mockups, so the package rows show the icons Wave will show.
+Run from the repo root:
 
-    python3 site/mockups/icons/vec2svg.py ../sonim
+    python3 site/mockups/icons/vec2svg.py ../wave_packages
 
 It handles what the icons use: paths (fill, stroke, alpha, line caps, fill
 type), groups (translate, scale, rotate about a pivot) and linear or radial
@@ -135,7 +135,7 @@ class Conv:
 
 
 def main():
-    src = sys.argv[1] if len(sys.argv) > 1 else '../sonim'
+    src = sys.argv[1] if len(sys.argv) > 1 else '../wave_packages'
     here = os.path.dirname(os.path.abspath(__file__))
     for name, base in APPS.items():
         p = os.path.join(src, base, 'app/src/main/res/drawable/ic_launcher.xml')

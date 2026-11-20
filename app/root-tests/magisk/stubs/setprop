@@ -1,8 +1,0 @@
-#!/sbin/.magisk/busybox/busybox sh
-# Pretend setprop; ctl.stop/ctl.start zygote stop and start the pretend framework.
-echo "setprop $*" >> /fake/calls
-case "$1 $2" in
-    "ctl.stop zygote") touch /fake/zygote.stopped ;;
-    "ctl.start zygote") rm -f /fake/zygote.stopped ;;
-    *) echo "$2" > "/fake/props/$1" ;;
-esac

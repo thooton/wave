@@ -6,4 +6,4 @@
   at the repo root (`lint/`, `publish/`). See [publishing](../docs/publishing.md).
 - `sync-common.sh`: refreshes `common/` from a `wave_packages` checkout or
   verifies the recorded copy with `--check`.
-- `qa/`: [handset QA harness](qa/README.md) and phone-lock helper.
+- `qa/`: [handset smoke checklist](qa/README.md) and phone-lock helper.

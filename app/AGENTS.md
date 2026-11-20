@@ -52,9 +52,9 @@ JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:core:selfTest :app:app:sel
 
 `:app:app:selfTest` runs on the desktop JVM like the core's: the screens' decisions
 live in `Pages` (what a row or page says), `Actions` (what a package offers and
-what pressing it does) and `Format`, none of which touch a View, plus `CatalogModel`
-over real source files and every debug fixture. New logic of that kind goes there,
-with a check in `app/app/src/test`, not inline in a screen.
+what pressing it does) and `Format`, none of which touch a View. Host tests also
+exercise `CatalogModel` over source files. Put new logic of that kind there, with
+a focused check in `app/app/src/test`, not inline in a screen.
 
 A core test that starts a shell does so through `Sandbox` (`app/core/src/test`),
 which runs each one in its own process group and kills whatever is left when it
@@ -69,6 +69,6 @@ JDKs) and the Android SDK's platform 35 and Build Tools 35.0.1. Set
 `sdk.dir=/path/to/android-sdk`. CI (`../.github/workflows/build.yml`) runs the
 same checks and uploads `wave.apk`.
 
-Use [the handset QA harness](../tools/qa/README.md) for d-pad/focus checks on a
+Use [the handset smoke checklist](../tools/qa/README.md) for d-pad/focus checks on a
 reserved phone. Every app change bumps `versionName` and `versionCode` in
 `app/app/build.gradle` (relative to the repository root).

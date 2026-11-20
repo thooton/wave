@@ -1,4 +1,0 @@
-#!/sbin/.magisk/busybox/busybox sh
-# Pretend getprop: properties are files in /fake/props.
-[ $# = 0 ] && exit 0
-cat "/fake/props/$1" 2>/dev/null || echo

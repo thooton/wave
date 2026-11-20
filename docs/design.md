@@ -17,8 +17,11 @@ is open), and `tasks/` (the work, one brief per piece).
 | Repo | Local folder | Holds |
 | :--- | :--- | :--- |
 | `thooton/wave` | this one (`wave`) | The Wave app, the website (device guide, setup-file generator), the source format spec, and the tools sources are checked and published with |
-| `thooton/wave_packages` | `../sonim` (kept on this machine; decisions open 6) | The source code of every package we ship: the Gradle apps, `common/`, and the three system mods under `mods/`. CI builds them and attaches the binaries to GitHub releases |
-| `thooton/wave_repository` | new | The default source. Only manifests and icons. Each manifest points at a release asset in `wave_packages`. Written by `wave_packages` CI |
+| `thooton/wave_packages` | `../wave_packages` | The source code of every package we ship: the Gradle apps, `common/`, and the three system mods under `mods/`. CI builds them and attaches the binaries to GitHub releases |
+| `thooton/wave_repository` | `../wave_repository` | The default source. Only manifests and icons. Each manifest points at a release asset in `wave_packages`. Written by `wave_packages` CI |
+
+The legacy public `thooton/sonim` repository is separate. Its name, release
+assets, and the URL used by the old Updater do not change when Wave ships.
 
 Anyone else's source is the same shape as `wave_repository`: a git repo with
 manifests that point at binaries hosted anywhere over HTTPS.
@@ -170,7 +173,7 @@ reference for the look and the keys, and this section is their summary.
 
 | Tab | Shows |
 | :--- | :--- |
-| **Wave** | What Cydia's home is: a welcome header, Featured (from the default source's `featured`), What is Wave, Add a Source, device facts (model, firmware, Magisk and root state, storage), a Reboot row when one is pending, community links. The facts and links are text, below the last focus stop |
+| **Wave** | Root access at the top: an orange warning opens root instructions when not granted, a green check shows when granted. Then a pending Reboot row, the welcome header, device facts and community links. Add sources on the Sources tab |
 | **Sources** | "All Sources", then each source with its icon, name and URL. Refresh and Add on the bar. A source opens to its sections (All Packages, then each folder with a count) and the source's own Featured, a section to its packages, a package to its details |
 | **Installed** | The Updater's screen. Updates first (with what's new) and Update All on the bar, then everything else under Up to Date, alphabetically. A Reboot banner on top when one is pending. The tab carries a red badge with the number of updates |
 | **Search** | The field in place of the bar's title, and live results across every source, matching name, summary and description |
@@ -378,6 +381,11 @@ rooted from scratch, twice). Untested: the browser's own device chooser and
 RSA prompt, Magisk's first-run prompts on a phone that never had Magisk, and
 Windows and macOS. See `root.md`.
 
+The rooting page presents one stage at a time in a macOS installer layout,
+with a sidebar, dark checkra1n-inspired styling, and a locally bundled
+Cascadia Code font. It resumes at the saved stage; file selection remains
+reachable when local files need to be chosen again.
+
 The same site hosts the landing page and the setup-file generator (section 8).
 
 ## 7. Publishing: from a push to a phone
@@ -392,7 +400,8 @@ In `wave_packages`:
    uploads the binary. Versioned release assets are never replaced. The
    mod jobs build unsigned signing requests by default; mod release jobs
    require authorized OEM-signed APKs matching those requests.
-   The separately maintained legacy `latest` release is rolling.
+   A rolling `latest` release in `wave_packages` is separate from the old
+   Updater's `thooton/sonim` release. Wave CI does not update `sonim`.
 3. CI then runs `wavesrc publish` (from `thooton/wave`, as a GitHub Action):
    it merges the static fields with version, URL, size, SHA-256 and the
    newest changes (from `git log`, as `.github/manifest.py` does today), and

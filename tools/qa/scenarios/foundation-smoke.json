@@ -1,8 +1,0 @@
-{
-  "name": "Wave foundation Updates smoke",
-  "steps": [
-    {"name": "Launch Wave", "action": "launch", "wait_ms": 2500, "text_all": ["Updates"]},
-    {"name": "Open the row or retry menu", "key": "MENU", "wait_ms": 350, "text_any": ["Check Again", "What's New"], "changed": true},
-    {"name": "Back out of the menu", "key": "BACK", "text_all": ["Updates"], "changed": true}
-  ]
-}

@@ -33,11 +33,6 @@ final class Rows {
      * OK opens its details, so it ends in a chevron; its state is a badge on
      * the icon; one that can't be installed here is dimmed.
      */
-    static Kit.Row browse(final WaveActivity app, final Pkg p, View.OnClickListener open) {
-        return new BrowseRow(app).bind(p, open, false);
-    }
-
-    /** {@link #browse} as a line of a {@link Feed}, recycled. */
     static Feed.Entry browseLine(final WaveActivity app, final Pkg p, final View.OnClickListener open, final boolean last) {
         return new Feed.Entry("pkg:" + p.id, Feed.BROWSE, true) {
             @Override
@@ -338,6 +333,26 @@ final class Rows {
         }
         row.addView(Kit.chevron(app));
         row.setContentDescription(name + (sub != null ? ", " + sub : ""));
+        return row;
+    }
+
+    /** The root status is an action only when Wave does not have root. */
+    static View rootStatus(WaveActivity app, WaveData.Root root) {
+        Pages.Line status = Pages.rootStatus(root);
+        boolean needsRoot = root == WaveData.Root.NONE;
+        int glyph = needsRoot ? Glyph.WARN : root == WaveData.Root.OK ? Glyph.TICK : Glyph.INFO;
+        View icon = new Glyph(app, glyph, Look.color(status.tone));
+        if (needsRoot) {
+            Kit.Row row = link(app, status.text, null, 0, icon, 14, null, false);
+            row.setOnClickListener(v -> app.push(new NoRootScreen(app)));
+            return Screen.keyed(row, "root");
+        }
+        Kit.Row row = new Kit.Row(app);
+        row.setLayoutParams(Kit.fill(Kit.dp(app, 40)));
+        row.setFocusable(false);
+        row.setClickable(false);
+        row.addView(icon);
+        row.addView(Kit.texts(app, status.text, null, 0, 9));
         return row;
     }
 

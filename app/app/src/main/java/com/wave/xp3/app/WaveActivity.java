@@ -79,9 +79,7 @@ public final class WaveActivity extends Activity {
         root.addView(tabBar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         setContentView(root);
         registerForContextMenu(content);
-        // The first frame goes up with what is at hand (the bar, the tabs,
-        // Home saying "Loading…"); the sources the worker reads meanwhile
-        // follow in the next one, so a slow read never holds up the first.
+        // Draw Home without waiting for the worker to read the sources.
         root.getViewTreeObserver().addOnDrawListener(new android.view.ViewTreeObserver.OnDrawListener() {
             @Override
             public void onDraw() {
@@ -224,12 +222,6 @@ public final class WaveActivity extends Activity {
         if (!overlay.isEmpty() || screen.modal() || screen.bare()) overlay.add(screen);
         else stacks.get(tab).add(screen);
         show();
-    }
-
-    /** Opens `screen` on the Sources tab (Add a Source from Home). */
-    void pushOnTab(int which, Screen screen) {
-        openTab(which);
-        push(screen);
     }
 
     /** Closes the top screen. */

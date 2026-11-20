@@ -10,7 +10,7 @@ os.makedirs(out, exist_ok=True)
 
 SEQ = [
     ('browse', 'launch shot:wave-home DOWN*6 shot:wave-home-more'),
-    ('browse', 'launch DOWN*2 ENTER shot:wave-about BACK RIGHT shot:sources UP shot:sources-bar DOWN DOWN MENU shot:sources-menu BACK'
+    ('browse', 'launch RIGHT shot:sources UP shot:sources-bar DOWN DOWN MENU shot:sources-menu BACK'
                ' UP UP LEFT ENTER wait:300 shot:sources-refreshing wait:2500'),
     ('browse', 'launch RIGHT DOWN ENTER wait:300 shot:source ENTER DOWN*2 shot:section MENU shot:section-menu BACK'
                ' ENTER shot:details-get DOWN*3 shot:details-get-more MENU shot:details-menu BACK BACK'
@@ -21,15 +21,15 @@ SEQ = [
     ('browse', 'launch LEFT shot:search-empty text:mu shot:search-typing text:s DOWN shot:search-results UP BACK*3 text:xyzzy shot:search-none'),
     ('browse', 'launch RIGHT UP ENTER shot:add-source text:mkline/games DOWN shot:add-source-button ENTER wait:200 shot:add-source-fetching'
                ' wait:1800 shot:add-source-trust BACK UP BACK*5 text:nope ENTER wait:2000 shot:add-source-bad'),
-    ('browse', 'launch ENTER shot:details-module ENTER wait:400 shot:queue-confirm ENTER wait:4500 shot:queue-progress wait:11000 shot:queue-reboot'),
+    ('browse', 'launch RIGHT DOWN ENTER DOWN*3 ENTER shot:details-module ENTER wait:400 shot:queue-confirm ENTER wait:4500 shot:queue-progress wait:11000 shot:queue-reboot'),
     ('browse', 'launch RIGHT DOWN ENTER ENTER DOWN*2 ENTER ENTER wait:400 ENTER wait:6000 shot:queue-done'),
-    ('browse', 'launch DOWN ENTER ENTER wait:400 ENTER wait:5000 shot:error-hash'),
+    ('browse', 'launch RIGHT DOWN ENTER DOWN*4 ENTER ENTER wait:400 ENTER wait:5000 shot:error-hash'),
     ('errors', 'launch shot:error-watchdog ENTER RIGHT DOWN*3 shot:error-source UP UP LEFT ENTER wait:2150 shot:error-network-toast'
                ' RIGHT*2 DOWN*8 shot:error-watchdog-row'),
     ('offline', 'launch RIGHT shot:error-network'),
     ('reboot', 'launch shot:wave-home-reboot RIGHT*2 shot:installed-reboot'),
     ('uptodate', 'launch RIGHT*2 shot:installed-none'),
-    ('noroot', 'launch DOWN*4 ENTER shot:no-root'),
+    ('noroot', 'launch shot:wave-home-no-root ENTER shot:no-root'),
     ('browse', 'launch LEFT text:launcher DOWN MENU shot:x-remove-menu DOWN*2 ENTER wait:600 shot:x-confirm-remove'),
     ('reboot', 'launch ENTER shot:x-reboot-dialog'),
 ]

@@ -4,7 +4,7 @@
 `app.html?frame=<id>` draws one frame alone. `shoot.sh` screenshots every
 frame into `shots/<id>.png` (headless Chromium, window 240x320, scale 1) and
 the gallery into `shots/all.png`; `sheets.py <dir>` lays the shots out 8 to a
-sheet at 1:1 for checking. `icons/vec2svg.py ../sonim` regenerates the app
+sheet at 1:1 for checking. `icons/vec2svg.py ../wave_packages` regenerates the app
 icons from the apps' own vector launcher icons.
 
 How the frames were made to match the phone (checked 2026-11-19 on the
@@ -26,6 +26,9 @@ states with no frame (Remove's confirm, Reboot Now? on Later).
 
 Five frames (wave-home, sources, details-get, installed, search-results: the landing page's gallery) were
 re-shot the same way on Wave 0.7.25 (`23a67de`, debug build, fixture `browse`); the rest above are still 0.7.12.
+The Home captures predate 0.7.31 and 0.7.32. The updated Home mockups, with
+root access status at the top and no source shortcut, have not been checked
+on the handset.
 
 Ten of them are real data from the rooted phone instead (Wave 0.7.20 at
 `15dc337`, Magisk 24.0): no-root, details-module, queue-confirm,
@@ -58,10 +61,10 @@ intended (it scrolls), and is marked "scrolls".
 
 | Frame | Fits | Focus visible | Notes |
 | :--- | :-: | :-: | :--- |
-| wave-home | yes, scrolls | row grey | Welcome, Featured (2), What is Wave peeks in |
-| wave-home-more | yes, scrolls | row grey | Facts are text, not stops |
+| wave-home | yes, scrolls | none | Green check, welcome, phone facts |
+| wave-home-no-root | yes, scrolls | row grey | Orange warning opens root instructions |
+| wave-home-more | yes, scrolls | none | Facts are text, not stops |
 | wave-home-reboot | yes, scrolls | banner grey, REBOOT filled | |
-| wave-about | yes, scrolls | none (scrolling text) | Up/Down scroll |
 | sources | yes | row grey | 4 rows, URLs ellipsized |
 | sources-bar | yes | Add filled blue | |
 | sources-refreshing | yes | row grey | spinner replaces Refresh |
@@ -104,7 +107,7 @@ intended (it scrolls), and is marked "scrolls".
 | error-watchdog | yes | OK washed | which mod, which version, why |
 | error-watchdog-row | yes | row grey | "Turned off" in red |
 
-Result: **all 46 frames pass**. Fixed during the check: back labels too long
+Original check: **all 46 frames passed** before the Home change. Fixed during the check: back labels too long
 for the bar ("Applic…") now read "Back"; bar titles are centred on the
 screen and as wide as the bar's sides leave them (computed in `app.html`, as
 the app should), which un-cut "Add a Source" and "What is Wave"; the
@@ -116,17 +119,16 @@ read whole.
 
 ## 2. D-pad paths: every action without touch
 
-From opening Wave (the Wave tab, focus on the first Featured row). Each step
+From opening Wave (the Wave tab, focus on the root warning or pending reboot if shown). Each step
 lands on a focus shown in a frame above. "Menu > X" is Menu, Down to X, OK.
 
 | Action | Keys | Frames |
 | :--- | :--- | :--- |
 | Switch tab | Left / Right from any row | every tab frame |
-| Open a Featured package | OK | wave-home, details-get |
+| Open a Featured package | In Sources, open a source > Down to its Featured package > OK | source, details-get |
 | Get it | OK on details (GET) > OK on Confirm | details-get, queue-confirm |
 | Get without opening | Menu > Get on the row | section-menu |
-| What is Wave | Down to it > OK; Back | wave-home-more, wave-about |
-| Add a Source (from Wave) | Down to Add a Source > OK | wave-home-more, add-source |
+| Read root instructions | OK on the root warning | wave-home-no-root, no-root |
 | Add a Source (from Sources) | Right > Up from top row (Add) > OK | sources-bar |
 | Type the address | keys 2-9 multi-tap, 1 for . / - _, # abc/123, Back deletes, Left/Right cursor | add-source |
 | Submit it | Down (Add) > OK > (fetch) > OK on Add Source | add-source-button, -fetching, -trust |

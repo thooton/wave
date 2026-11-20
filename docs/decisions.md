@@ -7,10 +7,11 @@ moving; resolve open questions when the relevant brief has evidence.
 ## Decided
 
 1. **Three repos.** `thooton/wave` (app, site, spec, tools),
-   `thooton/wave_packages` (`thooton/sonim` renamed with its history, the
-   three mods added as subfolders), `thooton/wave_repository` (the default
-   source, pointing at `wave_packages` release assets). Everything ships
-   through CI and GitHub. Source and Tablet are the private exception
+   `thooton/wave_packages` (a separate repo that carries forward the package
+   history and adds the three mods), `thooton/wave_repository` (the default
+   source, pointing at `wave_packages` release assets). Leave the legacy
+   public `thooton/sonim` and its releases in place. Everything ships through
+   CI and GitHub. Source and Tablet are the private exception
    (task 16). The product is "Wave" ("Wave for Sonim XP3800").
 2. **Tabs**: Wave, Sources, Installed, Search. Installed works as the Updater
    does now (updates first, then alphabetical).
@@ -26,7 +27,9 @@ moving; resolve open questions when the relevant brief has evidence.
    build** (they were opt-in). Our own adb client over Tango (no bundler or
    transitive packages). The programmer stays a local file the owner chooses;
    Magisk and Wave may be served from the site's origin (`build.py
-   --magisk-apk/--wave-apk`). See `root.md`.
+   --magisk-apk/--wave-apk`). The page uses a single-stage installer layout
+   with locally bundled styling and font; the device flow is unchanged.
+   See `root.md`.
 6. **Root is required for system mods**, and Wave installs through `su`
    when it has root. Amended by working default 16: root is opt-in, and
    without it Wave still installs apps, through Installer where a phone
@@ -43,7 +46,7 @@ moving; resolve open questions when the relevant brief has evidence.
 7. **Mods ship as full patched APKs in a Magisk module zip**, one binary for
    all firmware builds. Firmware differences are not to be designed around.
    The stock APKs are committed to `wave_packages` so CI can build.
-8. **Default source contents**: every app in `../sonim` except HBSA (out),
+8. **Default source contents**: every app in `../wave_packages` except HBSA (out),
    Source and Tablet (own repo and source), Installer and Updater (retired).
    AppDrawer stays: the programmable key can't open the stock tray, and
    the mod doesn't add a launchable component. Canvas, Charge, Mail,
@@ -79,6 +82,12 @@ moving; resolve open questions when the relevant brief has evidence.
     private source's sign-in and is excluded from backup
     (`app/app/src/main/res/xml/backup.xml`). Written in `wave_packages`
     `common/SETUP.md` ("Where it is kept").
+
+12. **Home does not show Featured or What is Wave** (0.7.31). Featured
+    stays on individual source pages, including the default source. Home
+    keeps root and reboot actions and phone and community facts. In 0.7.32,
+    Add a Source moved off Home (still on Sources), and root access status
+    moved to the top of Home with a warning or a check.
 
 ## Working defaults
 
@@ -198,8 +207,8 @@ moving; resolve open questions when the relevant brief has evidence.
 2. **SQLite upgrade (not shipping).** The original `argon_sqlite` work is
    not committed upstream and was excluded from the import. No module or
    NDK job; revisit only after the upstream code and API checks are ready.
-3. **Nightly QA.** Delta's nightly QA runs on `thooton/sonim`. It follows the
-   rename, but should it cover the mods and Wave too?
+3. **Nightly QA.** Delta's existing nightly QA stays on `thooton/sonim`.
+   Should a separate run cover `wave_packages`, the mods, and Wave?
 4. **Private asset access.** Source and Tablet use `wave_private_packages`
    (task 16). CI emits credential-free HTTPS API URLs pointing at immutable
    GitHub release asset IDs; no credential or signed redirect
@@ -232,8 +241,8 @@ moving; resolve open questions when the relevant brief has evidence.
    what fails or is not understood, or if the backup page becomes part of the
    default site. A helper would then only need to bind WinUSB to that single
    ID and offer the undo; it should not touch any other driver.
-6. **Local folder names (closed).** W is already `wave`; keep P at
-   `../sonim` on this shared machine. GitHub uses `wave_packages`. A later
-   fresh clone can use the remote name. See `tasks/01-owner-checklist.md`.
+6. **Local folder names (closed).** W is `wave`, P is `../wave_packages`,
+   and `../sonim` is the checkout of the legacy public repository.
+   See `tasks/01-owner-checklist.md`.
 7. **Wave updates in the background?** Version 1 checks when opened and on
    Refresh. A daily check with a notification is easy to add later.

@@ -6,3 +6,5 @@ node_modules/
 site/dist/
 __pycache__/
 *.pyc
+
+/messages/

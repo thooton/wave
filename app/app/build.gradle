@@ -12,8 +12,8 @@ android {
 
     defaultConfig {
         applicationId "com.wave.xp3"
-        versionCode 37
-        versionName "0.7.30"
+        versionCode 39
+        versionName "0.7.32"
     }
 }
 
@@ -24,8 +24,7 @@ android {
 // out of what these tests touch (see Format, Actions and Pages).
 android.testOptions.unitTests.returnDefaultValues = true
 
-// The tests use the debug fixtures (src/debug), so only the debug variant has unit tests;
-// without this `./gradlew check` fails compiling the release ones.
+// The plain JVM runner below uses the debug variant; there is no separate release suite.
 androidComponents {
     beforeVariants(selector().withBuildType("release")) { builder ->
         builder.enableUnitTest = false

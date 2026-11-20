@@ -6,12 +6,3 @@ dependencies {
     // Json, for manifests.
     implementation project(":common:core")
 }
-
-// Data-layer stress on the desktop: ./gradlew :app:core:stress -Pstress="TREES FILESDIR 1,8,32,127"
-// (tools/qa/stress/README.md). Not part of selfTest: it needs the generated sources.
-tasks.register("stress", JavaExec) {
-    dependsOn "testClasses"
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = "com.wave.xp3.core.sources.StressBench"
-    args = (project.findProperty("stress") ?: "").toString().split(" ").findAll { it }
-}
