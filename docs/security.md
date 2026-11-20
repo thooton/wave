@@ -1,6 +1,6 @@
 # Security review of Wave
 
-Written 2026-11-20 against Wave 0.7.28 (code 35), from the code, the release
+Written 2026-11-20 against Wave 0.7.28 (code 35); its fixes ship in 0.7.29, from the code, the release
 APK's manifest and the test logs. **Nothing here was measured on the phone**:
 file modes and SELinux labels are what the code and Android 8.1 give, with the
 commands to confirm them at the end.

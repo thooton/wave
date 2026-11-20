@@ -1,6 +1,6 @@
 # Status: what works today
 
-As of 2026-11-20. Wave is at 0.7.28 (code 35; `app/app/build.gradle` has the current one). Nothing has been pushed or
+As of 2026-11-20. Wave is at 0.7.29 (code 36; `app/app/build.gradle` has the current one). Nothing has been pushed or
 published: every GitHub step (repo renames, CI runs, Pages, releases, the
 hosted default source) waits on the [owner cutover](tasks/01-owner-checklist.md).
 So "verified" below means on this machine, and on the one reserved phone
@@ -48,7 +48,7 @@ exists (see Known gaps).
 | `wavesrc lint`, `publish` ([02](tasks/02-wavesrc.md)) | Standard-library CLI (`new` scaffolds a lint-clean source), two composite Actions, [publishing guide](publishing.md) | 34 tests pass today; published the real List APK and retried a concurrent update against a local Git repo | The Actions on GitHub |
 | `wavesrc verify` | Audits asset URLs, size and SHA-256 pins | Its tests (in the 34) | `lint --download` against real remote assets: there are none yet |
 | Phone QA (`tools/qa`) | D-pad scenarios, screenshots, HTML report, the shared phone lock | 37 host tests pass; used for the 07 runs above. **Rooted suite** (`suite.py --rooted`, R01 to R04): on the rooted phone, against a debug build of 0.7.25 pointed at a local HTTPS source holding `app/root-tests`' two test mods: Check Again raises Magisk's prompt and the d-pad grants it; a mod installs, Reboot Now restarts the phone and the module runs; the watchdog's alert, Turn On and Remove It; a broken mod holds the boot, the watchdog reboots once after 300 s and turns it off. All four passed in 27 min and the phone ended as it began (`.oak/tmp/wave-qa/rooted-suite-full/`, not committed). It is the only automated cover for the reboot paths | It changes root state and reboots the phone, so it is not part of the default suite and needs a person to start it. It proves the paths with the two test mods, not a real mod, and not the safe-mode key or a battery pull |
-| Security review ([security.md](security.md)) | What Wave writes and who can read it, logs, exports, what reaches a root script, what a stranger should know; module ids and the self-update copy hardened, the add-source dialog shows the address (in the tree, not yet in a release) | Release manifest read; 776 core tests including a token-in-every-failure test and the id guards | File modes and the backup exclusion on the phone (commands in section 6), and the owner's call on the public signing key |
+| Security review ([security.md](security.md)) | What Wave writes and who can read it, logs, exports, what reaches a root script, what a stranger should know; module ids and the self-update copy hardened, the add-source dialog shows the address (0.7.29) | Release manifest read (0.7.28); 776 core tests including a token-in-every-failure test and the id guards | File modes and the backup exclusion on the phone (commands in section 6), and the owner's call on the public signing key |
 
 ## The repos
 
