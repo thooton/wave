@@ -11,7 +11,7 @@ import com.wave.xp3.data.WaveData;
 import java.util.List;
 
 /**
- * The Wave tab: root access, a pending Reboot action, the welcome header,
+ * The Wave tab: the welcome header, root access, a pending Reboot action,
  * then phone facts and community links.
  */
 final class HomeScreen extends Screen {
@@ -39,9 +39,9 @@ final class HomeScreen extends Screen {
     @Override
     void update(WaveData.Snapshot s) {
         Mark mark = page.clear();
+        page.add(welcome());
         page.add(Rows.rootStatus(app, s.root));
         if (!s.rebootPending.isEmpty()) page.add(Rows.reboot(app, Rows.rebootText(s.rebootPending)));
-        page.add(welcome());
         page.add(Kit.heading(app, "This Phone", false));
         List<String[]> phone = Pages.phoneFacts(s, Build.MODEL, Build.VERSION.RELEASE);
         for (int i = 0; i < phone.size(); i++) page.add(Rows.fact(app, phone.get(i)[0], phone.get(i)[1], i == phone.size() - 1));

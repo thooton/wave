@@ -198,7 +198,7 @@ function homePage(o = {}) {
   const rootStatus = o.noRoot
     ? linkRow('Root access not granted', { icon: G.warn('#FF9500'), size: 14, f: true })
     : `<div class="row link"><div style="width:14px">${G.tick('#248A3D')}</div><div class="tx"><div class="nm">Root access granted</div></div></div>`;
-  return rootStatus + (o.reboot ? rebootBanner(o.focus === 'reboot') : '') + welcome +
+  return welcome + rootStatus + (o.reboot ? rebootBanner(o.focus === 'reboot') : '') +
     H('This Phone') +
     `<div class="facts">` +
     fact('Model', 'XP3800') + fact('Android', '8.1, build 8A.0.5-11') + fact('Root', o.noRoot ? 'Not granted' : 'Magisk 24.0') + fact('Storage', '1.3 GB free', { last: true }) +
@@ -248,7 +248,7 @@ F('Wave tab', 'wave-home-more', 'Wave tab, scrolled: This Phone and Community',
   screen({ tab: 0, badge: 2, bar: { title: 'Home' }, page: homePage(), scroll: 76 }),
   'The facts and links are text, not focus stops: nothing to press there.');
 F('Wave tab', 'wave-home-reboot', 'Wave tab with a reboot pending',
-  K(TABS_LR, 'Root is shown first; Reboot is the first focus stop.', 'On REBOOT: opens a confirmation dialog.', BACK_TOP, 'Reboot, Refresh Sources.'),
+  K(TABS_LR, 'Reboot is the first focus stop.', 'On REBOOT: opens a confirmation dialog.', BACK_TOP, 'Reboot, Refresh Sources.'),
   screen({ tab: 0, badge: 2, bar: { title: 'Home' }, page: homePage({ reboot: true, focus: 'reboot' }) }),
   'Shown while a module change waits for a reboot. The same action heads Installed.');
 

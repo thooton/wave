@@ -42,10 +42,10 @@ focus stop); Back goes back a screen, on a tab's first screen closes Wave
 the menu for the focused row. Up from a page's top row reaches the bar's
 link (Add, Update All; else Refresh).
 
-- **Wave** (title Home): root access status at the top. **Root access not
-  granted** has an orange warning icon and opens the root instructions;
-  **Root access granted** has a green check and is not an action. Then
-  Reboot to Finish if pending, the welcome header, This Phone and Community.
+- **Wave** (title Home): the welcome header, then root access status.
+  **Root access not granted** has an orange warning icon and opens the
+  root instructions; **Root access granted** has a green check and is not
+  an action. Then Reboot to Finish if pending, This Phone and Community.
   Add a Source is available from Sources, not Home.
 - **Sources**: Refresh (or a spinner) and Add on the bar; All Sources, then
   each source (icon, name, address; "Refreshing…" with a spinner, or the

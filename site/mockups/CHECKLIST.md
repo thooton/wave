@@ -27,7 +27,7 @@ states with no frame (Remove's confirm, Reboot Now? on Later).
 Five frames (wave-home, sources, details-get, installed, search-results: the landing page's gallery) were
 re-shot the same way on Wave 0.7.25 (`23a67de`, debug build, fixture `browse`); the rest above are still 0.7.12.
 The Home captures predate 0.7.31 and 0.7.32. The updated Home mockups, with
-root access status at the top and no source shortcut, have not been checked
+root access status below the welcome header and no source shortcut, have not been checked
 on the handset.
 
 Ten of them are real data from the rooted phone instead (Wave 0.7.20 at
@@ -61,7 +61,7 @@ intended (it scrolls), and is marked "scrolls".
 
 | Frame | Fits | Focus visible | Notes |
 | :--- | :-: | :-: | :--- |
-| wave-home | yes, scrolls | none | Green check, welcome, phone facts |
+| wave-home | yes, scrolls | none | Welcome, green check, phone facts |
 | wave-home-no-root | yes, scrolls | row grey | Orange warning opens root instructions |
 | wave-home-more | yes, scrolls | none | Facts are text, not stops |
 | wave-home-reboot | yes, scrolls | banner grey, REBOOT filled | |
