@@ -102,20 +102,13 @@ The other repos' workflows call `thooton/wave/lint@v1` and
 
 The Build workflow deploys the website (the rooting page and `recovery/`)
 after it builds the APK, on every push to `master`. The site serves the APK it
-just built, the official Magisk 24.0 and the Sonim programmer, so users choose
-no files.
+just built, the official Magisk 24.0 and the Sonim programmer, so users do not have to supply any installer files.
 
 1. In `thooton/wave`, open Settings → Pages → Build and deployment →
    Source, and choose **GitHub Actions**.
-2. Make the programmer available to CI. The programmer is Sonim's file, so
-   only you can judge whether it may be redistributed. Host the verified copy
-   (`prog_emmc_firehose_8909_ddr.mbn`, SHA-256 `e6f2dbcf…2767`) somewhere CI
-   can download it, and in Settings → Secrets and variables → Actions →
-   Variables set `SONIM_PROGRAMMER_URL` to that URL. `build.py` refuses any
-   other file. Without the variable the site still deploys, with a warning,
-   and the page asks users for the file.
-3. In Actions, re-run **Build** on `master`.
-4. **Check:** each of these prints 200:
+2. In Actions, re-run **Build** on `master`. The pinned programmer is
+   included in the build; no download URL or repository variable is needed.
+3. **Check:** each of these prints 200:
    ```sh
    for p in "" recovery/ files/files.json; do curl -s -o /dev/null -w "%{http_code} $p\n" https://thooton.github.io/wave/$p; done
    curl -s https://thooton.github.io/wave/files/files.json
@@ -123,7 +116,7 @@ no files.
    `files.json` lists `programmer`, `magisk` and `wave`. Open
    https://thooton.github.io/wave/ in Chrome: after **Start** it goes
    straight to **Connect phone**, with no **Choose files** step.
-5. **If it shows 404 or the deploy job fails:**
+4. **If it shows 404 or the deploy job fails:**
    - In Settings → Environments → `github-pages`, the deployment branch rule
      must allow `master`.
    - Then re-run Build. A Pages site can take a few minutes to appear the

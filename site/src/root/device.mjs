@@ -96,7 +96,7 @@ async function edlDevice() {
 
 // programmer: bytes already checked with checkProgrammer. Returns a link with Firehose running.
 export async function openEdl(say, programmer) {
-  if (!programmer) throw new Error('Select the service programmer first.');
+  if (!programmer) throw new Error('The bundled Sonim programmer is not ready.');
   say('Select XP3800 in EDL (Qualcomm, 05c6:9008) in the USB chooser.');
   let device;
   try { device = await edlDevice(); }

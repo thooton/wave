@@ -8,6 +8,8 @@ import hashlib
 import json
 import sys
 
+from build import PROGRAMMER_NAME, PROGRAMMER_SHA256
+
 BUNDLE_BUDGET = 300 * 1024  # Includes the Cascadia Code webfont; served files/ are not counted.
 LANDING_BUDGET = 64 * 1024
 IMPORT = re.compile(r'^\s*(?:import|export)\s+(?:[^;\'"\n]*?\bfrom\s+)?([\'"])([^\'"\n]+)\1', re.M)
@@ -61,14 +63,15 @@ class Page(HTMLParser):
 def staged_files(root, errors):
     """files/: the programmer and APKs the pages fetch by name from files.json."""
     folder = root / 'files'
-    if not folder.exists():
-        return set()
     listed = set()
     try:
         entries = json.loads((folder / 'files.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
         errors.append('files: missing or invalid files.json')
         return {p for p in folder.rglob('*') if p.is_file()}
+    programmer = entries.get('programmer') or {}
+    if programmer.get('file') != PROGRAMMER_NAME or programmer.get('sha256') != PROGRAMMER_SHA256:
+        errors.append('files: missing or invalid pinned Sonim programmer entry')
     for name, entry in entries.items():
         path = folder / entry.get('file', '')
         if name not in ('programmer', 'magisk', 'wave') or not path.is_file() or path.parent != folder:

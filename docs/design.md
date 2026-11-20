@@ -361,7 +361,7 @@ Three more ways out, in rising order of effort:
 
 ## 6. Rooting the XP3800
 
-A static web page (GitHub Pages from this repo, `/wave/rooting/`) drives the
+A static web page (GitHub Pages from this repo, `/wave/`) drives the
 phone over WebUSB in Chrome or Edge: adb for the Android side (our own client,
 `site/src/protocols/adb.mjs`, not Tango), Sahara and Firehose for EDL. It
 automates `../rphone/ROOTING.md` (step 4b) end to end: back up `boot` over EDL
@@ -372,7 +372,7 @@ Magisk's SignBoot; check the signature in the browser against the stock
 certificate; install the Magisk app and Wave; write it over EDL only if `boot`
 still equals the backup; read the whole partition back. The owner approves
 root in Magisk, not the site, and nothing pre-grants Wave (decision 16).
-`/wave/stock/` writes the saved stock image back the same way. Only
+`/wave/recovery/` writes the saved stock image back the same way. Only
 `firehose-write.mjs` can write, and only `boot`.
 
 **Status (brief 09):** shipped in the default site build and verified end to
@@ -383,8 +383,11 @@ Windows and macOS. See `root.md`.
 
 The rooting page presents one stage at a time in a macOS installer layout,
 with a sidebar, dark checkra1n-inspired styling, and a locally bundled
-Cascadia Code font. It resumes at the saved stage; file selection remains
-reachable when local files need to be chosen again.
+Cascadia Code font. It resumes at the saved stage. The build always stages
+the pinned Sonim-signed eMMC programmer; Pages also stages the official
+Magisk 24.0 and Wave APKs. Both pages load the programmer from the site and
+verify it before EDL. The owner supplies no prerequisite files; the saved
+stock backup is still verified before writing.
 
 The same site hosts the landing page and the setup-file generator (section 8).
 

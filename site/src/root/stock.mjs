@@ -6,8 +6,7 @@ import { isMagiskPatched } from './magisk.mjs';
 import { bootBytes, checkBootImage, sha256 } from '../protocols/boot-image.mjs';
 import { verifyBootSignature, xp3800BootCertSha256 } from '../protocols/boot-signature.mjs';
 import { FirehoseBootWriter } from '../protocols/firehose-write.mjs';
-import { checkProgrammer } from '../protocols/sahara.mjs';
-import { fetchServed, servedFiles } from './served.mjs';
+import { fetchProgrammer, servedFiles } from './served.mjs';
 
 const progress = $('progress');
 let busy = false, checked, programmer, beforeUrl;
@@ -15,9 +14,9 @@ let busy = false, checked, programmer, beforeUrl;
 function render() {
   const usb = isWebUsb();
   $('check-files').disabled = busy;
-  $('to-edl').disabled = busy || !usb || !checked?.manifest;
+  $('to-edl').disabled = busy || !usb || !programmer || !checked?.manifest;
   $('write').disabled = busy || !usb || !checked || !programmer || !$('same-phone').checked;
-  for (const id of ['programmer', 'image', 'manifest', 'expected', 'same-phone']) $(id).disabled = busy;
+  for (const id of ['image', 'manifest', 'expected', 'same-phone']) $(id).disabled = busy;
 }
 function setProgress(fraction) {
   $('progress-label').hidden = progress.hidden = fraction === undefined;
@@ -39,22 +38,6 @@ for (const id of ['image', 'manifest', 'expected']) $(id).addEventListener('inpu
   render();
 });
 $('same-phone').addEventListener('change', render);
-$('programmer').addEventListener('change', async () => {
-  programmer = undefined;
-  try {
-    const file = $('programmer').files[0];
-    if (file) {
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      await checkProgrammer(bytes);
-      programmer = bytes;
-      show($('files-status'), 'Programmer checked.');
-    }
-  } catch (error) {
-    $('programmer').value = '';
-    show($('files-status'), error.message, true);
-  }
-  render();
-});
 
 $('check-files').addEventListener('click', () => task('files-status', async say => {
   checked = undefined;
@@ -125,18 +108,18 @@ $('write').addEventListener('click', () => task('write-status', async say => {
 }));
 
 window.addEventListener('pagehide', () => { if (beforeUrl) URL.revokeObjectURL(beforeUrl); });
-// The site may serve the programmer (build.py --programmer); then there is nothing to choose.
 async function loadServedProgrammer() {
-  const base = new URL('../files/', document.baseURI);
-  const { programmer: entry } = await servedFiles(base);
-  if (!entry) return;
-  const bytes = await fetchServed(base, entry);
-  await checkProgrammer(bytes);
-  if (programmer) return;
-  programmer = bytes;
-  $('programmer-pick').hidden = true;
-  render();
+  const status = [$('edl-status'), $('write-status')];
+  for (const element of status) show(element, 'Checking the bundled Sonim programmer…');
+  try {
+    const base = new URL('../files/', document.baseURI);
+    const entries = await servedFiles(base);
+    programmer = await fetchProgrammer(base, entries.programmer);
+    for (const element of status) show(element, '');
+  } catch (error) {
+    for (const element of status) show(element, `${problem(error)} Reload the page or contact the site maintainer.`, true);
+  } finally { render(); }
 }
 render();
-loadServedProgrammer().catch(() => {});
-if (!isWebUsb()) show($('write-status'), 'Writing requires WebUSB: use Chrome or Edge on a secure (HTTPS) page.', true);
+if (isWebUsb()) loadServedProgrammer();
+else show($('write-status'), 'Writing requires WebUSB: use Chrome or Edge on a secure (HTTPS) page.', true);

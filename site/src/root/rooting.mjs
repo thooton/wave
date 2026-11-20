@@ -3,31 +3,25 @@
 // IndexedDB, so a reload resumes where the phone is.
 import { $, isWebUsb, problem, show } from './common.mjs';
 import { makeBackupManifest } from './backup-manifest.mjs';
-import { connectPhone, differs, openEdl as openEdlWith } from './device.mjs';
+import { connectPhone, differs, openEdl } from './device.mjs';
 import { MAGISK, WAVE_PACKAGE, checkMagiskApk, installApk, installedVersion, isMagiskPatched, patchOnPhone } from './magisk.mjs';
 import { bootBytes, sha256 } from '../protocols/boot-image.mjs';
 import { checkPatchedBoot, verifyBootSignature, xp3800BootCertSha256 } from '../protocols/boot-signature.mjs';
 import { FirehoseBootReader } from '../protocols/firehose.mjs';
 import { FirehoseBootWriter, WriteCheckError } from '../protocols/firehose-write.mjs';
-import { checkProgrammer } from '../protocols/sahara.mjs';
-import { fetchServed, servedFiles } from './served.mjs';
+import { fetchProgrammer, fetchServed, servedFiles } from './served.mjs';
 
 const KEY = 'wave-rooting-v1';
 const STAGES = ['check', 'backup', 'save', 'patch', 'flash', 'finish', 'done'];
-const VIEWS = ['intro', 'files', ...STAGES];
+const VIEWS = ['intro', ...STAGES];
 const progress = $('progress'), log = $('log'), activity = $('activity'), activityLog = $('activity-log');
 const steps = [...document.querySelectorAll('[data-step]')];
 const actions = [...document.querySelectorAll('[data-actions]')];
 let state = load(), busy = false, urls = [];
 let view = initialView(), activityView;
-const files = { programmer: null, magisk: null, wave: null };
-const LABELS = { programmer: 'Sonim programmer', magisk: 'Magisk 24.0 APK', wave: 'Wave APK' };
 const SERVED = new URL('files/', document.baseURI);
-let staged = {};
+let staged = {}, programmer;
 const fetched = {};
-const has = name => !!(files[name] || staged[name]);
-// With every file served by the site, there is nothing to choose: skip that step.
-const allServed = () => !!(staged.programmer && staged.magisk && staged.wave);
 
 function load() {
   try {
@@ -93,7 +87,6 @@ function selectView(next) {
 function canReview(step) {
   if (busy || step === view) return false;
   if (step === 'intro') return state.stage === 'check';
-  if (step === 'files') return view !== 'intro';
   if (step === 'check' && state.stage === 'check' && view === 'intro') return false;
   return step === state.stage || (step === 'check' && state.stage === 'backup')
     || (step === 'patch' && state.stage === 'flash') || (step === 'finish' && state.stage === 'done');
@@ -102,21 +95,15 @@ function canReview(step) {
 function render() {
   const supported = isWebUsb();
   const can = stages => !busy && supported && stages.includes(state.stage);
-  const hasApks = has('magisk') && has('wave');
-  const missingFiles = (['backup', 'flash'].includes(view) && !has('programmer')) || (view === 'patch' && !hasApks);
+  const installerReady = !!(programmer && staged.magisk && staged.wave);
   const reached = state.stage === 'check' ? VIEWS.indexOf(view) : VIEWS.indexOf(state.stage);
   $('where').hidden = supported;
-  $('start').disabled = !supported || busy;
+  $('start').disabled = !supported || busy || !installerReady;
   $('start-over').hidden = initialView() === 'intro';
-  $('choose-files').hidden = !missingFiles;
-  $('choose-files').disabled = busy;
-  $('back').hidden = state.stage !== 'check' || !['files', 'check'].includes(view);
-  $('step-files-item').hidden = allServed() && view !== 'files';
+  $('back').hidden = state.stage !== 'check' || view !== 'check';
   $('back').disabled = busy;
   $('resume').hidden = state.stage === 'check' || view === state.stage;
   $('resume').disabled = busy;
-  $('continue').hidden = state.stage !== 'check';
-  $('continue').disabled = !supported || busy;
   for (const step of steps) {
     const name = step.dataset.step;
     const selected = name === view;
@@ -129,14 +116,14 @@ function render() {
   for (const group of actions) group.hidden = group.dataset.actions !== view;
   activity.hidden = activityView !== view;
   activityLog.hidden = activity.hidden || !log.textContent;
-  $('check').disabled = !can(['check', 'backup']);
-  $('backup').disabled = !can(['backup']) || !has('programmer');
+  $('check').disabled = !can(['check', 'backup']) || !installerReady;
+  $('backup').disabled = !can(['backup']) || !programmer;
   $('saved').disabled = !can(['save']);
-  $('patch').disabled = !can(['patch', 'flash']) || !hasApks;
-  $('flash').disabled = !can(['flash']) || !has('programmer');
+  $('patch').disabled = !can(['patch', 'flash']) || !installerReady;
+  $('flash').disabled = !can(['flash']) || !programmer;
   $('finish').disabled = !can(['finish', 'done']);
   $('grant').disabled = $('open-wave').disabled = !can(['done']);
-  for (const id of ['programmer', 'magisk', 'wave', 'start-over']) $(id).disabled = busy;
+  $('start-over').disabled = busy;
   $('save-image').hidden = !$('save-image').hasAttribute('href');
   $('save-manifest').hidden = !$('save-manifest').hasAttribute('href');
 }
@@ -172,60 +159,34 @@ async function task(action) {
 }
 
 for (const step of steps) step.addEventListener('click', () => selectView(step.dataset.step));
-$('start').addEventListener('click', () => selectView(allServed() ? 'check' : 'files'));
-$('continue').addEventListener('click', () => selectView('check'));
-$('back').addEventListener('click', () => selectView(view === 'check' && !allServed() ? 'files' : 'intro'));
+$('start').addEventListener('click', () => selectView('check'));
+$('back').addEventListener('click', () => selectView('intro'));
 $('resume').addEventListener('click', () => selectView(state.stage));
-$('choose-files').addEventListener('click', () => selectView('files'));
 
-// ---- Files ----
-async function readFile(input, check) {
-  const file = input.files[0];
-  if (!file) return null;
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  await check(bytes);
-  return bytes;
-}
-async function checkApk(bytes) {
-  if (bytes.length < 22 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) throw new Error('Wave file is not an APK.');
-}
-for (const [id, check, label] of [['programmer', checkProgrammer, 'Programmer'], ['magisk', checkMagiskApk, 'Magisk 24.0'], ['wave', checkApk, 'Wave APK']]) {
-  $(id).addEventListener('change', async () => {
-    files[id] = null;
-    render();
-    try {
-      files[id] = await readFile($(id), check);
-      show($('files-status'), files[id] ? `${label} checked.` : '');
-    } catch (error) {
-      $(id).value = '';
-      show($('files-status'), error.message, true);
-    }
-    render();
-  });
-}
-// A build may serve the programmer, Magisk and Wave from this site (build.py).
+// Verify the bundled programmer before allowing a reboot into EDL.
 async function loadStaged() {
-  staged = await servedFiles(SERVED);
-  for (const name of Object.keys(staged)) $(`${name}-pick`).hidden = true;
-  const served = Object.keys(staged).filter(name => !files[name]);
-  if (served.length && !allServed()) show($('files-status'), `This site provides ${served.map(name => LABELS[name]).join(' and ')}.`);
-  render();
+  const status = $('installer-status');
+  show(status, 'Checking installer files…');
+  try {
+    staged = await servedFiles(SERVED);
+    programmer = await fetchProgrammer(SERVED, staged.programmer);
+    if (!staged.magisk || !staged.wave) throw new Error('This site build is missing the Magisk or Wave APK.');
+    show(status, '');
+  } catch (error) {
+    show(status, `${problem(error)} Reload the page or contact the site maintainer.`, true);
+  } finally { render(); }
 }
-async function fileFor(name) {
-  if (files[name]) return files[name];
-  const entry = staged[name];
-  if (!entry) throw new Error(`Select ${LABELS[name]} in Choose files.`);
+async function apkFor(name) {
   if (!fetched[name]) {
-    const bytes = await fetchServed(SERVED, entry);
-    if (name === 'programmer') await checkProgrammer(bytes);
+    const bytes = await fetchServed(SERVED, staged[name]);
     if (name === 'magisk') await checkMagiskApk(bytes);
+    else if (bytes.length < 22 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) throw new Error('The bundled Wave file is not an APK.');
     fetched[name] = bytes;
   }
   return fetched[name];
 }
 
 const connect = say => connectPhone(say, { expect: state.serial ? { serial: state.serial, fingerprint: state.fingerprint } : undefined });
-const openEdl = async say => openEdlWith(say, await fileFor('programmer'));
 
 // ---- Steps ----
 $('check').addEventListener('click', () => task(async say => {
@@ -242,7 +203,7 @@ $('check').addEventListener('click', () => task(async say => {
 }));
 
 $('backup').addEventListener('click', () => task(async say => {
-  const link = await openEdl(say);
+  const link = await openEdl(say, programmer);
   const reader = new FirehoseBootReader(link);
   let first;
   try {
@@ -302,7 +263,7 @@ $('saved').addEventListener('change', () => task(async say => {
 
 $('patch').addEventListener('click', () => task(async say => {
   const stock = await getImage('stock', state.stockSha);
-  const magisk = await fileFor('magisk'), wave = await fileFor('wave');
+  const [magisk, wave] = await Promise.all([apkFor('magisk'), apkFor('wave')]);
   const { adb } = await connect(say);
   try {
     say('Patching on the phone. Keep it connected.');
@@ -313,7 +274,7 @@ $('patch').addEventListener('click', () => task(async say => {
     say('Installing Wave.');
     await installApk(adb, wave, '/data/local/tmp/wave-app.apk', 'Wave');
     const version = await installedVersion(adb, WAVE_PACKAGE);
-    if (!version) throw new Error(`The selected APK is not Wave (${WAVE_PACKAGE}). Choose the Wave APK and try again.`);
+    if (!version) throw new Error(`The bundled APK is not Wave (${WAVE_PACKAGE}).`);
     note(`Installed Magisk ${MAGISK.version} and Wave ${version}.`);
     await putImage('patched', patched);
     save({ stage: 'flash', patchedSha: await sha256(patched), patchedSize: patched.length });
@@ -325,7 +286,7 @@ $('patch').addEventListener('click', () => task(async say => {
 $('flash').addEventListener('click', () => task(async say => {
   const stock = await getImage('stock', state.stockSha), patched = await getImage('patched', state.patchedSha);
   await checkPatchedBoot(patched, stock);
-  const link = await openEdl(say);
+  const link = await openEdl(say, programmer);
   const writer = new FirehoseBootWriter(link);
   let result;
   try {
@@ -426,7 +387,7 @@ $('start-over').addEventListener('click', async () => {
 window.addEventListener('pagehide', () => { for (const url of urls) URL.revokeObjectURL(url); });
 show($('where'), 'Use Chrome or Edge on a secure page for WebUSB.', true);
 render();
-loadStaged();
+if (isWebUsb()) loadStaged();
 if (state.stage === 'save') getImage('stock', state.stockSha).then(offerBackup).catch(error => {
   if (state.stage !== 'save') return;
   activityView = 'save';

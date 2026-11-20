@@ -5,8 +5,8 @@ phone's stock boot image to the owner's computer, patches it on the phone with
 Magisk 24.0, writes it over EDL and verifies every byte, then installs the
 Magisk app and Wave (**Root**, the site root `/wave/`). **Recovery**
 (`/wave/recovery/`) writes the saved stock image back and turns off broken
-Magisk modules. The site serves every file the flow needs (the Sonim
-programmer, Magisk 24.0 and Wave), so the owner chooses none. It writes only the
+Magisk modules. The site serves the Sonim programmer, Magisk 24.0 and Wave,
+so the owner supplies no prerequisite files. It writes only the
 `boot` partition, never `/system` or bootloader flags, and never grants Wave
 root: Magisk asks on the phone. To use root on an already-rooted phone, open
 **Wave → Root for System Mods → Check Again** and answer Magisk's prompt.
@@ -21,12 +21,12 @@ Implemented in `site/index.html` (`src/root/rooting.mjs`, `served.mjs`, `device.
 
 1. **Files.** The Sonim programmer (pinned SHA-256 `e6f2dbcf…2767`),
    Magisk 24.0's APK (pinned `f7ac4e2a…346a`, 10,440,388 B) and a Wave APK.
-   The deployed site serves all three from its own origin: the Build workflow
-   stages them with `build.py --programmer PATH --magisk-apk PATH --wave-apk
-   PATH --wave-version X` in `files/` with a `files.json` (size and SHA-256 of
-   each), and the page checks every download against it and the pins. With
-   all three served the page skips this step; anything missing is chosen as a
-   local file instead (`site/README.md`).
+   Every build stages the bundled programmer, and CI supplies both APKs.
+   The deployed site serves all three from its own origin in `files/`, with
+   size and SHA-256 recorded in `files.json`. The browser checks the
+   programmer against its pinned size and hash before allowing EDL actions;
+   the APKs are checked when downloaded for patching. There is no file-picker
+   fallback for these prerequisites (`site/README.md`).
 2. **Phone over adb.** A fully booted XP3800, SDK 27, `armeabi-v7a`, Sonim
    fingerprint, battery at least 40%, and no `su` (a rooted phone is refused:
    its boot is not stock). Records serial and fingerprint; every later adb
@@ -71,8 +71,9 @@ IndexedDB, so a reload resumes at the right step (verified: the page resumed
 at step 8 after a reload). **Start over** clears both.
 
 **Recovery** (`site/recovery/`): its **Write stock boot** panes
-(`src/root/stock.mjs`) take the programmer (served by the site, or chosen),
-the image and its manifest (or a typed SHA-256, one is required), requires a
+(`src/root/stock.mjs`) load the bundled programmer from the site. The owner
+chooses the saved image and its manifest (or provides the recorded SHA-256).
+Recovery requires a
 32 MiB image whose SHA-256 matches, whose stock signature verifies with the
 XP3800 certificate and that Magisk has not patched. If Android starts, it
 checks the phone's serial and build against the manifest and restarts it into

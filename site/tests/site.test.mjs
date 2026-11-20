@@ -1,15 +1,21 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, readdirSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { fetchProgrammer, servedFiles } from '../src/root/served.mjs';
 import { makeBackupManifest, parseBackupManifest } from '../src/root/backup-manifest.mjs';
 
 const script = name => fileURLToPath(new URL('../scripts/' + name, import.meta.url));
 
-test('the rooting and recovery pages are staged and linked, without binaries unless named', () => {
+const programmerName = 'prog_emmc_firehose_8909_ddr.mbn';
+const programmerHash = 'e6f2dbcfbed3ca72f23b4e1f0a53c510a620108eee2ac6b18a7835f1440e2767';
+const hash = data => createHash('sha256').update(data).digest('hex');
+
+test('the default build includes the pinned programmer and only the reviewed site assets', () => {
   const temp = mkdtempSync(join(tmpdir(), 'wave-rooting-'));
   const site = join(temp, 'site');
   try {
@@ -20,27 +26,64 @@ test('the rooting and recovery pages are staged and linked, without binaries unl
     assert.equal(result.status, 0, result.stderr);
     for (const path of ['index.html', 'recovery/index.html', 'src/protocols/firehose-write.mjs',
       'src/root/magisk.mjs', 'src/root/stock.mjs', 'src/root/rescue.mjs', 'src/protocols/adb-sync.mjs']) assert.equal(existsSync(join(site, path)), true, path);
-    for (const gone of ['src/protocols/tests', 'scripts', 'tests', 'mockups', 'AGENTS.md', 'files']) assert.equal(existsSync(join(site, gone)), false, gone);
+    for (const gone of ['src/protocols/tests', 'scripts', 'tests', 'mockups', 'AGENTS.md']) assert.equal(existsSync(join(site, gone)), false, gone);
     assert.match(readFileSync(join(site, 'index.html'), 'utf8'), /href="recovery\/"/);
     assert.match(readFileSync(join(site, 'recovery/index.html'), 'utf8'), /href="\.\.\/"/);
     // The read-only reader never carries a write request; only the writer module does.
     assert.doesNotMatch(readFileSync(join(site, 'src/protocols/firehose.mjs'), 'utf8'), /<program /);
     assert.match(readFileSync(join(site, 'src/protocols/firehose-write.mjs'), 'utf8'), /<program /);
-    assert.ok(readdirSync(site, { recursive: true }).every(name => !/\.(?:mbn|apk|img|zip)$/i.test(name)));
-    // Staging refuses anything but the pinned programmer and the official Magisk 24.0, and check_pages verifies the list.
+    assert.deepEqual(readdirSync(site, { recursive: true }).filter(name => /\.(?:mbn|apk|img|zip)$/i.test(name)), [join('files', programmerName)]);
+    const manifestPath = join(site, 'files/files.json');
+    const programmerPath = join(site, 'files', programmerName);
+    const bytes = readFileSync(programmerPath);
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    assert.deepEqual(manifest, { programmer: { file: programmerName, size: 285524, sha256: programmerHash } });
+    assert.equal(hash(bytes), programmerHash);
+    // Require a real pinned loader, even when the binary and manifest are altered together.
+    bytes[0] ^= 1;
+    writeFileSync(programmerPath, bytes);
+    assert.match(run('check_pages.py', site).stderr, /does not match files\.json/);
+    manifest.programmer.sha256 = hash(bytes);
+    writeFileSync(manifestPath, JSON.stringify(manifest));
+    assert.match(run('check_pages.py', site).stderr, /invalid pinned Sonim programmer/);
+    rmSync(manifestPath);
+    assert.match(run('check_pages.py', site).stderr, /missing or invalid files\.json/);
+
+    // APKs are staged only when supplied to the builder.
+    const root = readFileSync(join(site, 'index.html'), 'utf8');
+    const recovery = readFileSync(join(site, 'recovery/index.html'), 'utf8');
+    const fileInputs = html => [...html.matchAll(/<input id="([^"]+)" type="file"/g)].map(match => match[1]);
+    assert.deepEqual(fileInputs(root), ['saved']);
+    assert.deepEqual(fileInputs(recovery), ['image', 'manifest']);
     const fake = join(temp, 'fake.apk');
     writeFileSync(fake, 'PK fake');
     assert.notEqual(run('build.py', '--magisk-apk', fake, join(temp, 'x')).status, 0);
-    assert.notEqual(run('build.py', '--programmer', fake, join(temp, 'y')).status, 0);
     const staged = join(temp, 'staged');
     assert.equal(run('build.py', '--wave-apk', fake, '--wave-version', '0.7.30', staged).status, 0);
     assert.equal(run('check_pages.py', staged).status, 0);
     const list = JSON.parse(readFileSync(join(staged, 'files/files.json'), 'utf8'));
-    assert.deepEqual(Object.keys(list), ['wave']);
+    assert.deepEqual(Object.keys(list), ['programmer', 'wave']);
     assert.equal(list.wave.version, '0.7.30');
     writeFileSync(join(staged, 'files/wave.apk'), 'PK changed');
     assert.match(run('check_pages.py', staged).stderr, /does not match files\.json/);
   } finally { rmSync(temp, { recursive: true, force: true }); }
+});
+
+test('the browser loader verifies the bundled programmer independently of the manifest', async t => {
+  const base = new URL('https://example.test/wave/files/');
+  const bytes = readFileSync(new URL(`../assets/${programmerName}`, import.meta.url));
+  const entry = { file: programmerName, size: bytes.length, sha256: programmerHash };
+  t.mock.method(globalThis, 'fetch', async url => {
+    if (url.href === new URL('files.json', base).href) return Response.json({ programmer: entry });
+    assert.equal(url.href, new URL(programmerName, base).href);
+    return new Response(bytes);
+  });
+  const list = await servedFiles(base);
+  assert.deepEqual(await fetchProgrammer(base, list.programmer), new Uint8Array(bytes));
+  await assert.rejects(fetchProgrammer(base), /missing the bundled Sonim programmer/);
+  bytes[0] ^= 1;
+  await assert.rejects(fetchProgrammer(base, entry), /does not match the listed SHA-256/);
+  await assert.rejects(fetchProgrammer(base, { ...entry, sha256: hash(bytes) }), /recognized Sonim-signed/);
 });
 
 test('boot manifest round-trips and rejects another partition, size or invalid identity', () => {

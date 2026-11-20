@@ -21,6 +21,7 @@ FILES = (
     'src/protocols/gpt.mjs', 'src/protocols/zip.mjs',
 )
 # The Sonim-signed MSM8909 programmer the pages accept (src/protocols/sahara.mjs).
+PROGRAMMER_NAME = 'prog_emmc_firehose_8909_ddr.mbn'
 PROGRAMMER_SHA256 = 'e6f2dbcfbed3ca72f23b4e1f0a53c510a620108eee2ac6b18a7835f1440e2767'
 MAGISK_SHA256 = 'f7ac4e2a1a528ebaa1cdc20c0bd06a785e17b226e97823389779bf7c4d44346a'
 
@@ -32,17 +33,18 @@ def file_entry(path, name):
     return data, {'file': name, 'size': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
 
 
-def build(destination, programmer=None, magisk_apk=None, wave_apk=None, wave_version=None):
+def build(destination, magisk_apk=None, wave_apk=None, wave_version=None):
     sources = [(path, SITE / path) for path in FILES]
     for path, source in sources:
         if not source.is_file() or source.resolve() != source:
             raise ValueError(f'Missing or indirect site asset: {path}')
-    staged = {}
-    if programmer:
-        data, entry = file_entry(programmer, 'prog_emmc_firehose_8909_ddr.mbn')
-        if entry['sha256'] != PROGRAMMER_SHA256:
-            raise ValueError('--programmer is not the pinned Sonim MSM8909 programmer')
-        staged['programmer'] = (data, entry)
+    programmer = SITE / 'assets' / PROGRAMMER_NAME
+    if not programmer.is_file() or programmer.resolve() != programmer:
+        raise ValueError(f'Missing or indirect site asset: assets/{PROGRAMMER_NAME}')
+    data, entry = file_entry(programmer, PROGRAMMER_NAME)
+    if entry['sha256'] != PROGRAMMER_SHA256:
+        raise ValueError('Bundled programmer is not the pinned Sonim MSM8909 programmer')
+    staged = {'programmer': (data, entry)}
     if magisk_apk:
         data, entry = file_entry(magisk_apk, 'Magisk-v24.0.apk')
         if entry['sha256'] != MAGISK_SHA256:
@@ -58,22 +60,20 @@ def build(destination, programmer=None, magisk_apk=None, wave_apk=None, wave_ver
         target = destination / path
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)
-    if staged:
-        # The pages fetch these by name from files.json on their own origin.
-        folder = destination / 'files'
-        folder.mkdir()
-        for data, entry in staged.values():
-            (folder / entry['file']).write_bytes(data)
-        (folder / 'files.json').write_text(json.dumps({k: v[1] for k, v in staged.items()}, indent=2) + '\n', encoding='utf-8')
+    # The pages fetch these by name from files.json on their own origin.
+    folder = destination / 'files'
+    folder.mkdir()
+    for data, entry in staged.values():
+        (folder / entry['file']).write_bytes(data)
+    (folder / 'files.json').write_text(json.dumps({k: v[1] for k, v in staged.items()}, indent=2) + '\n', encoding='utf-8')
     (destination / '.nojekyll').touch()
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('destination', type=Path)
-    parser.add_argument('--programmer', type=Path, help='Serve this Sonim programmer from the site (must be the pinned file)')
     parser.add_argument('--magisk-apk', type=Path, help='Serve this Magisk 24.0 APK from the site (must be the official release)')
     parser.add_argument('--wave-apk', type=Path, help='Serve this Wave APK from the site')
     parser.add_argument('--wave-version', help='Wave versionName to show for --wave-apk')
     args = parser.parse_args()
-    build(args.destination, args.programmer, args.magisk_apk, args.wave_apk, args.wave_version)
+    build(args.destination, args.magisk_apk, args.wave_apk, args.wave_version)

@@ -1,6 +1,6 @@
-// Files this site serves itself (build.py --programmer, --magisk-apk, --wave-apk),
-// listed by name with their SHA-256 in files/files.json next to the page.
+// Build assets listed by name with their SHA-256 in files/files.json.
 import { sha256 } from '../protocols/boot-image.mjs';
+import { checkProgrammer } from '../protocols/sahara.mjs';
 
 const NAME = /^[A-Za-z0-9._-]+\.(?:apk|mbn)$/;
 const HASH = /^[0-9a-f]{64}$/;
@@ -27,5 +27,12 @@ export async function fetchServed(base, entry) {
   if (!response.ok) throw new Error(`Could not download ${entry.file} from this site.`);
   const bytes = new Uint8Array(await response.arrayBuffer());
   if (await sha256(bytes) !== entry.sha256) throw new Error(`${entry.file} does not match the listed SHA-256.`);
+  return bytes;
+}
+
+export async function fetchProgrammer(base, entry) {
+  if (!entry) throw new Error('This site build is missing the bundled Sonim programmer.');
+  const bytes = await fetchServed(base, entry);
+  await checkProgrammer(bytes);
   return bytes;
 }

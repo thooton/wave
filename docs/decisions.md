@@ -25,10 +25,10 @@ moving; resolve open questions when the relevant brief has evidence.
    installs Magisk and Wave; `/wave/stock/` writes the stock image back. The
    owner put them, and the read-only backup page, **in the default Pages
    build** (they were opt-in). Our own adb client over Tango (no bundler or
-   transitive packages). The programmer stays a local file the owner chooses;
-   Magisk and Wave may be served from the site's origin (`build.py
-   --magisk-apk/--wave-apk`). The page uses a single-stage installer layout
-   with locally bundled styling and font; the device flow is unchanged.
+   transitive packages). The pages now live at `/wave/` and `/wave/recovery/`.
+   The owner requested the pinned Sonim programmer be bundled in every site
+   build, with no prerequisite file pickers. Pages also stages Magisk and
+   Wave from its own origin. The stock backup verification stays in place.
    See `root.md`.
 6. **Root is required for system mods**, and Wave installs through `su`
    when it has root. Amended by working default 16: root is opt-in, and

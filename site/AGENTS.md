@@ -27,13 +27,12 @@ mouse.
   - Never write before the backup is read twice, checked, saved, and the saved
     file chosen again and hash-matched. Never write an image that did not come
     from patching that phone's own backup in the same flow.
-  - No boot image or phone data is ever bundled. The deployed site serves the
-    Sonim programmer, Magisk 24.0 and Wave from its own origin (`build.py
-    --programmer/--magisk-apk/--wave-apk` into `files/` with `files.json`,
-    verified by `check_pages.py`; see `README.md`). The programmer and Magisk
-    are pinned by SHA-256 in `build.py` and again in the pages. None of them is
-    committed: CI fetches them at build time. Anything not served falls back to
-    a file picker.
+  - No boot image or phone data is ever bundled. `build.py` always stages the
+    pinned Sonim programmer from `assets/` into `files/`. CI supplies Magisk
+    24.0 and Wave (`--magisk-apk` and `--wave-apk`). All three are served from
+    the site with `files.json`, verified by `check_pages.py`; see `README.md`.
+    The programmer and Magisk are pinned by SHA-256 in `build.py` and again in
+    the pages. Users never choose installer prerequisites.
   - Nothing grants Wave root (decision 16). The page may ask Magisk for the
     adb shell's root, only on the user's click, and Magisk's prompt decides.
   - The flow's stage is in `localStorage` and the two images in IndexedDB so a
