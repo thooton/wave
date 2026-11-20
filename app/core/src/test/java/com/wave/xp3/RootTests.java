@@ -12,6 +12,8 @@ import com.wave.xp3.core.root.Watchdog;
 
 import com.xp3.common.Check;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -27,6 +29,7 @@ final class RootTests {
     private RootTests() {}
 
     static void run(Check check) {
+        check.run("Sandbox: nothing outlives it", () -> sandboxStops(check));
         check.run("Root: frame", () -> frame(check));
         check.run("Root: scripts", () -> scripts(check));
         check.run("Root: pm results", () -> pm(check));
@@ -155,6 +158,34 @@ final class RootTests {
         check.ok("current needs nothing", !Watchdog.needsInstall(current));
     }
 
+    /** Whether process `pid` has ended (or never was), waiting up to `ms`. */
+    static boolean gone(String pid, long ms) throws InterruptedException {
+        long until = System.currentTimeMillis() + ms;
+        while (pid.matches("[0-9]+") && new File("/proc/" + pid).exists()) {
+            if (System.currentTimeMillis() > until) return false;
+            Thread.sleep(20);
+        }
+        return true;
+    }
+
+    /** A sandbox kills what its scripts leave behind, even a loop that never ends, and says so. */
+    private static void sandboxStops(Check check) throws Exception {
+        if (!new File("/proc/self/environ").canRead()) return; // Linux only, like the leak it guards against.
+        String bg;
+        String name;
+        try (Sandbox box = new Sandbox()) {
+            name = box.root.getName();
+            box.sh("( while :; do /bin/sleep 1; done ) >/dev/null 2>&1 </dev/null &\necho $! > \"$FAKE/bg.pid\"", null);
+            bg = new String(Files.readAllBytes(new File(box.root, "bg.pid").toPath()), StandardCharsets.UTF_8).trim();
+            check.ok("the orphan runs", bg.matches("[0-9]+") && new File("/proc/" + bg).exists());
+            check.ok("and is found", box.running().stream().anyMatch(l -> l.startsWith(bg + " ")));
+        }
+        check.ok("closing kills it", gone(bg, 3000));
+        synchronized (Sandbox.leaked) {
+            check.ok("and records it", Sandbox.leaked.removeIf(l -> l.startsWith(name + ": ")));
+        }
+    }
+
     /** ProcessShell through a real process: framing, exit codes, timeouts, no root. */
     private static void shell(Check check) throws Exception {
         try (Sandbox box = new Sandbox()) {
@@ -168,8 +199,17 @@ final class RootTests {
             check.same("state doesn't leak", "", shell.run("X=1; cd /", 5000).output
                 + shell.run("echo $X", 5000).output);
             check.same("stdin is closed", "", shell.run("cat", 5000).output);
-            check.fails("timeout", "too long", () -> shell.run("while :; do :; done", 500));
+            // A timed-out script keeps running (the shell can't stop its subshell),
+            // so this one is told to stop afterwards, and ends by itself if the
+            // sandbox goes first.
+            File pid = new File(box.root, "loop.pid");
+            check.fails("timeout", "too long", () -> shell.run("sh -c 'echo $$ > \"$FAKE/loop.pid\"; "
+                + "until [ -e \"$FAKE/stop\" ] || [ ! -d \"$FAKE\" ]; do /bin/sleep 0.05; done'", 500));
             check.same("reopens after timeout", "back", shell.run("echo back", 5000).output);
+            box.flag("stop");
+            String loop = pid.isFile() ? new String(Files.readAllBytes(pid.toPath()), StandardCharsets.UTF_8).trim() : "";
+            check.ok("the timed-out script ran", loop.matches("[0-9]+"));
+            check.ok("and ends when told", gone(loop, 3000));
             check.fails("shell exiting", "closed", () -> shell.run("kill $$", 5000));
             check.same("reopens after exit", "again", shell.run("echo again", 5000).output);
             shell.close();

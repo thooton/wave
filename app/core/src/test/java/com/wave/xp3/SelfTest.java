@@ -35,6 +35,8 @@ public final class SelfTest {
         com.wave.xp3.core.sources.SourcesSelfTest.run(check);
         RootTests.run(check);
         InstallTests.run(check);
+        // Last: a test that left a process running (Sandbox killed it) fails here.
+        check.run("Sandbox: leaks", () -> check.same("no test left a process running", "", String.join("\n", Sandbox.leaked)));
         if (!check.report()) System.exit(1);
     }
 

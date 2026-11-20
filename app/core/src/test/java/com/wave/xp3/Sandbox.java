@@ -30,6 +30,13 @@ import java.util.stream.Stream;
  * with WAVE_TEST_SH when set, such as "/path/to/busybox ash", the shell
  * Magisk runs boot scripts with. A `sh` in `bin` stands for it, so scripts
  * that start `sh` themselves get it too.
+ *
+ * Nothing it starts may outlive it. Every `sh` and `su` it hands out starts
+ * its own process group (setsid), named in `groups`; {@link #close} kills
+ * those groups, then looks for anything still carrying this sandbox in its
+ * environment and kills that too. Whatever it had to kill is a leak: it is
+ * kept in {@link #leaked} for a check to fail on, because once the folder is
+ * gone a loop's fake `sleep` is gone with it and the loop spins at full CPU.
  */
 final class Sandbox implements AutoCloseable {
 
@@ -39,6 +46,10 @@ final class Sandbox implements AutoCloseable {
     final File bin;
     final File props;
     final File calls;
+    final File groups;
+
+    /** What closing a sandbox found still running, and killed: "sandbox: pid command". */
+    static final List<String> leaked = java.util.Collections.synchronizedList(new ArrayList<>());
 
     Sandbox() throws IOException {
         root = Files.createTempDirectory("wave-sandbox").toFile();
@@ -47,6 +58,7 @@ final class Sandbox implements AutoCloseable {
         bin = dir("bin");
         props = dir("props");
         calls = new File(root, "calls");
+        groups = new File(root, "groups");
         fakes();
     }
 
@@ -74,7 +86,11 @@ final class Sandbox implements AutoCloseable {
 
     private void fakes() throws IOException {
         String shell = System.getenv("WAVE_TEST_SH");
-        fake("sh", "exec " + (shell == null || shell.isEmpty() ? "/bin/sh" : shell) + " \"$@\"");
+        // Its own process group (setsid keeps the pid when it can, as here:
+        // a child of Java or of a shell doesn't lead a group), recorded first.
+        fake("sh", "echo $$ >> \"$FAKE/groups\"\n"
+            + "command -v setsid >/dev/null 2>&1 && exec setsid " + (shell == null || shell.isEmpty() ? "/bin/sh" : shell) + " \"$@\"\n"
+            + "exec " + (shell == null || shell.isEmpty() ? "/bin/sh" : shell) + " \"$@\"");
         fake("su", "exec \"$(dirname \"$0\")/sh\"");
         fake("id", "echo \"id $*\" >> \"$FAKE_LOG\"\n"
             + "if [ -f \"$FAKE/deny\" ]; then echo 'uid=2000(shell) gid=2000(shell)'; else echo 'uid=0(root) gid=0(root) context=u:r:magisk:s0'; fi");
@@ -217,6 +233,67 @@ final class Sandbox implements AutoCloseable {
         return new Ran(p.exitValue(), new String(out, StandardCharsets.UTF_8));
     }
 
+    /** Kills this sandbox's process groups, then anything left with it in its environment (see the class). */
+    private void stopEverything() {
+        List<String> left = running();
+        if (groups.isFile()) {
+            try {
+                for (String g : Files.readAllLines(groups.toPath())) if (g.trim().matches("[0-9]+")) kill("-" + g.trim());
+            } catch (IOException ignored) {
+                // Then only the environment search below.
+            }
+        }
+        for (String line : left) kill(line.substring(0, line.indexOf(' ')));
+        for (String line : left) leaked.add(root.getName() + ": " + line);
+    }
+
+    /** Processes whose environment names this sandbox (FAKE=root): "pid command". Linux /proc only. */
+    List<String> running() {
+        List<String> out = new ArrayList<>();
+        File[] procs = new File("/proc").listFiles((d, n) -> n.matches("[0-9]+"));
+        if (procs == null) return out;
+        byte[] mark = ("FAKE=" + root.getAbsolutePath() + "\0").getBytes(StandardCharsets.UTF_8);
+        String self;
+        try {
+            self = new File("/proc/self").getCanonicalFile().getName();
+        } catch (IOException e) {
+            return out;
+        }
+        for (File p : procs) {
+            if (p.getName().equals(self)) continue;
+            try {
+                byte[] env = Files.readAllBytes(new File(p, "environ").toPath());
+                if (!contains(env, mark)) continue;
+                byte[] cmd = Files.readAllBytes(new File(p, "cmdline").toPath());
+                String command = new String(cmd, StandardCharsets.UTF_8).replace('\0', ' ').trim();
+                out.add(p.getName() + " " + command);
+            } catch (IOException | SecurityException e) {
+                // Gone, or not ours.
+            }
+        }
+        return out;
+    }
+
+    private static boolean contains(byte[] hay, byte[] needle) {
+        outer:
+        for (int i = 0; i + needle.length <= hay.length; i++) {
+            if (i > 0 && hay[i - 1] != 0) continue;
+            for (int j = 0; j < needle.length; j++) if (hay[i + j] != needle[j]) continue outer;
+            return true;
+        }
+        return false;
+    }
+
+    private static void kill(String target) {
+        try {
+            Process k = new ProcessBuilder("kill", "-KILL", "--", target).redirectErrorStream(true).start();
+            readAll(k.getInputStream());
+            k.waitFor(5, TimeUnit.SECONDS);
+        } catch (IOException | InterruptedException ignored) {
+            // Nothing to kill.
+        }
+    }
+
     static final class Ran {
         final int exit;
         final String output;
@@ -241,6 +318,7 @@ final class Sandbox implements AutoCloseable {
 
     @Override
     public void close() throws IOException {
+        stopEverything();
         try (Stream<java.nio.file.Path> walk = Files.walk(root.toPath())) {
             List<java.nio.file.Path> paths = new ArrayList<>();
             walk.forEach(paths::add);

@@ -56,6 +56,13 @@ what pressing it does) and `Format`, none of which touch a View, plus `CatalogMo
 over real source files and every debug fixture. New logic of that kind goes there,
 with a check in `app/app/src/test`, not inline in a screen.
 
+A core test that starts a shell does so through `Sandbox` (`app/core/src/test`),
+which runs each one in its own process group and kills whatever is left when it
+closes. Anything it had to kill fails the run's last check, "Sandbox: leaks":
+a test must stop what it starts. (A loop left behind once spun at full CPU
+forever after its sandbox folder, and so its fake `sleep`, was deleted: one per
+run, 80 of them before anyone noticed.)
+
 Run from the repository root with JDK 21 (Gradle 8.9 does not run on newer
 JDKs) and the Android SDK's platform 35 and Build Tools 35.0.1. Set
 `ANDROID_HOME` or use an ignored root `local.properties` with
