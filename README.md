@@ -9,11 +9,10 @@ Wave app: [Messages Improved](https://github.com/thooton/wave_packages/tree/mast
 and [Launcher Improved](https://github.com/thooton/wave_packages/tree/master/mods/launcher).
 Launcher Improved modifies the stock launcher. The standalone AppDrawer is retired.
 
-Both mods build, but neither is in the [default catalog](https://github.com/thooton/wave_repository).
-Their APKs replace privileged stock apps, so CI only builds unsigned requests.
-Releases need matching APKs signed by an authorized OEM signer; then they can
-be tested on an XP3800 and published using the
-[mod release instructions](https://github.com/thooton/wave_packages/blob/master/mods/AGENTS.md#oem-signing-and-release).
+Both mods build, and each release is a stock-signed Magisk module: the build
+splices the new dex into the pinned stock APKs so they keep their certificate.
+Neither is in the [default catalog](https://github.com/thooton/wave_repository).
+See the [mod build instructions](https://github.com/thooton/wave_packages/blob/master/mods/AGENTS.md#signing-and-deploy).
 
 The port includes Launcher Quick Settings changes and a separate experimental
 [SQLite overlay](https://github.com/thooton/wave_packages/tree/master/mods/sqlite).
