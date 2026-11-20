@@ -144,8 +144,7 @@ After a successful import the app deletes the file it read (through the
 picker's provider when picked). If it can't, the setup screen says so and
 names the file, since it holds secrets.
 
-The **QR code** transport is reserved, not yet supported (see
-`docs/decisions.md`, open item 1). When it is, a code holds the payload's
+The **QR code** transport is reserved, not yet supported. A code holds the payload's
 JSON text as is (byte mode). A payload too dense for one code is split into
 chunks, each code holding
 

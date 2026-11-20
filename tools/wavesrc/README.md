@@ -20,5 +20,6 @@ integration test uses the sibling `../wave_packages` List build if it exists, or
 a tiny fixture with the installed SDK. Set `WAVESRC_TEST_APK` to exercise
 another APK. No tests contact GitHub or need network credentials.
 
-See [Publishing your own packages](../../docs/publishing.md) for usage and CI
-examples, and the [source format](../../docs/source-format.md) for the rules.
+See the [example source](../../spec/example-source/) and the schemas for
+[`wave.json`](../../spec/wave.schema.json) and
+[`package.json`](../../spec/package.schema.json).

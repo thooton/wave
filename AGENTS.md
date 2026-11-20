@@ -1,57 +1,25 @@
-# AGENTS.md
+# Wave
 
-Wave: a Cydia-like package manager and modding framework for the Sonim
-XP3800 (Android 8.1, API 27, 240x320, d-pad only). System mods require
-root; the app and source browsing can run on a stock phone.
-Read `docs/design.md` before anything else, then the brief for your task in
-`docs/tasks/`.
+Wave is a package manager for the Sonim XP3800 (Android 8.1, API 27,
+240×320, d-pad only). Browsing works on stock; system mods require root.
 
-## Where things are
+- `app/`: Android app and plain Java core. See [app/AGENTS.md](app/AGENTS.md)
+  and [app/SPEC.md](app/SPEC.md).
+- `spec/`: source and setup JSON schemas, plus source fixtures used by tests.
+- `common/`: vendored from `../wave_packages`; edit upstream, then run
+  `tools/sync-common.sh`. Follow that repo's `AGENTS.md` and `DESIGN.md` for
+  shared phone code conventions.
+- `site/`: static installer and recovery site. See [site/AGENTS.md](site/AGENTS.md).
+- `tools/wavesrc/`: source tooling. See [CLI usage](tools/wavesrc/README.md).
 
-```
-docs/design.md          the whole design
-docs/source-format.md   what a source is (normative; spec/ has the schemas)
-docs/root.md            the device guide and recovery scope
-docs/decisions.md       decided, assumed, open
-docs/tasks/             one brief per piece of work; README.md has the order
-spec/                   JSON Schemas and example-source/ (also the test fixture)
-app/                    the Wave app (Gradle: :app:core plain Java, :app:app Android)
-common/                 copy of wave_packages/common (don't edit here; sync it)
-site/                   the website: rooting page (site root) and recovery/
-tools/wavesrc/          lint, verify and publish for sources
-cydia_images/           screenshots of Cydia, the reference for the app's screens
-```
+Sibling checkouts: `../wave_packages` for package development,
+`../wave_repository` for the default source, `../wave_private_packages` for
+private packages. `../sonim` is the legacy repo, not the upstream of `common/`.
 
-On this machine use `../wave_packages` for package development,
-`../wave_repository` for the default source and `../wave_private_packages`
-for the private source. `../sonim` is a separate checkout of the legacy
-public repo, not the upstream of Wave's shared code.
-This checkout is `wave` locally and `thooton/wave` on GitHub.
+Keep specs and fixtures in sync with behavior changes. Report what was verified
+and what was blocked. Run device-changing steps only for the assigned task and
+on an authorized phone reserved by serial. Never write to `/system`, flash a
+boot image patched for another phone, or restore anything but the target
+phone's verified stock backup.
 
-## Rules
-
-- **The design is the contract.** If your work needs the design to change,
-  change `docs/design.md` (and `source-format.md`, the schemas and the
-  example source if the format changes) in the same commit, and note it in
-  `docs/decisions.md`. Don't let code and docs disagree.
-- **Phone code**: Java 8 language level, nothing above API 27, no third-party
-  dependencies in the app or its tests. `:core` is plain Java with a
-  `SelfTest` main class, as in `wave_packages`. Read `../wave_packages/AGENTS.md`
-  and `../wave_packages/DESIGN.md`; their conventions apply here.
-- **The site** may use third-party JavaScript. Keep it a static site.
-- **Every change to the app bumps its version** (`versionName` and
-  `versionCode`), or it never reaches a phone.
-- **Work autonomously.** Use the design and briefs to decide, implement,
-  and verify work without personal sign-off. Record decisions and evidence.
-  If access, credentials, or hardware are missing, record the affected step
-  as blocked and continue independent work. Don't mark unverified work done.
-- **The phone.** It has no touchscreen: keys only. Run device-changing
-  steps only when the brief calls for them and an authorized device is
-  reserved for the task by serial. Don't use an unreserved or busy phone.
-  Never write to `/system`. Never flash a patched boot image from another
-  phone, or restore anything other than the target phone's verified stock
-  backup.
-- **Commits**: author thooton. Never name Claude or Anthropic, and no
-  AI attribution lines, in commits or pull requests.
-- **Briefs**: when you finish one, tick it in `docs/tasks/README.md` and
-  leave a line on anything the next agent needs to know.
+Commit author: thooton. No AI attribution in commits or pull requests.
