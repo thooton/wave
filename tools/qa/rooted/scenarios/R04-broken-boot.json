@@ -1,0 +1,300 @@
+{
+  "rooted": true,
+  "name": "A module built to hold the boot: the watchdog reboots once, turns it off, the alert asks, and Remove It cleans up",
+  "steps": [
+    {
+      "name": "Before: nothing armed, nothing on trial",
+      "do": "su",
+      "cmd": "ls /data/adb/wave_test_broken.armed /data/adb/wave/pending /data/adb/modules/wave_test_broken 2>&1; true",
+      "expect_not": "^/data/adb/(wave_test_broken.armed|wave/pending)$"
+    },
+    {
+      "name": "Give Wave root",
+      "do": "pregrant"
+    },
+    {
+      "name": "Wave Home",
+      "action": "launch",
+      "wait_ms": 3500
+    },
+    {
+      "name": "Down to the Root row",
+      "key": "DPAD_DOWN",
+      "repeat": 2,
+      "focus_on": "Root for System Mods"
+    },
+    {
+      "name": "Open it",
+      "key": "ENTER",
+      "before_text": [
+        "Root for System Mods"
+      ],
+      "wait_ms": 1000,
+      "text_all": [
+        "Check Again"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Check Again finds the grant",
+      "key": "ENTER",
+      "before_text": [
+        "Check Again"
+      ],
+      "wait_ms": 3000
+    },
+    {
+      "name": "Sources",
+      "key": "DPAD_RIGHT",
+      "wait_ms": 1000,
+      "text_all": [
+        "Sources"
+      ]
+    },
+    {
+      "name": "Open the Wave source",
+      "key": "ENTER",
+      "before_text": [
+        "Sources"
+      ],
+      "wait_ms": 1500,
+      "text_all": [
+        "All Packages",
+        "System"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Open All Packages",
+      "key": "ENTER",
+      "before_text": [
+        "All Packages"
+      ],
+      "wait_ms": 1500,
+      "text_all": [
+        "Wave Test Broken",
+        "Wave Test OK"
+      ],
+      "focus_on": "Wave Test Broken",
+      "changed": true
+    },
+    {
+      "name": "Open Wave Test Broken",
+      "key": "ENTER",
+      "before_text": [
+        "Wave Test Broken"
+      ],
+      "wait_ms": 1500,
+      "text_all": [
+        "Wave Test Broken",
+        "System mod, needs a reboot"
+      ],
+      "changed": true
+    },
+    {
+      "name": "GET",
+      "key": "ENTER",
+      "before_text": [
+        "Wave Test Broken"
+      ],
+      "wait_ms": 3000,
+      "changed": true
+    },
+    {
+      "name": "Confirm",
+      "key": "ENTER",
+      "before_text": [
+        "Confirm"
+      ],
+      "rooted_confirm": true,
+      "wait_ms": 9000,
+      "changed": true
+    },
+    {
+      "name": "Done: Later or Reboot Now",
+      "action": "capture",
+      "wait_ms": 500,
+      "text_all": [
+        "Reboot Now"
+      ]
+    },
+    {
+      "name": "Installed, on trial, not armed (the module disarms itself, and nothing has armed it yet)",
+      "do": "su",
+      "cmd": "ls /data/adb/modules_update; cat /data/adb/wave/pending; ls /data/adb/wave_test_broken.armed 2>&1; true",
+      "expect": "wave_test_broken",
+      "expect_not": "^/data/adb/wave_test_broken.armed$"
+    },
+    {
+      "name": "ARM: the next boot will not finish, on purpose",
+      "do": "su",
+      "cmd": "touch /data/adb/wave_test_broken.armed; ls /data/adb/wave_test_broken.armed",
+      "expect": "armed"
+    },
+    {
+      "name": "Note the watchdog log length",
+      "do": "mark_log"
+    },
+    {
+      "name": "Reboot Now has the focus on the Done screen",
+      "action": "capture",
+      "wait_ms": 300,
+      "focus_on": "Reboot Now"
+    },
+    {
+      "name": "Check for crashes so far",
+      "do": "health"
+    },
+    {
+      "name": "Reboot Now: the boot will hold, the watchdog reboots once at about five minutes",
+      "key": "ENTER",
+      "before_text": [
+        "Reboot Now"
+      ],
+      "rooted_confirm": true,
+      "wait_ms": 500
+    },
+    {
+      "name": "Wait for the phone to come back (second boot completes)",
+      "do": "wait_boot",
+      "timeout_s": 780
+    },
+    {
+      "name": "The watchdog reboots once and turns the mod off",
+      "do": "wait_su",
+      "cmd": "tail -n +$LOGMARK /data/adb/wave/log",
+      "expect": "disabled wave_test_broken \\(boot-timeout\\)",
+      "timeout_s": 120
+    },
+    {
+      "name": "The log shows exactly one reboot and the module held the first boot",
+      "do": "su",
+      "cmd": "echo reboots=$(tail -n +$LOGMARK /data/adb/wave/log | grep -c \"rebooting once\"); tail -n +$LOGMARK /data/adb/wave/log; echo ---; cat /data/adb/wave_test_broken.log",
+      "expect": "reboots=1(.|\\n)*boot not completed after 300s; rebooting once(.|\\n)*holding boot"
+    },
+    {
+      "name": "Disabled record, disable file, disarmed",
+      "do": "su",
+      "cmd": "cat /data/adb/wave/disabled; echo ---; ls /data/adb/modules/wave_test_broken; echo ---; ls /data/adb/wave_test_broken.armed 2>&1",
+      "expect": "wave_test_broken\\tboot-timeout(.|\\n)*---(.|\\n)*disable(.|\\n)*No such file"
+    },
+    {
+      "name": "Wave Home after the rescue",
+      "action": "launch",
+      "wait_ms": 4000,
+      "text_all": [
+        "Wave Test Broken",
+        "Turned off",
+        "the phone didn't finish starting within five minutes"
+      ],
+      "focus_on": "OK"
+    },
+    {
+      "name": "Left reaches Remove It",
+      "key": "DPAD_LEFT",
+      "focus_on": "Remove It",
+      "focus_moved": true
+    },
+    {
+      "name": "Right back to OK",
+      "key": "DPAD_RIGHT",
+      "focus_on": "OK",
+      "focus_moved": true
+    },
+    {
+      "name": "OK dismisses it",
+      "key": "ENTER",
+      "before_text": [
+        "Turned off"
+      ],
+      "wait_ms": 1200,
+      "text_none": [
+        "Wave turned it off"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Installed says Turned off",
+      "key": "DPAD_RIGHT",
+      "repeat": 2,
+      "wait_ms": 1000,
+      "text_all": [
+        "Wave Test Broken",
+        "Turned off"
+      ]
+    },
+    {
+      "name": "Down to its row",
+      "key": "DPAD_DOWN",
+      "wait_ms": 500,
+      "focus_on": "Wave Test Broken"
+    },
+    {
+      "name": "Its menu",
+      "key": "MENU",
+      "wait_ms": 700,
+      "text_all": [
+        "Turn On",
+        "Remove"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Down to Remove",
+      "key": "DPAD_DOWN",
+      "repeat": 4,
+      "focus_on": "Remove"
+    },
+    {
+      "name": "Remove",
+      "key": "ENTER",
+      "before_text": [
+        "Remove"
+      ],
+      "wait_ms": 2500,
+      "text_all": [
+        "Confirm"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Confirm the removal",
+      "key": "ENTER",
+      "before_text": [
+        "Confirm"
+      ],
+      "rooted_confirm": true,
+      "wait_ms": 6000,
+      "text_all": [
+        "Done"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Magisk is told to remove it at the next restart",
+      "do": "su",
+      "cmd": "ls /data/adb/modules/wave_test_broken",
+      "expect": "remove"
+    },
+    {
+      "name": "Check for crashes",
+      "do": "health"
+    },
+    {
+      "name": "A clean restart to finish the removal",
+      "do": "reboot",
+      "how": "su"
+    },
+    {
+      "name": "Wait for the phone",
+      "do": "wait_boot",
+      "timeout_s": 300
+    },
+    {
+      "name": "The module is gone, no watchdog reboot happened this time",
+      "do": "su",
+      "cmd": "ls /data/adb/modules/wave_test_broken 2>&1; echo reboots=$(tail -n +$LOGMARK /data/adb/wave/log | grep -c \"rebooting once\")",
+      "expect": "No such file(.|\\n)*reboots=1"
+    }
+  ]
+}

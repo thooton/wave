@@ -34,6 +34,8 @@ REGION = (0, 25, WIDTH, 270)  # Omit status/navigation bars. Override for finer 
 STEP_FIELDS = {'action', 'key', 'name', 'wait_ms', 'before_text', 'text_all', 'text_any',
                'changed', 'focus_moved', 'region', 'min_diff', 'reference', 'max_diff', 'focus_on', 'text_none',
                'fixture_confirm', 'repeat'}
+# tools/qa/rooted/ scenarios mix these with 'do' steps (see rooted/rooted.py) and may press Confirm.
+ROOTED_STEP_FIELDS = STEP_FIELDS | {'do', 'cmd', 'expect', 'expect_not', 'timeout_s', 'how', 'rooted_confirm', 'text'}
 
 
 class HarnessError(RuntimeError):
@@ -44,10 +46,11 @@ class CheckFailed(RuntimeError):
     pass
 
 
-def read_scenario(path):
+def read_scenario(path, rooted=False, check_do=None):
     doc = json.loads(path.read_text(encoding='utf-8'))
-    if (not isinstance(doc, dict) or not {'name', 'steps'} <= set(doc) <= {'name', 'steps', 'fixture', 'query'}
-            or not isinstance(doc['name'], str)):
+    allowed = {'name', 'steps', 'fixture', 'query'} | ({'rooted', 'note'} if rooted else set())
+    if (not isinstance(doc, dict) or not {'name', 'steps'} <= set(doc) <= allowed
+            or not isinstance(doc['name'], str) or (rooted and doc.get('rooted') is not True)):
         raise HarnessError('Scenario needs a name and steps array, and may add fixture and query.')
     if 'fixture' in doc and doc['fixture'] not in FIXTURES:
         raise HarnessError('Scenario fixture must be one of: ' + ', '.join(FIXTURES) + '.')
@@ -55,15 +58,24 @@ def read_scenario(path):
                            or not re.fullmatch('[a-zA-Z0-9]{1,24}', doc['query'])):
         raise HarnessError('Scenario query needs a fixture and at most 24 letters or digits.')
     steps = doc['steps']
-    if not isinstance(steps, list) or not 1 <= len(steps) <= 60:
+    if not isinstance(steps, list) or not 1 <= len(steps) <= (150 if rooted else 60):
         raise HarnessError('A scenario needs 1 to 60 steps.')
+    first_ui = True
     for n, step in enumerate(steps):
-        if not isinstance(step, dict) or set(step) - STEP_FIELDS or not isinstance(step.get('name'), str):
+        if not isinstance(step, dict) or set(step) - (ROOTED_STEP_FIELDS if rooted else STEP_FIELDS) \
+                or not isinstance(step.get('name'), str):
             raise HarnessError(f'Step {n + 1}: invalid fields or missing name.')
-        if n == 0 and step.get('action') != 'launch':
+        if rooted and 'do' in step:
+            if check_do is None or set(step) - {'name', 'do', 'cmd', 'expect', 'expect_not', 'timeout_s', 'how', 'text', 'wait_ms'}:
+                raise HarnessError(f'Step {n + 1}: invalid fields for a do step.')
+            check_do(step, n + 1)
+            continue
+        launching = first_ui or (rooted and step.get('action') == 'launch')
+        if first_ui and step.get('action') != 'launch':
             raise HarnessError('The first step must launch Wave.')
-        if 'action' in step and ('key' in step or step['action'] not in ({'launch'} if n == 0 else {'capture'})):
+        if 'action' in step and ('key' in step or step['action'] not in ({'launch', 'capture'} if rooted and not first_ui else {'launch'} if first_ui else {'capture'})):
             raise HarnessError(f'Step {n + 1}: expected launch first, then a key or capture.')
+        first_ui = False
         if 'action' not in step and step.get('key') not in KEYS:
             raise HarnessError(f'Step {n + 1} ({step["name"]}): unknown key {step.get("key")!r}. '
                                'Accepted: ' + ', '.join(sorted(KEYS)) + '.')
@@ -79,13 +91,15 @@ def read_scenario(path):
         if 'fixture_confirm' in step and (step['fixture_confirm'] is not True or 'fixture' not in doc
                                           or step.get('key') != 'ENTER'):
             raise HarnessError(f'Step {n + 1}: fixture_confirm is only for an ENTER step in a debug fixture scenario.')
+        if 'rooted_confirm' in step and (step['rooted_confirm'] is not True or not rooted or step.get('key') != 'ENTER'):
+            raise HarnessError(f'Step {n + 1}: rooted_confirm is only for an ENTER step in a rooted scenario.')
         if step.get('key') == 'ENTER' and 'before_text' not in step:
             raise HarnessError(f'Step {n + 1}: ENTER requires before_text.')
         if any(field in step and type(step[field]) is not bool for field in ('changed', 'focus_moved')):
             raise HarnessError(f'Step {n + 1}: changed and focus_moved must be booleans.')
         if step.get('focus_moved') is False:
             raise HarnessError(f'Step {n + 1}: omit focus_moved unless checking for movement.')
-        if n == 0 and any(field in step for field in ('before_text', 'changed', 'focus_moved')):
+        if launching and any(field in step for field in ('before_text', 'changed', 'focus_moved')):
             raise HarnessError('The launch step has no previous screen.')
         wait = step.get('wait_ms', 350)
         if type(wait) is not int or not 0 <= wait <= 15000:
@@ -202,6 +216,9 @@ class Device:
         self.query = query
         self.prefix = [adb, '-s', SERIAL]
         self.marker = 'qa_' + uuid.uuid4().hex
+        self.rooted = False   # rooted scenarios may press Confirm and Reboot Now; see rooted/rooted.py
+        self.doer = None      # runs a rooted scenario's 'do' steps
+        self.before_launch = None
         self.dump_path = '/data/local/tmp/wave-' + self.marker + '.xml'
 
     def call(self, *args, **kwargs):
@@ -405,12 +422,16 @@ def inspect_step(device, step, frame, previous, current, prior_focus):
 def run_steps(device, scenario, output, frames):
     previous = None
     for i, step in enumerate(scenario['steps'], 1):
-        action = step.get('key') or step['action']
+        action = step.get('key') or step.get('action') or 'do ' + step['do']
         frame = {'name': step['name'], 'action': action, 'checks': [], 'status': 'incomplete'}
         if step.get('repeat', 1) > 1:
             frame['repeat'] = step['repeat']
         frames.append(frame)
         print(f'{i:02d} {action}: {step["name"]}', flush=True)
+        if 'do' in step:
+            device.doer(step, frame, output, i)
+            frame['status'] = 'pass'
+            continue
         if action != 'launch' and not device.foreground():
             raise CheckFailed('Wave is not foreground; no key sent.')
         before = None
@@ -422,13 +443,16 @@ def run_steps(device, scenario, output, frames):
                     raise
         if 'before_text' in step and not text_matches(before, step['before_text']):
             raise CheckFailed('Key guard failed; expected: ' + ', '.join(step['before_text']))
-        if action == 'ENTER' and not (step.get('fixture_confirm') and device.fixture) and any(
+        if action == 'ENTER' and not ((step.get('fixture_confirm') and device.fixture)
+                                      or (step.get('rooted_confirm') and device.rooted)) and any(
                 normalize(node.get(key, '')) in {'confirm', 'reboot now'}
                 for node in wave_nodes(before) for key in ('text', 'content-desc')):
             raise CheckFailed('Test stopped before a visible Confirm or Reboot Now action.')
         if before is not None and not device.foreground():
             raise CheckFailed('Wave lost foreground while reading the hierarchy; no key sent.')
         if action == 'launch':
+            if device.before_launch:
+                device.before_launch()
             extras = ('--es', 'fixture', device.fixture) if device.fixture else ()
             if device.query:
                 extras += ('--es', 'query', device.query)

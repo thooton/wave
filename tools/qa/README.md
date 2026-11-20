@@ -1,5 +1,8 @@
 # Wave handset QA
 
+The default suite here is fixture-only and root-free. The **rooted suite** (`suite.py --rooted`, `rooted/`)
+is separate, changes root state and reboots the phone: see "Rooted suite" at the end before running it.
+
 ## Rule 1: every adb command goes through `phone-run.sh`
 
 The phone is shared. `tools/qa/phone-run.sh` is the only supported way to touch
@@ -128,8 +131,8 @@ It does not prove:
   release-build scenarios never confirm a plan. Real installs need their own
   verification (see `docs/first-phone.md`).
 - Anything that needs root: mods, the watchdog turning a module off, Check
-  Again granting `su`, Reboot Now. The phone is stock, so those paths were not
-  exercised.
+  Again granting `su`, Reboot Now. The fixture suite never exercises them; the
+  separate rooted suite below does, on a rooted phone only.
 - Network behaviour. Fixtures bypass sources, Git and downloads; offline
   scenarios check only the messages Wave shows.
 - Coverage beyond the listed paths. A step passes if its checks pass; whatever
@@ -143,3 +146,82 @@ after a key, a window handover). Foreground ownership is polled for up to 3 seco
 and an accessibility-based check (focus, text, absent text) is retried twice, half a
 second apart, against the same screenshot before the step fails. Pixel and reference
 checks are never retried.
+
+## Rooted suite (`suite.py --rooted`): changes the phone and reboots it
+
+**This is not the default suite and it is not harmless.** It needs the reserved
+XP3800 to be rooted (Magisk). It installs Wave with real data (no fixture), lets
+Wave take root, installs and removes two test mods, and reboots the phone
+several times, once into a boot that a mod holds on purpose until Wave's
+watchdog gives up on it (about five minutes). Everything else in this folder
+leaves the phone as it found it by construction; this suite restores it by
+effort, and says so when it could not.
+
+    tools/qa/phone-run.sh --who "agentN rooted QA" --wait 5400 -- python3 tools/qa/suite.py --rooted
+
+(`suite.py --rooted` re-runs itself under `phone-run.sh` if you leave that out.)
+It takes about 25 minutes. Reports go to `.oak/tmp/wave-qa/rooted-suite-<UTC>/index.html`,
+one folder per scenario with screenshots and the `su` output each step checked.
+`--apk` takes a rooted-QA APK; without it the suite builds one from `HEAD` (a clean
+`git archive`, so uncommitted changes are not tested). Single scenario:
+`python3 tools/qa/rooted/rooted.py --apk APK --scenario tools/qa/rooted/scenarios/R02-install-mod.json`.
+
+What it does, in `rooted/`:
+
+- `apk.py` builds the debug APK of a commit in a scratch export with two changes that never ship: the
+  built-in source URL is `https://localhost:4483/mods.git`, and a network-security config trusts
+  `source.py`'s throwaway certificate for `localhost`/`127.0.0.1`. The APK is checked against the certificate
+  before it is installed.
+- `source.py` builds a real Git source (`wave.json`, a System section, two `package.json` files) holding
+  `app/root-tests/wave_test_ok` and `wave_test_broken`, unchanged, and serves it and their zips over HTTPS on
+  `127.0.0.1:4483`. The phone reaches it through `adb reverse`, which the harness re-adds after every boot.
+- `rooted.py` runs one scenario. Scenarios are the same JSON as the others plus `"rooted": true` and `do`
+  steps (`su`, `wait_su`, `pregrant`, `answer_prompt`, `mark_log`, `health`, `reboot`, `wait_boot`). A
+  rooted scenario may press Confirm and Reboot Now with `rooted_confirm`; `ENTER` still needs `before_text`.
+  Keys are still only the d-pad, `ENTER`, `BACK` and `MENU`.
+
+| Scenario | Proves |
+| --- | --- |
+| `R01-root-prompt` | Wave's Check Again raises Magisk's prompt; Down, Right, OK on the d-pad grants it; Wave says "Wave has root" and Magisk holds a grant for Wave. |
+| `R02-install-mod` | A mod installs from the local HTTPS source; "Reboot to Finish" appears; its row opens "Reboot Now?"; Reboot Now restarts the phone; the module ran (`version=1.0` marker), the watchdog logs "boot settled" and keeps it. |
+| `R03-watchdog-alert` | From the record the watchdog leaves (written by the harness, no reboot): the "Turned off" alert with OK and Remove It, Installed's "Turned off", Turn On (clears `disable`, puts it on trial), Turn Off's absence, and Remove It. |
+| `R04-broken-boot` | A module that holds the boot, armed with a marker file: the first boot never completes, the watchdog reboots exactly once, turns the module off (`disabled`, the `disable` file, the log lines), the alert asks, Remove It removes it, and a final restart shows it gone. |
+
+Before it starts, `suite.py --rooted` and `rooted.py` refuse (exit 2, nothing changed) unless `su -c id` gives
+uid 0, Magisk's grant table holds only uid 2000 (the shell), no `wave_test_*` module or marker is on the phone,
+Wave is not installed, and the battery is at least 30%. After every scenario, passed, failed or interrupted,
+`rooted.py` waits for the phone (up to 12 minutes), then removes the test modules and markers, restores
+`/data/adb/wave` and the watchdog scripts to the first listing, uninstalls Wave, deletes every Magisk grant that
+was not there at the start (twice, because Magisk writes a late "deny" when a prompt is cancelled), removes
+`adb reverse`, and verifies all of it. A restore it could not verify makes the scenario INCOMPLETE and stops
+the suite. The suite ends with its own check of the same facts.
+
+What a rooted run proves: the paths above worked on this phone, with this Magisk (24.0), through the real
+install engine, the real watchdog scripts and the real boot, and that Wave's own screens say what happened. It
+does not prove: that a different phone, Magisk or ROM behaves the same; that a real third-party mod works
+(the test modules do nothing); that a mod which damages `/system` or the boot partitions is survivable (the
+broken module only stops zygote, and disarms itself before it does, so it breaks one boot at most, and gives
+the boot back after six minutes even if everything else fails); the first-run rooting itself (Magisk install,
+the Jailbreak page); or anything the checks do not assert. R03's alert comes from a record the harness writes
+in the watchdog's format, so R03 proves Wave's reading of the record and R04 proves the watchdog's writing of it.
+Magisk's prompt window and its toasts are not in the accessibility tree, so R01 detects the prompt by window
+focus and the Wave toast is checked only by the screenshot a person reads.
+
+### If the phone does not come back
+
+The suite waits 13 minutes for a boot, then 12 more in the restore, and says
+"RESTORE NOT DONE" or "did not finish booting" if it gives up. The phone is not lost:
+
+1. Wait a further five minutes; the broken module gives the boot back by itself after six.
+2. Hold power for about 10 seconds to cut power, then boot again (a battery pull if that does nothing).
+   A mod that was left behind can be disabled with `adb shell su -c 'touch /data/adb/modules/wave_test_broken/remove'`
+   and a reboot, or `rm -rf /data/adb/modules/wave_test_* /data/adb/wave_test_*` once `adb` and `su` answer.
+3. If it still does not boot, start Magisk's safe mode (hold Volume Down while it boots; it turns all modules
+   off), or use the Rescue page (`site/rescue/`, needs the phone to reach adb).
+4. As the last resort flash the boot image back. The backups are in `~/Documents/wave-phone-backups/8516067e/`:
+   `boot-stock.img` (stock) and `boot-magisk.img` (Magisk-patched, what the phone ran), with `SHA256SUMS` and
+   `SHA256SUMS-magisk`. Check the hashes, then fastboot or the vendor tool as in `docs/jailbreak.md` and
+   `app/ROOT-TESTING.md` ("Ways out"). Flashing `boot-stock.img` unroots the phone.
+
+After any manual recovery, run `suite.py --rooted` once more or check by hand: `su -c 'magisk --sqlite "SELECT uid FROM policies"'`
+shows only `uid=2000`, `ls /data/adb/modules` shows no `wave_test_*`, and `pm path com.wave.xp3` prints nothing.

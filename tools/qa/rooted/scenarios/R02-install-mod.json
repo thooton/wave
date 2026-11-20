@@ -1,0 +1,231 @@
+{
+  "rooted": true,
+  "name": "A mod installs from the local HTTPS source, Reboot to Finish shows, Reboot Now restarts, the mod ran and the watchdog kept it",
+  "steps": [
+    {
+      "name": "Before: no module on trial, no watchdog state of this run",
+      "do": "su",
+      "cmd": "ls /data/adb/wave/pending /data/adb/wave/trying /data/adb/modules/wave_test_ok 2>&1; true",
+      "expect_not": "^/data/adb/wave/(pending|trying)$"
+    },
+    {
+      "name": "Give Wave root (the prompt itself is R01)",
+      "do": "pregrant"
+    },
+    {
+      "name": "Wave Home",
+      "action": "launch",
+      "wait_ms": 3000,
+      "text_all": [
+        "Featured",
+        "Wave Test OK"
+      ]
+    },
+    {
+      "name": "Down to the Root row (Wave must be told to look: the grant alone changes nothing in Wave)",
+      "key": "DPAD_DOWN",
+      "repeat": 2,
+      "focus_on": "Root for System Mods"
+    },
+    {
+      "name": "Open it",
+      "key": "ENTER",
+      "before_text": [
+        "Root for System Mods"
+      ],
+      "wait_ms": 1000,
+      "text_all": [
+        "Check Again"
+      ],
+      "changed": true
+    },
+    {
+      "name": "Check Again finds the grant and no prompt is needed",
+      "key": "ENTER",
+      "before_text": [
+        "Check Again"
+      ],
+      "wait_ms": 2500
+    },
+    {
+      "name": "Back to Home",
+      "action": "capture",
+      "wait_ms": 300,
+      "text_none": [
+        "Wave Needs Root"
+      ]
+    },
+    {
+      "name": "Up to the featured Wave Test OK (Home starts on What is Wave)",
+      "key": "DPAD_UP",
+      "focus_on": "Wave Test OK",
+      "focus_moved": true
+    },
+    {
+      "name": "Open Wave Test OK (the featured row)",
+      "key": "ENTER",
+      "before_text": [
+        "Wave Test OK"
+      ],
+      "wait_ms": 1200,
+      "text_all": [
+        "Wave Test OK"
+      ],
+      "changed": true
+    },
+    {
+      "name": "GET",
+      "key": "ENTER",
+      "before_text": [
+        "Wave Test OK"
+      ],
+      "wait_ms": 3000,
+      "changed": true
+    },
+    {
+      "name": "Confirm: what it will do",
+      "action": "capture",
+      "wait_ms": 500
+    },
+    {
+      "name": "Confirm",
+      "key": "ENTER",
+      "before_text": [
+        "Confirm"
+      ],
+      "rooted_confirm": true,
+      "wait_ms": 9000,
+      "changed": true
+    },
+    {
+      "name": "Done: Later or Reboot Now",
+      "action": "capture",
+      "wait_ms": 500
+    },
+    {
+      "name": "The module waits in modules_update, on trial, with the watchdog installed",
+      "do": "su",
+      "cmd": "ls /data/adb/modules_update /data/adb/post-fs-data.d /data/adb/service.d; cat /data/adb/wave/pending",
+      "expect": "wave_test_ok(.|\\n)*wave-watchdog.sh(.|\\n)*wave-watchdog.sh(.|\\n)*wave_test_ok"
+    },
+    {
+      "name": "Back (Later)",
+      "key": "BACK",
+      "wait_ms": 1000
+    },
+    {
+      "name": "Back again to Home",
+      "key": "BACK",
+      "wait_ms": 1000,
+      "text_all": [
+        "Reboot to Finish"
+      ]
+    },
+    {
+      "name": "Installed lists it as waiting for the reboot",
+      "key": "DPAD_RIGHT",
+      "repeat": 2,
+      "wait_ms": 1000,
+      "text_all": [
+        "Wave Test OK",
+        "Reboot to Finish"
+      ]
+    },
+    {
+      "name": "Left twice to Wave Home",
+      "key": "DPAD_LEFT",
+      "repeat": 2,
+      "wait_ms": 800,
+      "text_all": [
+        "Reboot to Finish"
+      ]
+    },
+    {
+      "name": "Up to the Reboot to Finish row",
+      "key": "DPAD_UP",
+      "repeat": 3,
+      "wait_ms": 500,
+      "focus_on": "Reboot to Finish"
+    },
+    {
+      "name": "Its REBOOT opens \"Reboot Now?\" on Later",
+      "key": "ENTER",
+      "before_text": [
+        "Reboot to Finish"
+      ],
+      "wait_ms": 800,
+      "text_all": [
+        "Reboot Now?",
+        "Later"
+      ],
+      "focus_on": "Later",
+      "changed": true
+    },
+    {
+      "name": "Note the watchdog log length",
+      "do": "mark_log"
+    },
+    {
+      "name": "Right to Reboot",
+      "key": "DPAD_RIGHT",
+      "focus_on": "Reboot",
+      "focus_moved": true
+    },
+    {
+      "name": "Check for crashes so far (a reboot empties the log)",
+      "do": "health"
+    },
+    {
+      "name": "Reboot restarts the phone",
+      "key": "ENTER",
+      "before_text": [
+        "Reboot Now?"
+      ],
+      "rooted_confirm": true,
+      "wait_ms": 500
+    },
+    {
+      "name": "The phone restarts and boots",
+      "do": "wait_boot",
+      "timeout_s": 300
+    },
+    {
+      "name": "The watchdog judges the boot and settles it",
+      "do": "wait_su",
+      "cmd": "tail -n +$LOGMARK /data/adb/wave/log",
+      "expect": "boot settled",
+      "timeout_s": 200
+    },
+    {
+      "name": "The module ran, nothing is on trial and it is not turned off",
+      "do": "su",
+      "cmd": "cat /data/adb/wave_test_ok.mounted; echo ---; ls /data/adb/wave; echo ---; ls /data/adb/modules/wave_test_ok",
+      "expect": "version=1.0(.|\\n)*---(.|\\n)*---(.|\\n)*module.prop",
+      "expect_not": "pending|trying|disable"
+    },
+    {
+      "name": "Wave Home after the restart",
+      "action": "launch",
+      "wait_ms": 3500,
+      "text_all": [
+        "Featured"
+      ],
+      "text_none": [
+        "Reboot to Finish"
+      ]
+    },
+    {
+      "name": "Installed lists it as installed, not waiting",
+      "key": "DPAD_RIGHT",
+      "repeat": 2,
+      "wait_ms": 1000,
+      "text_all": [
+        "Wave Test OK"
+      ],
+      "text_none": [
+        "Reboot to Finish",
+        "Starts after a reboot"
+      ]
+    }
+  ]
+}
