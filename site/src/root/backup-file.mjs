@@ -1,11 +1,11 @@
 // The .wavebackup file: a plain (stored, uncompressed) ZIP holding manifest.json
 // and boot.img, so one file carries the image and what it belongs to. Old
 // backups are a separate .img and .json pair; readBackup accepts both.
-import { parseBackupManifest, manifestLimit } from './backup-manifest.mjs?v=redesign3';
-import { isMagiskPatched } from './magisk.mjs?v=redesign3';
-import { bootBytes, checkBootImage, sha256 } from '../protocols/boot-image.mjs?v=redesign3';
-import { verifyBootSignature, xp3800BootCertSha256 } from '../protocols/boot-signature.mjs?v=redesign3';
-import { crc32, zipDirectory, zipEntry } from '../protocols/zip.mjs?v=redesign3';
+import { parseBackupManifest, manifestLimit } from './backup-manifest.mjs?v=redesign4';
+import { isMagiskPatched } from './magisk.mjs?v=redesign4';
+import { bootBytes, checkBootImage, sha256 } from '../protocols/boot-image.mjs?v=redesign4';
+import { verifyBootSignature, xp3800BootCertSha256 } from '../protocols/boot-signature.mjs?v=redesign4';
+import { crc32, zipDirectory, zipEntry } from '../protocols/zip.mjs?v=redesign4';
 
 export const backupExtension = '.wavebackup';
 const encoder = new TextEncoder();

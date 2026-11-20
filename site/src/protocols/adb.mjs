@@ -1,5 +1,5 @@
-import { exact } from './webusb.mjs?v=redesign3';
-import { newAdbCredential } from './adb-credential.mjs?v=redesign3';
+import { exact } from './webusb.mjs?v=redesign4';
+import { newAdbCredential } from './adb-credential.mjs?v=redesign4';
 
 const text = new TextEncoder();
 const maxData = 256 * 1024;
