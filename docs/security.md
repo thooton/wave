@@ -1,9 +1,11 @@
 # Security review of Wave
 
 Written 2026-11-20 against Wave 0.7.28 (code 35); its fixes ship in 0.7.29, from the code, the release
-APK's manifest and the test logs. **Nothing here was measured on the phone**:
-file modes and SELinux labels are what the code and Android 8.1 give, with the
-commands to confirm them at the end.
+APK's manifest and the test logs. **The file modes, SELinux labels and the
+backup exclusion were not measured on the phone.** They are what the manifest,
+the code and Android 8.1 give (marked "expected" below); section 6 has the
+commands that measure them, about a minute's work. Everything else here comes
+from the code and the tests.
 
 The model is the owner's: one person's phone, their own data, root granted to
 Wave. The question asked is what another app, someone holding the phone, or
@@ -11,7 +13,7 @@ someone holding a copy of its backup can learn from Wave and make it do.
 
 The short answer: an ordinary app on the phone learns almost nothing and can
 make Wave do nothing. Wave's real exposure is the one it was built with: a
-source you add can run anything as root, the signing key is public, and a
+source you add can run anything as root, the signing key was public (fixed, below), and a
 private source's token sits in one app-private file.
 
 Severity is for the owner's model (High: root or the token to a stranger;
@@ -189,22 +191,43 @@ were fixed (below). Nothing the server sends is ever a shell word without
   on every phone that refreshes it. Protection is the account's own (a hardware
   key or a TOTP, and a source that is only ever pushed to from one machine).
   Signed sources are listed in the design as later.
-- **The signing key is a public debug key** (Medium; would be High once it is
-  public in fact). `signing/debug.keystore` (password `android`) signs every
-  app in the family, release too, and is committed to both `wave` and
-  `wave_packages`. Decision 2 forbids changing it (every installed app would
-  be uninstalled with its data). Consequences once the repositories are
-  readable by others: anyone can build an APK that Android accepts as an
-  update to Wave or any of the six apps, keeps their data and, for Wave,
-  keeps its root grant (Magisk grants by uid); and any app signed with the key
-  gets Installer's signature permission, which installs without a prompt on
-  phones that have Installer. It still needs the owner to open a file and
-  confirm Android's update dialog, or for Installer to be present with a
-  hostile app on the phone. **Decide before the GitHub cutover whether the
-  repositories that hold the keystore are public.** Keeping `signing/`
-  private (a private `wave_packages`, with only the built APKs and the source
-  public) removes the attack; making it public makes it available. This is
-  an owner decision, not a code change.
+- **The signing key was a public debug key. Fixed (2026-11-20, before anything
+  was published).** `signing/debug.keystore` (password `android`) signed every
+  app in the family, release too, and was committed to both `wave` and
+  `wave_packages`, so once those were readable by others anyone could build an
+  APK that Android accepts as an update to Wave or any of the six apps, with
+  their data and, for Wave, its root grant (Magisk grants by uid). It was
+  fixable only because nothing had been released, so no installed copy
+  depends on the old key (decision 2 is amended to say so). Now:
+  - Release builds sign with a key from the environment (`WAVE_KEYSTORE_BASE64`
+    or `WAVE_KEYSTORE_FILE`, `WAVE_KEYSTORE_PASSWORD`, `WAVE_KEY_ALIAS`,
+    `WAVE_KEY_PASSWORD`; CI secrets), in `signing/signing.gradle` and, for App
+    Drawer, `launcher/build.sh` in `wave_packages`. The owner makes the key once
+    (`docs/tasks/01-owner-checklist.md`, step 0a); it is never in a repository.
+  - Without those variables a release build still falls back to the debug key,
+    so a pull request or a local trial builds, but it prints a boxed warning
+    saying so, the build summary lists the key of every APK, and half-set
+    variables are an error. A build that will be published sets
+    `WAVE_REQUIRE_RELEASE_KEY=1` (CI does, for pushes to `master`) and then a
+    missing key fails the build.
+  - The release gates refuse a debug-signed APK:
+    `signing/check_signer.py` checks every APK against
+    `signing/public-key-digests.txt` (the debug key and the old App Drawer key)
+    and, once the owner records the release key's digest in
+    `signing/release-key.sha256`, against that. `release_wave.py` here,
+    `release_package.py` and the legacy `latest` job in `wave_packages` call it
+    before anything is uploaded.
+  - `debug.keystore` stays, for debug builds and tests only. **Nothing signed
+    with it, or with the old App Drawer key, may ever be published**; the gate
+    enforces that, and the keystores remain in the git history for good, which
+    is why their digests are on the list.
+  - Verified with a throwaway key: the release APK's `apksigner verify
+    --print-certs` shows it; with no key the build warns and the gate exits 1;
+    with `WAVE_REQUIRE_RELEASE_KEY=1` and no key the build fails.
+  - Left for the owner: make the key, set the four secrets in both repositories
+    and record its digest. Until then a push to `master` fails its build, on
+    purpose. Phones with apps signed by the old key need those uninstalled once
+    (the phone is not in production).
 - **A source can claim any name.** The add dialog now also shows the address
   the source was added from (new, `AddSourceScreen.trust`), because the name,
   icon and maintainer are the source's own text. A look-alike source still has
@@ -257,19 +280,42 @@ were fixed (below). Nothing the server sends is ever a shell word without
 
 ## 6. To confirm on the phone
 
-Not run (this audit did not touch it). With `tools/qa/phone-run.sh`, as root
-(`su -c`), on `8516067e`:
+Not yet run: the phone was in use when this was written. Everything in
+section 1 marked "expected", and the backup exclusion, is unmeasured until
+these are. With the phone free, from the repository folder (the first line
+takes the phone lock; use `tools/qa/phone-run.sh --who "you" -- COMMAND` if
+an agent might hold it):
 
 ```
-ls -ld  /data/data/com.wave.xp3 /data/data/com.wave.xp3/files /data/data/com.wave.xp3/files/sources
-ls -l   /data/data/com.wave.xp3/files /data/data/com.wave.xp3/shared_prefs
-ls -ld  /data/adb /data/adb/wave; ls -l /data/adb/wave /data/adb/post-fs-data.d /data/adb/service.d
-ls -l   /data/local/tmp
+S=8516067e
+adb -s $S shell su -c 'ls -ldZ /data/data/com.wave.xp3 /data/data/com.wave.xp3/*; \
+  ls -lZ /data/data/com.wave.xp3/files /data/data/com.wave.xp3/shared_prefs; \
+  find /data/data/com.wave.xp3 -perm /007 -exec ls -ldZ {} +; \
+  ls -ldZ /data/adb /data/adb/wave /data/adb/post-fs-data.d /data/adb/service.d; \
+  ls -lZ /data/adb/wave /data/adb/post-fs-data.d /data/adb/service.d /data/local/tmp'
+adb -s $S shell run-as com.wave.xp3 id        # release builds: "not debuggable"
 ```
 
-Expected: the app's folders `drwx------` owned by the app's uid; every file in
-`files/` `-rw-------`; `/data/adb/wave` `drwx------ root`; the two scripts
-`-rwxr-xr-x root`; nothing named `wave-*` in `/data/local/tmp`. A backup check:
-`adb backup -f x.ab com.wave.xp3`, then unpack it and confirm `sources.json`
-and `sources/` are absent (and whether a restore of a hand-built archive
-honors the exclusion, which this review could not settle).
+Expected:
+
+- The app's folder and `files/` are `drwx------` owned by the app's uid, and
+  every file in `files/` is `-rw-------` (`root.xml` in `shared_prefs` may be
+  `-rw-rw----`). The `find` prints nothing: no file or folder is readable,
+  writable or searchable by "other".
+- `/data/adb/wave` is `drwx------ root`, and the two `wave-watchdog.sh` are
+  `-rwxr-xr-x root`.
+- Nothing named `wave-*` in `/data/local/tmp`.
+
+Backup exclusion (needs a tap on the phone, "Back up my data", no password):
+
+```
+adb -s $S backup -f wave.ab com.wave.xp3
+dd if=wave.ab bs=24 skip=1 | python3 -c "import sys,zlib; sys.stdout.buffer.write(zlib.decompress(sys.stdin.buffer.read()))" | tar tvf -
+```
+
+Expected: `receipts.json` and `shared_prefs/root.xml` listed; `sources.json` and
+anything under `sources/` absent. Whether a restore of a hand-built archive
+that contains those files honors the exclusion is not settled by this review.
+
+Record what you see here (or tell me and I will), and change "expected" in
+section 1 to "measured".
