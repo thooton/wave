@@ -177,9 +177,11 @@ The other repos' workflows call `thooton/wave/lint@v1` and
    for p in "" setup/ root/ rescue/ restore/; do curl -s -o /dev/null -w "%{http_code} $p\n" https://thooton.github.io/wave/$p; done
    ```
    Then open https://thooton.github.io/wave/setup/ and make a setup file
-   for any app. It downloads, and nothing is sent anywhere. `backup/` is
-   meant to answer 404: the EDL backup page is left out of the public build
-   (`site/scripts/build.py --with-device-backup` adds it).
+   for any app. It downloads, and nothing is sent anywhere. `rooting/`,
+   `stock/` and `backup/` are published too (the owner put rooting in the
+   default build on 2026-11-20). To serve Magisk 24.0 and Wave from the site,
+   have the workflow pass `--magisk-apk` and `--wave-apk` to
+   `site/scripts/build.py`; without them the page asks for the files.
 4. **If it shows 404 or the deploy job fails:**
    - In Settings → Environments → `github-pages`, the deployment branch rule
      must allow `master`.

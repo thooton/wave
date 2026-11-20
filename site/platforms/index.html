@@ -10,7 +10,7 @@
 <h2>Computer and cable</h2><p>Use a data cable and USB port you trust, and close other tools holding the device. An HTTPS page in a WebUSB-capable desktop browser such as Chrome or Edge can request a USB device; check the site and device before approving. Firefox and Safari do not supply that API. USB is not needed for the app setup generator.</p>
 <h2>Which parts are tested</h2>
 <table><thead><tr><th scope="col">Platform</th><th scope="col">Status</th></tr></thead><tbody>
-<tr><th scope="row">Linux, Chromium</th><td>Tested: read-only EDL backup in Chromium on a stock XP3800. The Android check ran the same protocol code over libusb, not through Chromium’s device chooser. ModemManager was not running on the test machine, so its rule is untested.</td></tr>
+<tr><th scope="row">Linux, Chromium</th><td>Tested on one XP3800: the whole rooting flow (backup, patch on the phone, write, readback) and writing the stock image back, twice each, in Chromium over WebUSB. The test browser was given the devices by policy, so the device chooser and the “Allow USB debugging?” prompt were not part of it. The EDL interface needed its kernel driver (<code>qcserial</code>) detached first. ModemManager was not running, so its rule is untested.</td></tr>
 <tr><th scope="row">Windows, Chrome or Edge</th><td>Untested. The steps below follow documented Windows and WebUSB behaviour.</td></tr>
 <tr><th scope="row">macOS, Chrome or Edge</th><td>Untested.</td></tr>
 <tr><th scope="row">ChromeOS, Android</th><td>Untested.</td></tr></tbody></table>

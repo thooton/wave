@@ -31,7 +31,7 @@ rules.
 | 06 | [Root and the install engine](06-root-install.md) | W | 04 | [x] |
 | 07 | [The app's screens](07-app-screens.md) | W | 00, 05, 06 | [x] |
 | 08 | [The boot watchdog](08-boot-watchdog.md) | W | 06 | [x] |
-| 09 | [The rooting guide](09-site-root.md) | W | | [ ] |
+| 09 | [The rooting guide](09-site-root.md) | W | | Linux |
 | 10 | [Landing page and setup-code generator](10-site-pages.md) | W | 14 for the generator | local |
 | 11 | [Import the mods into wave_packages](11-mods-import.md) | P | 01 | [x] |
 | 12 | [Rename Argon to Wave in the mods](12-mods-rename.md) | P | 11 | [x] |
@@ -42,7 +42,8 @@ rules.
 | 17 | [First phone, end to end](17-first-phone.md) | all | 07, 08, 09, 12, 13, 15; 14 and 16 for migration | [ ] |
 
 "local": everything that can be done here is done and checked; the GitHub
-steps wait on the [owner checklist](01-owner-checklist.md).
+steps wait on the [owner checklist](01-owner-checklist.md). "Linux": done and
+checked on Linux; no Windows or macOS machine was available.
 
 ## What can run at the same time
 
@@ -142,19 +143,17 @@ Four agents can work without touching the same files: one on the app's core
 - **12 (local complete, device pending):** P commits `34d9eba`, `8a6d346`, `eb0a3bc`, `7279e37`. All three renamed builds and host suites pass from a fresh clone; tray rename and preference fallback have host regression tests. Launcher and Music hooks regenerate from stock tags; Messages' committed hooks renamed by script, and all three Messages APKs passed the targeted link check. No old-mod/device handover test without authorized signed APKs and a recoverable test phone.
 - **13 (local implementation, remote validation pending):** P `34a553b`, `7279e37`. Workflow passes actionlint; release gate unit tests verify versions, same-version drift and nonempty generated credentials. Clean release smoke built and signature-checked 19 APKs (everything except Charge before its prerequisite was removed), generated the legacy manifest, and published Books plus a synthetic module fixture into a scratch source over HTTPS, passed `wavesrc lint --download`, and confirmed repeat publication left all manifest/icon bytes unchanged. Real GitHub test requires repo cutover, `v1`, source token and an authorized signed mod. Charge's token prerequisite was removed in P `906d109`; the original full 20-APK check passed at that revision (6m28s Gradle, 8m11s complete). `latest` remains; AppDrawer stays for the programmable key. The follow-up retirement of Installer and Updater (`93cd68c`) was verified by an 18-APK build with no retired manifest entries.
 
-- **09 (partial; original done-when remains pending):** Device guide, adb
+- **09 (done on Linux, 2026-11-20):** the site roots the XP3800. `/rooting/` backs up `boot` over EDL (two reads, stock AVB1 signature verified in the browser, the saved file chosen again and hash-matched), patches it on the phone over our own WebUSB adb with Magisk 24.0's ARM tools, `boot_patch.sh` and SignBoot (ROOTING.md 4b), checks the signed image in the browser against the stock certificate and header, installs Magisk and Wave, writes `boot` over EDL only if it still equals the backup, and reads the whole partition back. `/stock/` writes the saved stock image back with the same checks. Only `src/protocols/firehose-write.mjs` sends `program`. By the owner's decision all of it, and the backup page, is in the default build; `build.py --magisk-apk/--wave-apk` serves Magisk and Wave from the site (the programmer stays a local file). Verified twice on 8516067e in headless Chromium over real WebUSB: Stock boot wrote stock back (all 32 MiB read back identical, no `su` after boot), then Root rooted it from scratch; the written image is byte-identical to the November hand-made one (`49eb168c…`), bkerler/edl confirmed the partition independently (`648f3508…`), root survives restarts, the policy table still holds only uid 2000, Wave 0.7.30 is installed and opened. Fixed on the way: adbd flushes stale packets and AUTH tokens from an abandoned session (handshake now skips them), and the phone re-enumerates on USB just after boot completes (the connection now waits and reconnects). Harness note: another agent's emulator soak restarts the desktop adb server constantly, which grabs the phone; run `adb kill-server; ADB_USB=0 adb start-server` (emulators only) while the browser has the phone. Not verified: the real device chooser and RSA prompt, Magisk's Shell prompt and "Requires Additional Setup" on a phone that never had Magisk, the cold-start route into Stock boot, an induced bad readback on hardware (replayed in tests), Windows and macOS (no machines). Details: [root.md](../root.md#root-from-the-browser).
+- **09 (earlier, read path):** Device guide, adb
   transport (native JS, no Tango: no bundler or transitive packages), Rescue for
   rooted phones and the local Restore verifier are public (`40caab3`, `7bee2da`).
   **Read-only browser backup over EDL** (Sahara, Firehose, pinned programmer,
   two reads compared, image plus manifest) is implemented and verified end to
-  end in Chromium on the XP3800, but is **off by default**: build it with
-  `python3 site/scripts/build.py --with-device-backup DIR` (site agent declined
-  to stage an EDL transport). Evidence: two desktop reads and the browser's
+  end in Chromium on the XP3800 (it was opt-in then; in the default build
+  since 2026-11-20). Evidence: two desktop reads and the browser's
   download all SHA-256 `489269c42090f3505394cd062cd9d95eed981bbdb837d491faa7803f65979455`,
   copies in `~/Documents/wave-phone-backups/8516067e/` (not in Git); 14 tests
-  pass; the phone returned to stock Android each time. Not done: on-phone
-  patching proof, boot write and byte-for-byte Restore over EDL (the owner
-  approved rooting later, but only the read path was built), automatic root
-  grants, native chooser and rooted Rescue checks, Windows and macOS. The phone
+  pass; the phone returned to stock Android each time. Patching, the boot
+  write and Restore over EDL came later (note above). The phone
   was still unrooted then (it has been rooted since; see the agent 9 note above).
   See [root.md](../root.md).

@@ -60,6 +60,8 @@ footer{background:#182e43;color:#e0eaf0}
 .guide h2{margin-top:2.1rem;font-size:1.7rem}
 .guide .box{border:1px solid var(--line);background:#fff;border-radius:10px;padding:clamp(1.2rem,3vw,2rem);margin-block:1.5rem}
 .box h2{margin-top:0}
+.guide .box[aria-current=step]{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue)}
+.guide .box[data-past]{opacity:.65}
 .guide ol,.guide ul{padding-left:1.4rem}
 .guide li+li{margin-top:.6rem}
 .guide dt{font-weight:650;margin-top:1rem}

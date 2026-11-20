@@ -23,19 +23,33 @@ from shipped/tested behavior.
   use the local snapshot and do not contact that repository. Never put credentials
   in URLs, logs, browser storage, network requests, sample files or tests.
 - `mockups/`: app screen designer's area, not owned by the public site.
-- `root/`, `rescue/`, `restore/`, `src/protocols/`, `src/root/`:
-  owned by the separate device tools brief. The allowlist stages only the
-  compatibility probe, Rescue, and the local stock-backup verifier and their
-  dependencies. Do not include phone backups or loaders.
-  **Opt-in read-only backup:** `python3 site/scripts/build.py --with-device-backup DIR`
-  adds `backup/index.html`, `src/root/backup.mjs` and the Sahara, Firehose
-  and GPT modules, and links the page from the guide. It is off by default, so
-  the Pages workflow does not publish it; the owner enables it deliberately.
-  It only reads (`configure` with `SkipWrite`, `getstorageinfo`, `read`, `power
-  reset`), accepts only the hash-pinned Sonim programmer chosen by the user as a
-  local file, and ships no binary. Never add a write, erase or patch path to
-  those modules. `site/tests/backup.test.mjs` checks the flag. Details and
-  hardware evidence are in `docs/root.md`.
+- `root/`, `rescue/`, `restore/`, `backup/`, `rooting/`, `stock/`,
+  `src/protocols/`, `src/root/`: owned by the device tools brief (09). All are
+  in the default build. `rooting/` roots the phone (adb identity, EDL backup,
+  patch on the phone with Magisk 24.0 over adb, EDL write and full readback,
+  Magisk and Wave install); `stock/` writes the saved stock image back;
+  `backup/` only reads. Rules for these:
+  - **Only `src/protocols/firehose-write.mjs` sends a write** (`program`), and
+    only to `boot`, found by name in a GPT that must be the XP3800's. It writes
+    a full 32 MiB image or a shorter one that `checkPatchedBoot` accepts (signed
+    AVB 1.0, same certificate and header as the stock image it is written over),
+    requires the partition to equal that stock image first, and reads the whole
+    partition back. `firehose.mjs` (the read-only reader and shared framing) and
+    the backup page never send `program`, `erase` or `patch`; tests check both.
+  - Never write before the backup is read twice, checked, saved, and the saved
+    file chosen again and hash-matched. Never write an image that did not come
+    from patching that phone's own backup in the same flow.
+  - No programmer binary, boot image or phone data is ever bundled. The
+    Sonim programmer is chosen by the user as a local file and pinned by
+    SHA-256. Magisk (pinned, official 24.0) and Wave may be served from the
+    site's own origin with `build.py --magisk-apk/--wave-apk` (into
+    `rooting/files/` with `files.json`, verified by `check_pages.py`);
+    otherwise the user chooses them as files.
+  - Nothing grants Wave root (decision 16). The page may ask Magisk for the
+    adb shell's root, only on the user's click, and Magisk's prompt decides.
+  - The flow's stage is in `localStorage` and the two images in IndexedDB so a
+    reload resumes; both are cleared at the end or on Start over.
+  Details and hardware evidence are in `docs/root.md`.
 - `scripts/`, `tests/`: site packaging and checks. CI packages only explicitly
   reviewed public files; never upload a worktree, phone data or local secrets.
 

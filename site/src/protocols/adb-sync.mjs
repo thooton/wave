@@ -1,4 +1,4 @@
-// Development-only ADB SYNC and APK installation; excluded from Pages.
+// ADB SYNC push/pull and APK installation. Staged only in the rooting build.
 import { quoteShell } from './adb.mjs';
 
 const text = new TextEncoder();
@@ -34,7 +34,7 @@ async function syncEnd(stream) {
   await stream.send(syncHeader('QUIT', 0));
   await stream.drain();
 }
-export async function push(adb, path, data, seconds = Math.floor(Date.now() / 1000)) {
+export async function push(adb, path, data, seconds = Math.floor(Date.now() / 1000), onProgress) {
   if (!(data instanceof Uint8Array) || data.length > 128 * 1024 ** 2) throw new Error('Unsupported ADB push data or size.');
   return adb.runService('sync:', async stream => {
     await syncStart(stream, 'SEND', path);
@@ -44,6 +44,7 @@ export async function push(adb, path, data, seconds = Math.floor(Date.now() / 10
       packet.set(syncHeader('DATA', part.length));
       packet.set(part, 8);
       await stream.send(packet);
+      onProgress?.(offset + part.length, data.length);
     }
     await stream.send(syncHeader('DONE', seconds));
     const { tag, size } = await syncReply(stream);
@@ -69,11 +70,11 @@ export async function pull(adb, path, maxBytes = 64 * 1024 ** 2) {
     return all;
   });
 }
-export async function install(adb, apk) {
+export async function install(adb, apk, onProgress) {
   const path = `/data/local/tmp/wave-install-${crypto.randomUUID()}.apk`;
   try {
-    await push(adb, path, apk);
-    const result = await adb.shell(`pm install -r ${quoteShell(path)}`);
+    await push(adb, path, apk, undefined, onProgress);
+    const result = await adb.shell(`pm install -r ${quoteShell(path)}`, undefined, 180000);
     if (result.code !== 0 || !result.stdout.trim().endsWith('Success')) throw new Error(result.stderr || result.stdout || 'APK install failed.');
   } finally {
     await adb.shell(`rm -f ${quoteShell(path)}`).catch(() => {});

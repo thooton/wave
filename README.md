@@ -3,7 +3,9 @@
 Wave is a Cydia-style package manager for the Sonim XP3800 flip phone. Browse
 and search Git sources, inspect package details, and plan installs and updates.
 System mods require a rooted phone and explicit approval in Magisk. The web
-[device guide](docs/root.md) does not root the phone for you.
+[device guide](docs/root.md) roots the phone from Chrome or Edge over USB with
+Magisk 24.0, after saving its stock boot image to your computer, and can write
+that image back.
 
 The app and site build locally. See the [first phone record](docs/first-phone.md)
 for what ran on stock hardware and the [owner checklist](docs/tasks/01-owner-checklist.md)

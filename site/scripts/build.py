@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Stage only reviewed public assets in a *new* output directory."""
 import argparse
+import hashlib
+import json
 from pathlib import Path
 import shutil
 
@@ -15,46 +17,61 @@ FILES = (
     'src/root/rescue.mjs', 'src/root/restore.mjs', 'src/root/backup-manifest.mjs',
     'src/protocols/adb.mjs', 'src/protocols/adb-credential.mjs',
     'src/protocols/webusb.mjs', 'src/protocols/boot-image.mjs',
-)
-
-BACKUP_FILES = (
+    # Read-only boot backup over EDL.
     'backup/index.html', 'src/root/backup.mjs',
     'src/protocols/sahara.mjs', 'src/protocols/firehose.mjs', 'src/protocols/gpt.mjs',
+    # Rooting: patch over adb, write boot over EDL, write stock back.
+    'rooting/index.html', 'stock/index.html',
+    'src/root/rooting.mjs', 'src/root/stock.mjs', 'src/root/device.mjs', 'src/root/magisk.mjs',
+    'src/protocols/firehose-write.mjs', 'src/protocols/boot-signature.mjs', 'src/protocols/zip.mjs',
+    'src/protocols/adb-sync.mjs',
 )
-BACKUP_MARKER = '<!-- OPTIONAL_DEVICE_BACKUP -->'
-BACKUP_LINK = (
-    '<section class="box" aria-labelledby="backup-title"><h2 id="backup-title">Start here: read a boot backup</h2>'
-    '<p>This build can read your phone\u2019s <code>boot</code> partition over USB, twice, compare the copies and '
-    'save the image with a manifest. It only reads; no partition is written. Then '
-    '<a href="../restore/#verify">verify the saved files</a>. Linux may need a driver detached first: see the '
-    '<a href="../platforms/">USB guide</a>.</p>'
-    '<p class="actions"><a class="button" href="../backup/">Read an XP3800 boot backup</a></p></section>'
-)
+MAGISK_SHA256 = 'f7ac4e2a1a528ebaa1cdc20c0bd06a785e17b226e97823389779bf7c4d44346a'
 
 
-def build(destination, with_device_backup=False):
-    paths = FILES + (BACKUP_FILES if with_device_backup else ())
-    sources = [(path, SITE / path) for path in paths]
+def apk_entry(path, name):
+    data = path.read_bytes()
+    if data[:2] != b'PK':
+        raise ValueError(f'{path} is not an APK')
+    return data, {'file': name, 'size': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
+
+
+def build(destination, magisk_apk=None, wave_apk=None, wave_version=None):
+    sources = [(path, SITE / path) for path in FILES]
     for path, source in sources:
         if not source.is_file() or source.resolve() != source:
             raise ValueError(f'Missing or indirect site asset: {path}')
+    staged = {}
+    if magisk_apk:
+        data, entry = apk_entry(magisk_apk, 'Magisk-v24.0.apk')
+        if entry['sha256'] != MAGISK_SHA256:
+            raise ValueError('--magisk-apk is not the official Magisk 24.0 APK')
+        staged['magisk'] = (data, entry)
+    if wave_apk:
+        data, entry = apk_entry(wave_apk, 'wave.apk')
+        if wave_version:
+            entry['version'] = wave_version
+        staged['wave'] = (data, entry)
     destination.mkdir(parents=True, exist_ok=False)
     for path, source in sources:
         target = destination / path
         target.parent.mkdir(parents=True, exist_ok=True)
-        if path == 'root/index.html':
-            page = source.read_text(encoding='utf-8')
-            if page.count(BACKUP_MARKER) != 1:
-                raise ValueError('Expected one optional device backup navigation marker')
-            target.write_text(page.replace(BACKUP_MARKER, BACKUP_LINK if with_device_backup else ''), encoding='utf-8')
-        else:
-            shutil.copyfile(source, target)
+        shutil.copyfile(source, target)
+    if staged:
+        # The rooting page fetches these by name from files.json on its own origin.
+        folder = destination / 'rooting/files'
+        folder.mkdir()
+        for data, entry in staged.values():
+            (folder / entry['file']).write_bytes(data)
+        (folder / 'files.json').write_text(json.dumps({k: v[1] for k, v in staged.items()}, indent=2) + '\n', encoding='utf-8')
     (destination / '.nojekyll').touch()
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('destination', type=Path)
-    parser.add_argument('--with-device-backup', action='store_true', help='Include the read-only EDL backup page; no programmer binary')
+    parser.add_argument('--magisk-apk', type=Path, help='Serve this Magisk 24.0 APK from the site (must be the official release)')
+    parser.add_argument('--wave-apk', type=Path, help='Serve this Wave APK from the site')
+    parser.add_argument('--wave-version', help='Wave versionName to show for --wave-apk')
     args = parser.parse_args()
-    build(args.destination, args.with_device_backup)
+    build(args.destination, args.magisk_apk, args.wave_apk, args.wave_version)

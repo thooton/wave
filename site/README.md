@@ -32,8 +32,9 @@ repository variable `WAVE_PACKAGES_CHECK` is `true` (secret
 The checker covers relative URLs and fragments, HTML landmarks and label
 references, static module imports, and reachability of all staged assets.
 The landing page has no JavaScript and a 64 KiB asset budget; the whole
-artifact has a 140 KiB budget (170 KiB with the optional backup), uncompressed. Development-only service and
-ADB transfer code is not in the public dependency graph. The five real
+artifact has a 260 KiB budget, uncompressed, not counting the Magisk and Wave
+APKs that `build.py --magisk-apk PATH --wave-apk PATH --wave-version X` can
+stage in `rooting/files/` (the checker verifies them against `files.json`). The five real
 phone screenshots on the landing page (`site/mockups/phone/`) are converted by
 `python3 site/scripts/screens.py` to 256-colour lossless WebP (about 37 kB in all;
 about 0.5% of pixels at most move by more than 4 levels, all anti-aliasing

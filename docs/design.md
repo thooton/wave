@@ -358,24 +358,25 @@ Three more ways out, in rising order of effort:
 
 ## 6. Rooting the XP3800
 
-**Intended end-to-end flow (not shipped):** A static web page (GitHub Pages
-from this repo) drives the phone over WebUSB in Chrome: adb for the Android
-side, Sahara and Firehose for EDL. The target automates `../rphone/ROOTING.md` end to end: back up the boot image over EDL,
-patch it **on the phone** with Magisk 24.0's own ARM binaries over adb, flash
-it over EDL, verify, then install the Magisk app and Wave. The owner
-approves root in Magisk, not the site. The user's stock boot image is saved to their computer. Steps, checks
-and the platform caveats are in `root.md`.
+A static web page (GitHub Pages from this repo, `/wave/rooting/`) drives the
+phone over WebUSB in Chrome or Edge: adb for the Android side (our own client,
+`site/src/protocols/adb.mjs`, not Tango), Sahara and Firehose for EDL. It
+automates `../rphone/ROOTING.md` (step 4b) end to end: back up `boot` over EDL
+(two reads compared, stock signature checked) and hand it to the owner, who
+saves it and chooses the saved file again; patch it **on the phone** with
+Magisk 24.0's own ARM binaries and `boot_patch.sh` over adb and sign it with
+Magisk's SignBoot; check the signature in the browser against the stock
+certificate; install the Magisk app and Wave; write it over EDL only if `boot`
+still equals the backup; read the whole partition back. The owner approves
+root in Magisk, not the site, and nothing pre-grants Wave (decision 16).
+`/wave/stock/` writes the saved stock image back the same way. Only
+`firehose-write.mjs` can write, and only `boot`.
 
-**Implementation status (brief 09):** The site provides a guided device check
-and recovery, adb over WebUSB, module Rescue on already-rooted phones, and
-local stock backup/readback verification. **Backup from the browser is
-implemented and verified on the XP3800, read-only, and off by default:** built
-with `--with-device-backup`, a page reads the GPT and `boot` over EDL twice,
-checks the copies match, and hands the owner the image and a manifest. It
-accepts only the hash-pinned Sonim programmer, selected locally. Automated boot
-patching, flashing and installation of Magisk and Wave are not implemented;
-they remain the owner's own documented steps, and authorization stays with
-the owner. See `root.md` for hardware and browser validation limits.
+**Status (brief 09):** shipped in the default site build and verified end to
+end on the rooted test phone on Linux with Chromium (stock written back, then
+rooted from scratch, twice). Untested: the browser's own device chooser and
+RSA prompt, Magisk's first-run prompts on a phone that never had Magisk, and
+Windows and macOS. See `root.md`.
 
 The same site hosts the landing page and the setup-file generator (section 8).
 

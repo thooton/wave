@@ -95,8 +95,10 @@ export class Adb {
   #nextId = 0;
   #busy = false;
   #checksum = true;
+  #connected = false;
   #trace;
   #retired;
+  #timeoutMs;
   constructor(link, trace) {
     this.#link = link;
     this.#trace = trace;
@@ -108,9 +110,15 @@ export class Adb {
     try {
       // No delayed-ACK feature: each WRTE needs its own explicit OKAY.
       await adb.write('CNXN', version, maxData, text.encode('host::features=shell_v2\0'));
-      let attempts = 0;
+      // Until CNXN, accept a previous session's largest packets so they can be skipped.
+      adb.payloadLimit = maxData;
+      let signed = 0, offered = false, stale = 0;
       while (true) {
-        const packet = await adb.read(attempts === 2 ? 90000 : undefined);
+        // After offering the key, wait for the owner to answer the prompt.
+        const packet = await adb.read(offered ? 90000 : undefined);
+        // adbd may still flush packets from an earlier session on this device
+        // (a late CLSE, the end of a stream) before it answers CNXN.
+        if (['OKAY', 'WRTE', 'CLSE'].includes(packet.command) && ++stale <= 64) continue;
         if (packet.command === 'CNXN') {
           if (packet.arg0 < 0x01000000 || packet.arg1 < 4096) throw new Error('Unsupported ADB protocol version or packet size.');
           adb.#checksum = packet.arg0 < version;
@@ -119,18 +127,23 @@ export class Adb {
           if (!banner.startsWith('device::')) throw new Error('Expected Android in normal device mode.');
           const features = /(?:^|[;:])features=([^;]*)/.exec(banner)?.[1];
           adb.features = new Set(features?.split(','));
+          adb.#connected = true;
           return adb;
         }
         if (packet.command !== 'AUTH' || packet.arg0 !== AUTH_TOKEN || packet.arg1 !== 0 || packet.payload.length !== 20) {
           throw new Error('Unexpected ADB handshake packet.');
         }
         if (!credential) credential = await newAdbCredential();
-        if (attempts === 0) await adb.write('AUTH', AUTH_SIGNATURE, 0, await credential.sign(packet.payload));
-        else if (attempts === 1) {
+        // A token left over from an abandoned handshake fails once, so sign
+        // twice before offering the key; adbd sends a new token each time.
+        if (signed < 2 || (offered && signed < 6)) {
+          signed++;
+          await adb.write('AUTH', AUTH_SIGNATURE, 0, await credential.sign(packet.payload));
+        } else if (!offered) {
+          offered = true;
           onAuthorization?.();
           await adb.write('AUTH', AUTH_RSAPUBLICKEY, 0, credential.publicKey);
         } else throw new Error('The phone did not authorize USB debugging.');
-        attempts++;
       }
     } catch (error) {
       await adb.close();
@@ -144,7 +157,7 @@ export class Adb {
     if (data.length) await this.#link.write(data, { terminate: true });
   }
   retire(local, remote) { this.#retired = { local, remote, duplicates: 0 }; }
-  async read(timeoutMs) {
+  async read(timeoutMs = this.#timeoutMs) {
     let packet;
     do {
       packet = await this.#readPacket(timeoutMs);
@@ -165,15 +178,19 @@ export class Adb {
     const payload = await exact(this.#link, len);
     // Android can negotiate the skip-checksum variant before AUTH. A nonzero
     // checksum from a legacy peer must always match the payload.
-    if ((checksum || (command !== 'AUTH' && command !== 'CNXN' && this.#checksum)) && sum(payload) !== checksum) {
+    // Before CNXN, a stale packet from an earlier skip-checksum session may carry none.
+    if ((checksum || (command !== 'AUTH' && command !== 'CNXN' && this.#checksum && this.#connected)) && sum(payload) !== checksum) {
       throw new Error('Incorrect ADB packet checksum.');
     }
     this.#trace?.('in', command, arg0, arg1, payload);
     return { command, arg0, arg1, payload };
   }
-  async runService(service, use, { announceOpen } = {}) {
+  // timeoutMs: the longest wait for any one packet while the service runs
+  // (the USB link's own default otherwise), for commands that work silently.
+  async runService(service, use, { announceOpen, timeoutMs } = {}) {
     if (this.#busy) throw new Error('An ADB operation is already running.');
     this.#busy = true;
+    this.#timeoutMs = timeoutMs;
     try {
       const local = ++this.#nextId;
       await this.write('OPEN', local, 0, text.encode(service + '\0'));
@@ -186,9 +203,10 @@ export class Adb {
       throw error;
     } finally {
       this.#busy = false;
+      this.#timeoutMs = undefined;
     }
   }
-  async shell(command, limit = maxOutput) {
+  async shell(command, limit = maxOutput, timeoutMs) {
     if (!this.features.has('shell_v2')) throw new Error('Phone does not report shell_v2; cannot check the exit status.');
     if (!command || text.encode(command).length > 2048 || command.includes('\0')) throw new Error('Invalid ADB shell command.');
     return this.runService(`shell,v2,raw:${command}`, async stream => {
@@ -206,12 +224,14 @@ export class Adb {
       }
       await stream.drain();
       return { code, stdout: out + stdout.decode(), stderr: err + stderr.decode() };
-    });
+    }, { timeoutMs });
   }
-  async reboot() {
+  // target: '' restarts Android; 'edl' restarts into Qualcomm EDL (05c6:9008).
+  async reboot(target = '') {
+    if (!['', 'edl'].includes(target)) throw new Error('Unsupported reboot target.');
     let opened = false;
     try {
-      await this.runService('reboot:', stream => stream.drain(), { announceOpen: () => { opened = true; } });
+      await this.runService(`reboot:${target}`, stream => stream.drain(), { announceOpen: () => { opened = true; } });
     } catch (error) {
       // Once adbd has accepted reboot:, the phone drops off USB. Chromium on
       // Linux reports that as NetworkError (a transfer error), not only

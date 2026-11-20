@@ -4,10 +4,11 @@ from html.parser import HTMLParser
 from pathlib import Path
 import re
 from urllib.parse import unquote, urlsplit
+import hashlib
+import json
 import sys
 
-BUNDLE_BUDGET = 140 * 1024
-OPTIONAL_BACKUP_BUDGET = 170 * 1024
+BUNDLE_BUDGET = 260 * 1024
 LANDING_BUDGET = 64 * 1024
 IMPORT = re.compile(r'^\s*(?:import|export)\s+(?:[^;\'"\n]*?\bfrom\s+)?([\'"])([^\'"\n]+)\1', re.M)
 
@@ -56,11 +57,36 @@ class Page(HTMLParser):
                 self.refs.extend((value or '').split())
 
 
+def staged_apks(root, errors):
+    """rooting/files/: APKs the rooting page fetches by name from files.json."""
+    folder = root / 'rooting/files'
+    if not folder.exists():
+        return set()
+    listed = set()
+    try:
+        entries = json.loads((folder / 'files.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        errors.append('rooting/files: missing or invalid files.json')
+        return {p for p in folder.rglob('*') if p.is_file()}
+    for name, entry in entries.items():
+        path = folder / entry.get('file', '')
+        if name not in ('magisk', 'wave') or not path.is_file() or path.parent != folder:
+            errors.append(f'rooting/files: bad entry {name}')
+            continue
+        if hashlib.sha256(path.read_bytes()).hexdigest() != entry.get('sha256') or path.stat().st_size != entry.get('size'):
+            errors.append(f'rooting/files: {path.name} does not match files.json')
+        listed.add(path)
+    found = {p for p in folder.rglob('*') if p.is_file()}
+    errors.extend(f'rooting/files: unlisted file {p.name}' for p in sorted(found - listed - {folder / 'files.json'}))
+    return found
+
+
 def check(root):
-    pages = {p: Page(p) for p in root.rglob('*.html')}
-    files = {p for p in root.rglob('*') if p.is_file() and p.name != '.nojekyll'}
-    edges = {p: set() for p in files}
     errors = []
+    apks = staged_apks(root, errors)
+    pages = {p: Page(p) for p in root.rglob('*.html')}
+    files = {p for p in root.rglob('*') if p.is_file() and p.name != '.nojekyll'} - apks
+    edges = {p: set() for p in files}
     for path in sorted(files):
         page = pages.get(path)
         if page:
@@ -98,9 +124,8 @@ def check(root):
         if landing > LANDING_BUDGET:
             errors.append(f'landing payload {landing} B exceeds {LANDING_BUDGET} B')
     total = sum(p.stat().st_size for p in files)
-    budget = OPTIONAL_BACKUP_BUDGET if root / 'backup/index.html' in pages else BUNDLE_BUDGET
-    if total > budget:
-        errors.append(f'bundle {total} B exceeds {budget} B')
+    if total > BUNDLE_BUDGET:
+        errors.append(f'bundle {total} B exceeds {BUNDLE_BUDGET} B')
     return errors
 
 

@@ -19,16 +19,14 @@ moving; resolve open questions when the relevant brief has evidence.
    link to the binary. Binaries are downloaded on demand.
 4. **Fetching**: git's smart HTTP protocol in plain Java, shallow.
 5. **Rooting**: a WebUSB page in Chrome, Magisk 24.0 over EDL.
-   This is the target, not the current implementation. Brief 09 delivers a
-   read-only rooting guide at `/wave/root/`, adb over WebUSB,
-   root-consent-gated module Rescue, and local stock backup/readback
-   verification. A read-only browser
-   backup over EDL (Sahara and Firehose, hash-pinned programmer chosen locally,
-   two reads compared, image plus manifest download) is implemented and verified
-   on the XP3800 but excluded from the default Pages bundle: it is built only
-   with `build.py --with-device-backup`. The site build owner declined to stage
-   an EDL transport by default; the owner enables it deliberately. Patch and
-   flash are not implemented. See `root.md`.
+   Shipped (brief 09, 2026-11-20): `/wave/rooting/` backs up `boot`, patches
+   it on the phone over adb, writes it over EDL with a full readback, and
+   installs Magisk and Wave; `/wave/stock/` writes the stock image back. The
+   owner put them, and the read-only backup page, **in the default Pages
+   build** (they were opt-in). Our own adb client over Tango (no bundler or
+   transitive packages). The programmer stays a local file the owner chooses;
+   Magisk and Wave may be served from the site's origin (`build.py
+   --magisk-apk/--wave-apk`). See `root.md`.
 6. **Root is required for system mods**, and Wave installs through `su`
    when it has root. Amended by working default 16: root is opt-in, and
    without it Wave still installs apps, through Installer where a phone

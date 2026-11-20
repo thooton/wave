@@ -18,23 +18,27 @@ function attributes(text) {
   return out;
 }
 
-export class FirehoseBootReader {
+// The framing shared by the read-only backup reader and the boot writer
+// (firehose-write.mjs, only in the rooting build). It sends only what its
+// callers ask for; it has no program, erase or patch request of its own.
+export class FirehoseChannel {
   #link;
   #xml = '';
-  #configured = false;
   #busy = false;
-  #limit = 4096;
-  #header;
-  #catalog;
   #decoder = new TextDecoder('utf-8', { fatal: true });
+  #catalog;
+  limit = 4096;
+  toTarget = 0;
+  header;
   constructor(link) { this.#link = link; }
+  get link() { return this.#link; }
 
-  async #response(rawmode, configureLog = false) {
+  async response(rawmode, configureLog = false, timeoutMs) {
     let logs = [];
     for (let i = 0; i < 100; i++) {
       const end = this.#xml.indexOf('</data>');
       if (end < 0) {
-        this.#xml += this.#decoder.decode(await this.#link.read(4096), { stream: true }).replaceAll('\0', '');
+        this.#xml += this.#decoder.decode(await this.#link.read(4096, timeoutMs), { stream: true }).replaceAll('\0', '');
         if (this.#xml.length > 16384) throw new Error('Oversized Firehose XML response.');
         continue;
       }
@@ -68,7 +72,9 @@ export class FirehoseBootReader {
     throw new Error('No bounded Firehose response was received.');
   }
 
-  async #exclusive(action) {
+  get idle() { return !this.#xml.trim(); }
+
+  async exclusive(action) {
     if (this.#busy) throw new Error('A Firehose operation is already running.');
     this.#busy = true;
     try { return await action(); }
@@ -76,56 +82,77 @@ export class FirehoseBootReader {
     finally { this.#busy = false; }
   }
 
-  async configure() {
-    return this.#exclusive(async () => {
-      await this.#link.write(xml('<configure MemoryName="eMMC" Verbose="0" AlwaysValidate="0" MaxDigestTableSizeInBytes="2048" MaxPayloadSizeToTargetInBytes="1048576" ZLPAwareHost="1" SkipStorageInit="0" SkipWrite="1"/>'));
-      const { response } = await this.#response();
-      const limit = Number(response.MaxPayloadSizeFromTargetInBytes);
-      if (response.MemoryName !== 'eMMC' || !['8909','MSM8909'].includes(response.TargetName)
-          || !Number.isInteger(limit) || limit < sectorBytes || limit > 16384 || limit % sectorBytes) {
-        throw new Error('Unexpected eMMC Firehose target or packet size.');
-      }
-      this.#limit = limit;
-      // The signed MSM8909 programmer sends a second log after its configure
-      // ACK. Drain it before OUT; otherwise the device can block the next OUT
-      // while it waits for us to consume its pending IN transfer.
-      await this.#response(undefined, true);
-      // Match the desktop reference: initialize the selected eMMC LUN by
-      // reading its GPT header before requesting storage information.
-      this.#header = readGptHeader(await this.#readSectors(1, 1));
-      await this.#link.write(xml('<getstorageinfo physical_partition_number="0"/>'));
-      const { logs } = await this.#response();
-      if (!logs.includes('SECTOR_SIZE_IN_BYTES=512')) throw new Error('The target did not report 512-byte sectors.');
-      this.#configured = true;
-    });
+  async configure(skipWrite) {
+    await this.#link.write(xml(`<configure MemoryName="eMMC" Verbose="0" AlwaysValidate="0" MaxDigestTableSizeInBytes="2048" MaxPayloadSizeToTargetInBytes="1048576" ZLPAwareHost="1" SkipStorageInit="0" SkipWrite="${skipWrite ? 1 : 0}"/>`));
+    const { response } = await this.response();
+    const limit = Number(response.MaxPayloadSizeFromTargetInBytes), toTarget = Number(response.MaxPayloadSizeToTargetInBytes);
+    if (response.MemoryName !== 'eMMC' || !['8909', 'MSM8909'].includes(response.TargetName)
+        || !Number.isInteger(limit) || limit < sectorBytes || limit > 16384 || limit % sectorBytes) {
+      throw new Error('Unexpected eMMC Firehose target or packet size.');
+    }
+    this.limit = limit;
+    this.toTarget = Number.isInteger(toTarget) && toTarget >= sectorBytes && toTarget % sectorBytes === 0 ? Math.min(toTarget, 1048576) : 0;
+    // The signed MSM8909 programmer sends a second log after its configure
+    // ACK. Drain it before OUT; otherwise the device can block the next OUT
+    // while it waits for us to consume its pending IN transfer.
+    await this.response(undefined, true);
+    // Match the desktop reference: initialize the selected eMMC LUN by
+    // reading its GPT header before requesting storage information.
+    this.header = readGptHeader(await this.readSectors(1, 1));
+    await this.#link.write(xml('<getstorageinfo physical_partition_number="0"/>'));
+    const { logs } = await this.response();
+    if (!logs.includes('SECTOR_SIZE_IN_BYTES=512')) throw new Error('The target did not report 512-byte sectors.');
   }
 
-  async #readSectors(start, count, onProgress) {
+  async readSectors(start, count, onProgress) {
     await this.#link.write(encoder.encode(`<?xml version="1.0" ?><data><read SECTOR_SIZE_IN_BYTES="512" num_partition_sectors="${count}" physical_partition_number="0" start_sector="${start}"/>\n</data>`));
-    await this.#response('true');
-    if (this.#xml.trim()) throw new Error('Unexpected XML before raw Firehose data.');
-    const data = await exact(this.#link, count * sectorBytes, this.#limit, undefined, onProgress);
-    await this.#response('false');
+    await this.response('true');
+    if (!this.idle) throw new Error('Unexpected XML before raw Firehose data.');
+    const data = await exact(this.#link, count * sectorBytes, this.limit, undefined, onProgress);
+    await this.response('false');
     return data;
   }
 
-  async #diskLayout() {
-    const { entryLba, sectors } = this.#header;
-    this.#catalog ??= parseXp3800Gpt(this.#header, await this.#readSectors(entryLba, sectors));
+  async layout() {
+    const { entryLba, sectors } = this.header;
+    this.#catalog ??= parseXp3800Gpt(this.header, await this.readSectors(entryLba, sectors));
     return this.#catalog;
+  }
+
+  async reset() {
+    try {
+      await this.exclusive(async () => {
+        await this.#link.write(xml('<power value="reset"/>'));
+        await this.response();
+      });
+    } finally {
+      await this.#link.close();
+    }
+  }
+}
+
+// Read-only: configures with SkipWrite="1" and reads only the GPT and boot.
+export class FirehoseBootReader {
+  #channel;
+  #configured = false;
+  constructor(link) { this.#channel = new FirehoseChannel(link); }
+
+  async configure() {
+    await this.#channel.exclusive(() => this.#channel.configure(true));
+    this.#configured = true;
   }
 
   async readGpt() {
     if (!this.#configured) throw new Error('Firehose eMMC has not been configured.');
-    return this.#exclusive(() => this.#diskLayout());
+    return this.#channel.exclusive(() => this.#channel.layout());
   }
 
   async readBoot(onProgress) {
     if (!this.#configured) throw new Error('Firehose eMMC has not been configured.');
-    return this.#exclusive(async () => {
+    return this.#channel.exclusive(async () => {
       // The only storage reads exposed by this tool are the GPT and boot.
-      const { boot: { start, sectors } } = await this.#diskLayout();
-      const image = await this.#readSectors(start, sectors, onProgress);
+      const { boot: { start, sectors } } = await this.#channel.layout();
+      const image = await this.#channel.readSectors(start, sectors, onProgress);
       checkBootImage(image);
       return image;
     });
@@ -133,13 +160,6 @@ export class FirehoseBootReader {
 
   async reset() {
     if (!this.#configured) throw new Error('Firehose eMMC has not been configured.');
-    try {
-      await this.#exclusive(async () => {
-        await this.#link.write(xml('<power value="reset"/>'));
-        await this.#response();
-      });
-    } finally {
-      await this.#link.close();
-    }
+    await this.#channel.reset();
   }
 }

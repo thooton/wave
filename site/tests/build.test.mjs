@@ -20,11 +20,10 @@ test('bundle stays inside its allowlist and resolves links beneath the project p
     for (const excluded of ['scripts', 'tests', '.git', 'AGENTS.md', '.oak', 'mockups']) {
       assert.equal(existsSync(join(out, excluded)), false, excluded);
     }
-    for (const excluded of ['src/protocols/sahara.mjs', 'src/protocols/firehose.mjs', 'src/protocols/gpt.mjs',
-      'src/protocols/adb-sync.mjs', 'public-assets']) {
+    for (const excluded of ['src/protocols/tests', 'public-assets', 'rooting/files']) {
       assert.equal(existsSync(join(out, excluded)), false, excluded);
     }
-    for (const page of ['root', 'rescue', 'restore']) {
+    for (const page of ['root', 'rescue', 'restore', 'backup', 'rooting', 'stock']) {
       assert.equal(existsSync(join(out, page, 'index.html')), true, page);
     }
     assert.notEqual(run('build.py').status, 0, 'never replace a directory');
@@ -38,7 +37,7 @@ test('bundle stays inside its allowlist and resolves links beneath the project p
     assert.match(invalid.stderr, /duplicate id: main/);
     const probe = join(out, 'src/root/probe.mjs');
     writeFileSync(probe, readFileSync(probe, 'utf8') + `\nimport { missing } from './missing.mjs';\n`);
-    writeFileSync(join(out, 'extra.bin'), Buffer.alloc(20 * 1024));
+    writeFileSync(join(out, 'extra.bin'), Buffer.alloc(120 * 1024));
     invalid = run('check_pages.py');
     assert.match(invalid.stderr, /invalid local URL: .\/missing.mjs/);
     assert.match(invalid.stderr, /not reachable from index.html: extra.bin/);

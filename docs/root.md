@@ -1,30 +1,99 @@
 # XP3800 device guide and recovery
 
-The Wave site helps an owner identify their phone, keep a verified stock boot
-backup (an opt-in build reads it over USB; see the first section), and recover
-from a bad Magisk module. It does not patch or write boot
-images, install rooting tools, alter Magisk’s policy database, or grant apps
-root. Ordinary APKs can use Android’s Installer; Wave requires root for
-system mods. To opt in on an already-rooted phone, open **Wave → Root for
-System Mods → Check Again** and review the Magisk prompt on the phone.
+The Wave site roots an XP3800 from Chrome or Edge over WebUSB: it saves the
+phone's stock boot image to the owner's computer, patches it on the phone with
+Magisk 24.0, writes it over EDL and verifies every byte, then installs the
+Magisk app and Wave (**Root**, `/wave/rooting/`). It also writes the saved
+stock image back (**Stock boot**, `/wave/stock/`), reads a backup on its own,
+checks saved backups, and disables broken modules (Rescue). It writes only the
+`boot` partition, never `/system` or bootloader flags, and never grants Wave
+root: Magisk asks on the phone. To use root on an already-rooted phone, open
+**Wave → Root for System Mods → Check Again** and answer Magisk's prompt.
 
-## Read-only boot backup from the browser (off by default)
+## Root from the browser
 
-**Implemented and verified on one XP3800, read-only, and off by default.** The
-owner enables it deliberately by building the site with the flag:
+Implemented in `site/rooting/` (`src/root/rooting.mjs`, `device.mjs`,
+`magisk.mjs`) over `src/protocols/` (`adb.mjs`, `adb-sync.mjs`, `zip.mjs`,
+`boot-signature.mjs`, `firehose.mjs`, `firehose-write.mjs`, `sahara.mjs`,
+`gpt.mjs`). It is in the default build; verified end to end on 8516067e
+(below). The steps, each proving the one before:
 
-```sh
-python3 site/scripts/build.py --with-device-backup OUTPUT_DIR   # OUTPUT_DIR must not exist
-python3 site/scripts/check_pages.py OUTPUT_DIR
-```
+1. **Files.** The Sonim programmer (local file, pinned SHA-256
+   `e6f2dbcf…2767`), Magisk 24.0's APK (pinned `f7ac4e2a…346a`, 10,440,388 B)
+   and a Wave APK. Magisk and Wave can be served from the site's own origin
+   (`build.py --magisk-apk PATH --wave-apk PATH --wave-version X` stages them
+   in `rooting/files/` with a `files.json`); the programmer never is.
+2. **Phone over adb.** A fully booted XP3800, SDK 27, `armeabi-v7a`, Sonim
+   fingerprint, battery at least 40%, and no `su` (a rooted phone is refused:
+   its boot is not stock). Records serial and fingerprint; every later adb
+   connection must match them. Then `reboot:edl`.
+3. **Backup in EDL.** Sahara with the pinned programmer, Firehose read-only
+   (`SkipWrite="1"`), GPT validated as the XP3800's, `boot` read twice and
+   compared, its AVB 1.0 signature verified in the browser (WebCrypto) and its
+   certificate required to be the XP3800's stock one (`8ad127ab…3b86`), and its
+   ramdisk checked for Magisk's marker (`.backup/.magisk`). Firehose reset.
+4. **Save.** The image and a manifest are offered as downloads; the owner
+   must choose the saved image again and its SHA-256 must match. Nothing is
+   written before this.
+5. **Patch on the phone**, as ROOTING.md step 4b, as the adb shell user: the
+   browser unzips `boot_patch.sh`, `util_functions.sh` and the `armeabi-v7a`
+   `magiskboot`, `magiskinit`, `magisk32` and `busybox` from the APK and pushes
+   them with the stock image and the APK to `/data/local/tmp/wave-magisk`,
+   checks their SHA-256 on the phone, runs `boot_patch.sh` with
+   `KEEPVERITY=false KEEPFORCEENCRYPT=<true only if ro.crypto.state is
+   encrypted> RECOVERYMODE=false` (system-as-root is refused), signs with
+   `com.topjohnwu.magisk.signing.SignBoot` under `dalvikvm`, requires
+   `-verify` to say `Signature is VALID`, pulls the result and checks it again
+   in the browser (`checkPatchedBoot`: signature verifies over exactly its
+   payload with the stock image's certificate, nothing after it, same header
+   fields as stock, a different ramdisk, Magisk's marker present). The work
+   folder is removed even on failure. Then `pm install` of Magisk (must report
+   24.0) and Wave (`com.wave.xp3` must then exist), and `reboot:edl`.
+6. **Write in EDL** (`FirehoseBootWriter`, `SkipWrite="0"`): read `boot` and
+   require it to equal the saved backup, `program` the image padded to a
+   sector (1 MiB chunks, each ended by a ZLP, as bkerler/edl), read the whole
+   partition back and require image, zero padding and the untouched stock
+   tail. A readback mismatch writes the stock image back in the same session
+   and verifies it. Then reset.
+7. **First rooted boot.** `/sbin/su` must link to `magisk`; the Magisk app is
+   opened so the owner can answer "Requires Additional Setup" if it appears.
+8. **Optional `su` for adb** (Rescue needs it): one `su -c id`, answered by
+   the owner in Magisk's prompt; then a root check that Magisk's environment
+   (`/data/adb/magisk`) is complete. **Open Wave** starts it on the phone and
+   the page forgets its copies of the images.
 
-The default build (and the Pages workflow) leaves out `backup/index.html`,
-`src/root/backup.mjs` and the Sahara, Firehose and GPT modules, and the
-guide does not link to the backup page. The flag adds exactly those files and
-a link. No programmer binary, boot image or Magisk file is ever bundled: the
-owner selects their own copy of the Sonim-signed MSM8909 programmer as a local
-file, and the page refuses anything but the pinned size and SHA-256
-(`e6f2dbcf...2767`) before a single byte goes to USB.
+The stage is kept in `localStorage` and the stock and patched images in
+IndexedDB, so a reload resumes at the right step (verified: the page resumed
+at step 8 after a reload). **Start over** clears both.
+
+**Stock boot** (`site/stock/`, `src/root/stock.mjs`) takes the programmer,
+the image and its manifest (or a typed SHA-256, one is required), requires a
+32 MiB image whose SHA-256 matches, whose stock signature verifies with the
+XP3800 certificate and that Magisk has not patched. If Android starts, it
+checks the phone's serial and build against the manifest and restarts it into
+EDL; otherwise the owner confirms it is the same phone and uses the cold
+start. It reads what `boot` holds first (offered as a download), writes the
+whole image, reads all 32 MiB back and compares, then resets.
+
+Things learned on the phone and handled in code:
+- Just after `sys.boot_completed` becomes 1 the XP3800 drops off USB and
+  re-enumerates once. A connection that had to wait for boot now waits 8 s,
+  closes and reconnects (`device.mjs`); before that, the next command failed.
+- adbd can flush packets from an abandoned session (a late `CLSE`, a stale
+  `AUTH` token) at a new connection. `Adb.connect` skips stale stream packets
+  and signs twice before offering the key, instead of failing the handshake.
+- The patch is deterministic: the page-made image is byte-identical
+  (`49eb168c…7d81d`) to the one made by hand in November.
+
+## Read-only boot backup from the browser
+
+**Implemented and verified on one XP3800, read-only.** It was opt-in
+(`--with-device-backup`) until the owner put rooting in the default build on
+2026-11-20; the backup page is now always staged. No programmer binary or
+boot image is ever bundled: the owner selects their own copy of the
+Sonim-signed MSM8909 programmer as a local file, and the page refuses anything
+but the pinned size and SHA-256 (`e6f2dbcf...2767`) before a single byte goes
+to USB.
 
 What the page does, in order: optionally reads the Android serial and build
 fingerprint over adb (or the owner types them from their records; EDL cannot
@@ -56,8 +125,8 @@ Driver and platform setup (the Linux `qcserial` detach, Windows WinUSB with Zadi
 macOS) is in **Platform setup** below; only Linux with Chromium 156 is tested.
 
 `site/src/protocols/` also contains the transport modules; replays of the
-captured exchanges run in `site/src/protocols/tests/`. The write-capable parts
-that ROOTING.md describes (patch on the phone, flash) are not implemented.
+captured exchanges run in `site/src/protocols/tests/`. The write path is
+separate (`firehose-write.mjs`, used only by Root and Stock boot).
 
 ### Then verify the saved files
 
@@ -114,9 +183,12 @@ charge-only cable, or a policy that blocks WebUSB.
 
 | Page | Automated | Owner action |
 | :--- | :--- | :--- |
-| Rooting guide | With WebUSB, reads model, SDK, ABI, fingerprint, boot status, battery and presence of `su` (not whether root is granted). | Enable USB debugging and approve the browser’s RSA key. Keep a personal-data backup and have a trusted service tool read the stock boot image before changing anything. |
+| Rooting guide | With WebUSB, reads model, SDK, ABI, fingerprint, boot status, battery and presence of `su` (not whether root is granted). Links Root, Backup and Stock boot. | Enable USB debugging and approve the browser’s RSA key. Keep a personal-data backup. |
+| Root | The whole flow above: backup over EDL, patch on the phone over adb, Magisk and Wave install, EDL write with full readback, root check. | Choose the programmer (and Magisk and Wave unless the site serves them), approve USB debugging, pick the devices in the chooser, save the backup and choose the saved file, answer Magisk on the phone. |
+| Backup | Reads `boot` twice over EDL and offers image and manifest. Writes nothing. | Choose the programmer, enter EDL. |
+| Stock boot | Checks the saved image (size, hash against manifest or typed hash, stock signature, not patched), checks the phone's identity over adb when Android runs, writes it over EDL and compares all 32 MiB read back. | Confirm it is this phone's backup; cold start into EDL if Android does not run. |
 | Rescue | On an already-rooted XP3800, lists modules, marks only selected modules disabled in Magisk’s installed/staged directories, and requests a normal Android reboot if selected. | Authorize USB debugging and any Magisk request for Shell. Review the list, explicitly choose modules, and click Reboot separately. |
-| Restore | Locally validates a 32 MiB `ANDROID!` XP3800 boot partition image, computes SHA-256, compares it with an original record if provided, and optionally compares a second full read or post-restore readback byte for byte. | Verify the backup is from this exact phone and build. Stock recovery itself is done outside the browser using a trusted stock service procedure. Wait for Android and uninstall unwanted apps through Settings. |
+| Restore | Locally validates a 32 MiB `ANDROID!` XP3800 boot partition image, computes SHA-256, compares it with an original record if provided, and optionally compares a second full read or post-restore readback byte for byte. Never connects. | Verify the backup is from this exact phone and build. Writing it back is Stock boot. |
 
 The backup verifier cannot prove origin from a header or checksum alone. Save
 two matching, independent reads together with the original hash, serial and
@@ -154,13 +226,15 @@ The site uses native ES modules without npm. A small adb client was chosen
 instead of Tango so the allowlisted static build does not need a bundler or
 transitive packages. It implements USB bulk transport, RSA authorization,
 `shell_v2` with separate stdout/stderr and exit code, and Android reboot.
-Development-only ADB SYNC push/pull and APK install via Android’s package
-manager are tested separately and are excluded from the public artifact. A browser-only
+ADB SYNC push/pull (`adb-sync.mjs`) and `reboot:edl` are used by Root.
+`shell` takes a per-command timeout for the silent minute of patching or
+signing. A browser-only
 ADB key stays in memory, so don’t select “Always allow” on the debugging
-prompt. The public guide only uses read-only shell checks; the Rescue page
-additionally performs the root operations described above.
+prompt. The guide only uses read-only shell checks; Rescue performs the root
+operations described above; Root runs as the shell user and asks for `su`
+once, only when the owner clicks it.
 
-For reserved-hardware QA, serve the opt-in build on loopback and open
+For reserved-hardware QA, serve the build on loopback and open
 `/backup/?policy=1`, or serve `site/src/protocols` and open
 `/tests/manual-edl/`, in Chromium. Supply the verified programmer as a local
 file. The page uses the normal USB picker, reports named GPT geometry, reads
@@ -181,8 +255,9 @@ Sahara/Firehose references are bkerler/edl and commaai/qdl.js.
 ## Rooted test phone (8516067e)
 
 **The project's XP3800 (serial 8516067e) is rooted as of 2026-11-19**, at the
-owner's request, by a desktop procedure; the site itself still does not patch
-or write boot images.
+owner's request, first by a desktop procedure and, since 2026-11-20, by the
+site's own Root page (twice, from stock written back by Stock boot; the
+result is byte-identical).
 
 | Item | Value |
 | :--- | :--- |
@@ -316,11 +391,44 @@ A phone that does not boot needs a cold EDL start (battery pull).
   seen once, before the app's first-run setup and reboot, and could not be
   reproduced. Its only logged error now is the update check failing with
   Wi-Fi off. No warning about the APK is needed.
-- **Not tested:** rooting or stock restore from the public
-  pages, and device USB workflows on macOS, Windows, ChromeOS or Android OTG.
-  The public pages do not perform rooting or partition writes. Firefox and
-  Safari do not supply WebUSB; the local verifier does not require WebUSB.
-  See the site’s USB guide for Linux udev/ModemManager and Windows WinUSB.
+- **Root and Stock boot, end to end on the XP3800 (Linux, Chromium 156,
+  2026-11-20, owner-approved).** The built site was served on loopback and
+  driven in headless Chromium over real WebUSB (`WebUsbAllowDevicesForUrls`
+  for `1d9c:8339` and `05c6:9008` on that origin, in a Bubblewrap profile).
+  Harness-only changes, as for Rescue: the chooser was replaced by the one
+  policy-granted device of the requested vendor, the page's fresh RSA key by
+  the desktop's authorized adb key, downloads went to a folder the harness
+  then chose from, and `qcserial` was detached from the EDL interface each
+  time. Run twice; the second run went from start to finish with no retry:
+  - **Stock boot** checked `boot-stock.img` against a manifest (hash, stock
+    signature, not patched), matched serial and build over adb, restarted into
+    EDL, read the Magisk boot, wrote the 32 MiB stock image, read all of it
+    back identical, reset. Android booted with no `su`.
+  - **Root** from that stock phone: identity and `reboot:edl`; two reads of
+    `boot`, identical, SHA-256 `489269c4…9455` (the known stock), stock
+    signature verified; the downloaded image was chosen again and matched;
+    patched on the phone in about 3 minutes (`- Stock boot image detected`,
+    `- Patching ramdisk`, `- Repacking boot image`), SignBoot `VALID`, the
+    19,641,640-byte image checked in the browser; Magisk 24.0 and Wave 0.7.30
+    installed; written over EDL with the whole partition read back as
+    expected; `/sbin/su -> ./magisk` on the next boot; `su -c id` for adb
+    (Shell was already allowed in this phone's policy table, so no prompt
+    appeared); Wave opened on the phone.
+  - **Independent check:** bkerler/edl read `boot` afterwards: the first
+    19,641,640 bytes verify as a signed patch of stock and are SHA-256
+    `49eb168c…7d81d`, the same image as the November hand-made one; the
+    padding is zero, the rest is stock, and the whole partition is
+    `648f3508…5d93`, as before. Root survives restarts; Magisk's policy table
+    still holds only uid 2000.
+  - Each EDL step took 10 to 25 s (reading 32 MiB about 8 s, writing 19.6 MB
+    about 2 s).
+- **Not tested:** the device chooser and "Allow USB debugging?" prompt in a
+  normal browser profile, Magisk's Shell prompt and "Requires Additional
+  Setup" on a phone that never had Magisk (this phone's `/data/adb` survived
+  the stock write-back), the cold-start path into Stock boot, an induced
+  readback mismatch on hardware (covered by replays), and macOS, Windows,
+  ChromeOS or Android OTG. Firefox and Safari do not supply WebUSB. See the
+  site's USB guide for Linux udev/ModemManager and Windows WinUSB.
 
 Credit for the XP3800 research goes to anonymousfliphones and flipphoneguy
 on JTech Forums and the `flipphoneguy/root-sonim-xp3800` community project.
