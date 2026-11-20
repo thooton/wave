@@ -6,7 +6,7 @@ import { isMagiskPatched } from './magisk.mjs';
 import { bootBytes, checkBootImage, sha256 } from '../protocols/boot-image.mjs';
 import { verifyBootSignature, xp3800BootCertSha256 } from '../protocols/boot-signature.mjs';
 import { FirehoseBootWriter } from '../protocols/firehose-write.mjs';
-import { fetchProgrammer, servedFiles } from './served.mjs';
+import { fetchProgrammer, servedFiles } from './served.mjs?v=bundled-firehose';
 
 const progress = $('progress');
 let busy = false, checked, programmer, beforeUrl;

@@ -9,7 +9,7 @@ import { bootBytes, sha256 } from '../protocols/boot-image.mjs';
 import { checkPatchedBoot, verifyBootSignature, xp3800BootCertSha256 } from '../protocols/boot-signature.mjs';
 import { FirehoseBootReader } from '../protocols/firehose.mjs';
 import { FirehoseBootWriter, WriteCheckError } from '../protocols/firehose-write.mjs';
-import { fetchProgrammer, fetchServed, servedFiles } from './served.mjs';
+import { fetchProgrammer, fetchServed, servedFiles } from './served.mjs?v=bundled-firehose';
 
 const KEY = 'wave-rooting-v1';
 const STAGES = ['check', 'backup', 'save', 'patch', 'flash', 'finish', 'done'];
