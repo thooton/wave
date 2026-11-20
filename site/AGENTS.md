@@ -1,6 +1,6 @@
 # Wave site
 
-Read the repository's `AGENTS.md` and `docs/root.md`.
+Read the repository's `AGENTS.md` for shared device safety rules.
 
 Static HTML with native ES modules and local CSS; no framework, npm install,
 CDN, analytics, runtime API or server. Directory indexes and **relative URLs**
@@ -41,14 +41,14 @@ mouse.
     the site with `files.json`, verified by `check_pages.py`; see `README.md`.
     The programmer and Magisk are pinned by SHA-256 in `build.py` and again in
     the pages. Users never choose installer prerequisites.
-  - Nothing grants Wave root (decision 16), and the site never asks Magisk for
+  - Nothing grants Wave root, and the site never asks Magisk for
     root: Recovery needs only adb's `reboot edl`.
   - The flow's stage is in `localStorage` (`wave-rooting-v2`) and the two
     images in IndexedDB (`wave-rooting`) so a reload resumes; both are cleared
     at the end or on Start over. The adb key is kept in IndexedDB `wave-adb`,
     so "Always allow" lasts.
-  Details and hardware evidence are in `docs/root.md`.
-- `mockups/`: the app screen designer's area, not part of the site.
+- `mockups/`, if present, is local-only design material and is never staged
+  by the site build.
 - `scripts/`, `tests/`: packaging and checks. CI stages only the files listed in
   `build.py`; never upload a worktree, phone data or local secrets.
 

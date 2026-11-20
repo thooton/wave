@@ -4,6 +4,7 @@ build/
 local.properties
 node_modules/
 site/dist/
+/site/mockups/
 __pycache__/
 *.pyc
 

@@ -1,6 +1,6 @@
-import { exact } from './webusb.mjs?v=redesign2';
-import { checkBootImage } from './boot-image.mjs?v=redesign2';
-import { parseXp3800Gpt, readGptHeader, sectorBytes } from './gpt.mjs?v=redesign2';
+import { exact } from './webusb.mjs?v=redesign3';
+import { checkBootImage } from './boot-image.mjs?v=redesign3';
+import { parseXp3800Gpt, readGptHeader, sectorBytes } from './gpt.mjs?v=redesign3';
 
 const encoder = new TextEncoder();
 const xml = element => encoder.encode(`<?xml version="1.0" encoding="UTF-8" ?><data>${element}</data>`);

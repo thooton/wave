@@ -16,9 +16,9 @@ import {
     percent,
     problem,
     show,
-} from "./common.mjs?v=redesign2";
-import { makeBackupManifest } from "./backup-manifest.mjs?v=redesign2";
-import { backupName, makeBackupFile } from "./backup-file.mjs?v=redesign2";
+} from "./common.mjs?v=redesign3";
+import { makeBackupManifest } from "./backup-manifest.mjs?v=redesign3";
+import { backupName, makeBackupFile } from "./backup-file.mjs?v=redesign3";
 import {
     chooseEdl,
     claimEdl,
@@ -27,7 +27,7 @@ import {
     startProgrammer,
     waitForAndroid,
     waitForEdl,
-} from "./device.mjs?v=redesign2";
+} from "./device.mjs?v=redesign3";
 import {
     MAGISK,
     WAVE_PACKAGE,
@@ -36,22 +36,22 @@ import {
     installedVersion,
     isMagiskPatched,
     patchOnPhone,
-} from "./magisk.mjs?v=redesign2";
-import { sha256 } from "../protocols/boot-image.mjs?v=redesign2";
+} from "./magisk.mjs?v=redesign3";
+import { sha256 } from "../protocols/boot-image.mjs?v=redesign3";
 import {
     verifyBootSignature,
     xp3800BootCertSha256,
-} from "../protocols/boot-signature.mjs?v=redesign2";
-import { FirehoseBootReader } from "../protocols/firehose.mjs?v=redesign2";
+} from "../protocols/boot-signature.mjs?v=redesign3";
+import { FirehoseBootReader } from "../protocols/firehose.mjs?v=redesign3";
 import {
     FirehoseBootWriter,
     WriteCheckError,
-} from "../protocols/firehose-write.mjs?v=redesign2";
+} from "../protocols/firehose-write.mjs?v=redesign3";
 import {
     fetchProgrammer,
     fetchServed,
     servedFiles,
-} from "./served.mjs?v=redesign2";
+} from "./served.mjs?v=redesign3";
 
 const KEY = "wave-rooting-v2";
 const PHASES = ["intro", "ready", "backup", "root", "finish"];

@@ -1,5 +1,5 @@
 // ADB SYNC push/pull and APK installation. Staged only in the rooting build.
-import { quoteShell } from './adb.mjs?v=redesign2';
+import { quoteShell } from './adb.mjs?v=redesign3';
 
 const text = new TextEncoder();
 const view = data => new DataView(data.buffer, data.byteOffset, data.byteLength);

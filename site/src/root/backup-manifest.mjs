@@ -1,4 +1,4 @@
-import { bootBytes } from '../protocols/boot-image.mjs?v=redesign2';
+import { bootBytes } from '../protocols/boot-image.mjs?v=redesign3';
 
 export const hashPattern = /^[0-9a-f]{64}$/;
 export const serialPattern = /^[A-Za-z0-9_-]{1,64}$/;

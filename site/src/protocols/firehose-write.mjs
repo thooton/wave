@@ -3,10 +3,10 @@
 // the caller says it holds (the phone's own stock backup when rooting), the image
 // must be that backup patched and signed, or a full stock image, and the whole
 // partition is read back and compared byte for byte.
-import { bootBytes, checkBootImage } from './boot-image.mjs?v=redesign2';
-import { checkPatchedBoot } from './boot-signature.mjs?v=redesign2';
-import { FirehoseChannel } from './firehose.mjs?v=redesign2';
-import { sectorBytes } from './gpt.mjs?v=redesign2';
+import { bootBytes, checkBootImage } from './boot-image.mjs?v=redesign3';
+import { checkPatchedBoot } from './boot-signature.mjs?v=redesign3';
+import { FirehoseChannel } from './firehose.mjs?v=redesign3';
+import { sectorBytes } from './gpt.mjs?v=redesign3';
 
 const encoder = new TextEncoder();
 const differs = (a, b) => a.length !== b.length || a.some((byte, i) => byte !== b[i]);

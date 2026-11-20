@@ -2,11 +2,11 @@
 // docs/root.md and ROOTING.md step 4b do by hand: Magisk's own ARM binaries and
 // boot_patch.sh run as the adb shell user, then the app's own SignBoot signs the
 // result through dalvikvm. Nothing here needs root or writes outside the work folder.
-import { quoteShell } from '../protocols/adb.mjs?v=redesign2';
-import { pull, push } from '../protocols/adb-sync.mjs?v=redesign2';
-import { bootBytes, sha256 } from '../protocols/boot-image.mjs?v=redesign2';
-import { checkPatchedBoot, parseBootHeader } from '../protocols/boot-signature.mjs?v=redesign2';
-import { zipDirectory, zipEntry } from '../protocols/zip.mjs?v=redesign2';
+import { quoteShell } from '../protocols/adb.mjs?v=redesign3';
+import { pull, push } from '../protocols/adb-sync.mjs?v=redesign3';
+import { bootBytes, sha256 } from '../protocols/boot-image.mjs?v=redesign3';
+import { checkPatchedBoot, parseBootHeader } from '../protocols/boot-signature.mjs?v=redesign3';
+import { zipDirectory, zipEntry } from '../protocols/zip.mjs?v=redesign3';
 
 export const MAGISK = Object.freeze({
   version: '24.0', versionCode: 24000, package: 'com.topjohnwu.magisk',
@@ -93,8 +93,8 @@ export async function patchOnPhone(adb, { stock, apk, log = () => {}, onStage = 
       throw new Error('File copying failed, try again');
     }
     await run(adb, `cd ${workDir} && chmod 755 magiskboot magiskinit magisk32 busybox boot_patch.sh`, 'Preparing tools');
-    log('Patching boot image with boot_patch.sh (about 1 minute).');
-    const patchLog = await run(adb, `cd ${workDir} && KEEPVERITY=false KEEPFORCEENCRYPT=${keepEncrypt} RECOVERYMODE=false ASH_STANDALONE=1 ./busybox sh ./boot_patch.sh boot.img 2>&1 && test -s new-boot.img`, 'Patching', 300000);
+    log('Patching boot image with boot_patch.sh (about 3-4 minutes).');
+    const patchLog = await run(adb, `cd ${workDir} && KEEPVERITY=false KEEPFORCEENCRYPT=${keepEncrypt} RECOVERYMODE=false ASH_STANDALONE=1 ./busybox sh ./boot_patch.sh boot.img 2>&1 && test -s new-boot.img`, 'Patching', 600000);
     log(patchLog.trim().split('\n').filter(line => line.startsWith('- ')).join('\n') || 'Patched.');
     onStage('sign');
     log('Signing patched image with Magisk SignBoot (about 1 minute).');
