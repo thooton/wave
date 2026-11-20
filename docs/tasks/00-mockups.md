@@ -30,7 +30,7 @@ focused row shown:
 - Search: empty, typing, results, nothing found.
 - The queue: confirm (with a dependency and a replaced package), progress,
   Done, Reboot Now / Later.
-- No root: the screen that points at the jailbreak site.
+- No root: the screen that points at the rooting guide.
 - Errors: no network, a source that won't refresh, a download that fails its
   hash, a mod the watchdog turned off.
 

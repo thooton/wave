@@ -101,7 +101,7 @@ mod can't strand the phone.
 
 ## 6. Windows and macOS USB steps
 
-**Do:** on each OS, follow [jailbreak.md](jailbreak.md) (Windows: Zadig and
+**Do:** on each OS, follow [root.md](root.md) (Windows: Zadig and
 WinUSB for `05C6 9008`; macOS: nothing expected) against the real phone, with
 the hosted site. Report where a step fails or confuses.
 
@@ -110,5 +110,5 @@ page reads `boot` twice with matching hashes. Linux and Chromium are the only
 setup tried, and the browser's device chooser and first RSA prompt haven't
 been seen live either.
 
-**Unblocks:** the guide ([brief 09](tasks/09-site-jailbreak.md)) for owners who
+**Unblocks:** the guide ([brief 09](tasks/09-site-root.md)) for owners who
 aren't on Linux, and [decisions](decisions.md) open item 5 (a driver helper).

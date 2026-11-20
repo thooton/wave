@@ -1,10 +1,10 @@
-# 09: The jailbreak page
+# 09: The rooting guide
 
 **Repo** W (`site/`). **Needs** nothing to start; hardware verification
 requires a stock test phone reserved for this brief (see `../../AGENTS.md`).
 
 ## Read first
-`../jailbreak.md`, then `../rphone/ROOTING.md` end to end (every trap in it
+`../root.md`, then `../rphone/ROOTING.md` end to end (every trap in it
 is real), `../rphone/run.sh`, and `flipphoneguy/root-sonim-xp3800`. For the
 protocols: `bkerler/edl` (Sahara and Firehose, the reference that is known
 to work on this phone), `commaai/qdl.js` (a WebUSB implementation),
@@ -28,7 +28,7 @@ stock boot image saved on their computer.
 3. **Sahara and Firehose over WebUSB**: upload the loader, configure for
    eMMC, read the GPT, read `boot`, write `boot`, read back, reset. Test
    reads long before writes.
-4. **The flow** in `../jailbreak.md`: steps, checks, resuming after a
+4. **The flow** in `../root.md`: steps, checks, resuming after a
    reload, the backup download.
 5. **Rescue and Restore.**
 6. Build and deploy to GitHub Pages from CI, with the loader, Magisk's
@@ -37,7 +37,7 @@ stock boot image saved on their computer.
 ## Deliver
 `site/` as a static site (TypeScript and a bundler are fine), a protocol
 module each for adb, Sahara and Firehose with tests against recorded
-exchanges, the jailbreak, Rescue and Restore pages, per-platform setup notes
+exchanges, the rooting guide, Rescue and Restore pages, per-platform setup notes
 (Linux udev and ModemManager, Windows WinUSB), the Pages workflow, and
 `site/AGENTS.md`.
 
@@ -45,7 +45,7 @@ exchanges, the jailbreak, Rescue and Restore pages, per-platform setup notes
 A phone that was stock is rooted from the page on Linux, and Restore returns
 it to its stock boot image, byte for byte over the partition. Then the same
 on Windows and macOS, as far as machines are available; record what was and
-wasn't tested in `../jailbreak.md`.
+wasn't tested in `../root.md`.
 
 ## Watch out
 - **This flashes a phone.** Never write before the backup has been read,

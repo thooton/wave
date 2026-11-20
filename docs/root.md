@@ -19,7 +19,7 @@ python3 site/scripts/check_pages.py OUTPUT_DIR
 ```
 
 The default build (and the Pages workflow) leaves out `backup/index.html`,
-`src/jailbreak/backup.mjs` and the Sahara, Firehose and GPT modules, and the
+`src/root/backup.mjs` and the Sahara, Firehose and GPT modules, and the
 guide does not link to the backup page. The flag adds exactly those files and
 a link. No programmer binary, boot image or Magisk file is ever bundled: the
 owner selects their own copy of the Sonim-signed MSM8909 programmer as a local
@@ -114,7 +114,7 @@ charge-only cable, or a policy that blocks WebUSB.
 
 | Page | Automated | Owner action |
 | :--- | :--- | :--- |
-| Jailbreak guide | With WebUSB, reads model, SDK, ABI, fingerprint, boot status, battery and presence of `su` (not whether root is granted). | Enable USB debugging and approve the browser’s RSA key. Keep a personal-data backup and have a trusted service tool read the stock boot image before changing anything. |
+| Rooting guide | With WebUSB, reads model, SDK, ABI, fingerprint, boot status, battery and presence of `su` (not whether root is granted). | Enable USB debugging and approve the browser’s RSA key. Keep a personal-data backup and have a trusted service tool read the stock boot image before changing anything. |
 | Rescue | On an already-rooted XP3800, lists modules, marks only selected modules disabled in Magisk’s installed/staged directories, and requests a normal Android reboot if selected. | Authorize USB debugging and any Magisk request for Shell. Review the list, explicitly choose modules, and click Reboot separately. |
 | Restore | Locally validates a 32 MiB `ANDROID!` XP3800 boot partition image, computes SHA-256, compares it with an original record if provided, and optionally compares a second full read or post-restore readback byte for byte. | Verify the backup is from this exact phone and build. Stock recovery itself is done outside the browser using a trusted stock service procedure. Wait for Android and uninstall unwanted apps through Settings. |
 

@@ -24,7 +24,7 @@ test('bundle stays inside its allowlist and resolves links beneath the project p
       'src/protocols/adb-sync.mjs', 'public-assets']) {
       assert.equal(existsSync(join(out, excluded)), false, excluded);
     }
-    for (const page of ['jailbreak', 'rescue', 'restore']) {
+    for (const page of ['root', 'rescue', 'restore']) {
       assert.equal(existsSync(join(out, page, 'index.html')), true, page);
     }
     assert.notEqual(run('build.py').status, 0, 'never replace a directory');
@@ -36,7 +36,7 @@ test('bundle stays inside its allowlist and resolves links beneath the project p
     writeFileSync(index, readFileSync(index, 'utf8').replace('<a href="../bad">bad</a>', '<p id="main">dup</p>'));
     invalid = run('check_pages.py');
     assert.match(invalid.stderr, /duplicate id: main/);
-    const probe = join(out, 'src/jailbreak/probe.mjs');
+    const probe = join(out, 'src/root/probe.mjs');
     writeFileSync(probe, readFileSync(probe, 'utf8') + `\nimport { missing } from './missing.mjs';\n`);
     writeFileSync(join(out, 'extra.bin'), Buffer.alloc(20 * 1024));
     invalid = run('check_pages.py');

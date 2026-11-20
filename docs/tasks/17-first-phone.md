@@ -8,7 +8,7 @@ The whole thing works once, on real hardware, from a stock phone to an
 installed mod. Existing devices on the legacy channel are migrated to Wave.
 
 ## A stock phone
-1. Jailbreak it from the site (09). Stock boot image saved.
+1. Root it from the site (09). Stock boot image saved.
 2. Wave opens with root and the default source loaded.
 3. Install an app; open it. Update it after a version bump goes through CI.
    Remove it.

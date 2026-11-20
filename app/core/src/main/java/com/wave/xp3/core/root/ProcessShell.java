@@ -79,7 +79,7 @@ public final class ProcessShell implements Shell {
         try {
             started = builder.start();
         } catch (IOException e) {
-            throw new NoRoot("This phone has no root (no su). Jailbreak it first: see the Wave website.");
+            throw new NoRoot("This phone has no root (no su). See the rooting guide on the Wave website.");
         }
         process = started;
         stdin = started.getOutputStream();

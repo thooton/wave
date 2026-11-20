@@ -10,15 +10,15 @@ FILES = (
     'assets/screens/installed.webp', 'assets/screens/search.webp',
     'platforms/index.html', 'setup/index.html', 'setup/generator.mjs',
     'setup/descriptors.mjs', 'setup/payload.mjs',
-    'jailbreak/index.html', 'rescue/index.html', 'restore/index.html',
-    'src/jailbreak/common.mjs', 'src/jailbreak/probe.mjs',
-    'src/jailbreak/rescue.mjs', 'src/jailbreak/restore.mjs', 'src/jailbreak/backup-manifest.mjs',
+    'root/index.html', 'rescue/index.html', 'restore/index.html',
+    'src/root/common.mjs', 'src/root/probe.mjs',
+    'src/root/rescue.mjs', 'src/root/restore.mjs', 'src/root/backup-manifest.mjs',
     'src/protocols/adb.mjs', 'src/protocols/adb-credential.mjs',
     'src/protocols/webusb.mjs', 'src/protocols/boot-image.mjs',
 )
 
 BACKUP_FILES = (
-    'backup/index.html', 'src/jailbreak/backup.mjs',
+    'backup/index.html', 'src/root/backup.mjs',
     'src/protocols/sahara.mjs', 'src/protocols/firehose.mjs', 'src/protocols/gpt.mjs',
 )
 BACKUP_MARKER = '<!-- OPTIONAL_DEVICE_BACKUP -->'
@@ -42,7 +42,7 @@ def build(destination, with_device_backup=False):
     for path, source in sources:
         target = destination / path
         target.parent.mkdir(parents=True, exist_ok=True)
-        if path == 'jailbreak/index.html':
+        if path == 'root/index.html':
             page = source.read_text(encoding='utf-8')
             if page.count(BACKUP_MARKER) != 1:
                 raise ValueError('Expected one optional device backup navigation marker')

@@ -51,7 +51,8 @@ behind; Wave updates itself. Self-tests cover the plan, scripts and parsers.
 - A module installed by `magisk --install-module` sits in `modules_update`
   until reboot, and one being removed still has its folder. "Installed",
   "pending install" and "pending removal" are three states.
-- Magisk's superuser prompt can't be relied on with a d-pad. The jailbreak
-  pre-grants Wave; if the grant is missing, say exactly what to do.
+- Magisk's superuser prompt can't be relied on with a d-pad. The original
+  plan to pre-grant Wave during rooting was dropped (see `../decisions.md`,
+  working default 16). If the grant is missing, say exactly what to do.
 - Never write outside `/data/adb`, the app's own files and what `pm` and
   `magisk` do themselves.

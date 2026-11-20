@@ -174,7 +174,7 @@ The other repos' workflows call `thooton/wave/lint@v1` and
 2. In Actions, choose **Public website**, then Run workflow on `master`.
 3. **Check:** each of these prints 200:
    ```sh
-   for p in "" setup/ jailbreak/ rescue/ restore/; do curl -s -o /dev/null -w "%{http_code} $p\n" https://thooton.github.io/wave/$p; done
+   for p in "" setup/ root/ rescue/ restore/; do curl -s -o /dev/null -w "%{http_code} $p\n" https://thooton.github.io/wave/$p; done
    ```
    Then open https://thooton.github.io/wave/setup/ and make a setup file
    for any app. It downloads, and nothing is sent anywhere. `backup/` is

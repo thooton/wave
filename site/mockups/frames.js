@@ -483,8 +483,8 @@ F('The queue', 'queue-reboot', 'Done: Reboot Now or Later',
 F('No root', 'no-root', 'No root',
   K('Nothing.', 'Nothing.', 'Check Again: tries su again.', 'Closes Wave.', 'Nothing.'),
   screen({ page:
-    `<div class="msg" style="padding-bottom:10px">${icon('wave', 56)}<div class="t" style="margin-top:12px">This Phone Isn't Jailbroken</div>` +
-    `<div class="d">Jailbreak it from a computer at</div><div class="big">thooton.github.io/wave</div>` +
+    `<div class="msg" style="padding-bottom:10px">${icon('wave', 56)}<div class="t" style="margin-top:12px">This Phone Isn't Rooted</div>` +
+    `<div class="d">See the rooting guide at</div><div class="big">thooton.github.io/wave</div>` +
     `<div class="btn press">Check Again</div></div>` }),
   'The only screen without root: no tabs, no bar (nothing to say there).');
 

@@ -8,8 +8,8 @@ The public face of Wave, and the tool that gets credentials onto a phone
 with no keyboard.
 
 ## Deliver
-- **Landing page**: what Wave is, a picture of it on the phone, "Jailbreak
-  your XP3800" leading to 09's page, what is in the default source, how to
+- **Landing page**: what Wave is, a picture of it on the phone, "Before you
+  root" leading to 09's page, what is in the default source, how to
   publish a source (link to `docs/source-format.md` and the publishing
   page), credits and community links, and plain words about risk.
 - **Setup-code generator**: pick an app (Charge, Mail, Places, Canvas,

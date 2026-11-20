@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync, existsSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { makeBackupManifest, parseBackupManifest } from '../src/jailbreak/backup-manifest.mjs';
+import { makeBackupManifest, parseBackupManifest } from '../src/root/backup-manifest.mjs';
 
 const script = name => fileURLToPath(new URL('../scripts/' + name, import.meta.url));
 
@@ -21,7 +21,7 @@ test('device backup is staged and linked only by explicit opt-in, without binari
     run('build.py', '--with-device-backup', opted);
     run('check_pages.py', opted);
     assert.equal(existsSync(join(standard, 'backup')), false);
-    const guide = pkg => readFileSync(join(pkg, 'jailbreak/index.html'), 'utf8');
+    const guide = pkg => readFileSync(join(pkg, 'root/index.html'), 'utf8');
     assert.doesNotMatch(guide(standard), /href="\.\.\/backup\//);
     assert.match(guide(opted), /href="\.\.\/backup\//);
     for (const name of ['adb-sync', 'tests']) assert.equal(existsSync(join(opted, 'src/protocols', name === 'tests' ? name : `${name}.mjs`)), false);

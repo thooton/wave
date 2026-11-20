@@ -23,19 +23,19 @@ from shipped/tested behavior.
   use the local snapshot and do not contact that repository. Never put credentials
   in URLs, logs, browser storage, network requests, sample files or tests.
 - `mockups/`: app screen designer's area, not owned by the public site.
-- `jailbreak/`, `rescue/`, `restore/`, `src/protocols/`, `src/jailbreak/`:
+- `root/`, `rescue/`, `restore/`, `src/protocols/`, `src/root/`:
   owned by the separate device tools brief. The allowlist stages only the
   compatibility probe, Rescue, and the local stock-backup verifier and their
   dependencies. Do not include phone backups or loaders.
   **Opt-in read-only backup:** `python3 site/scripts/build.py --with-device-backup DIR`
-  adds `backup/index.html`, `src/jailbreak/backup.mjs` and the Sahara, Firehose
+  adds `backup/index.html`, `src/root/backup.mjs` and the Sahara, Firehose
   and GPT modules, and links the page from the guide. It is off by default, so
   the Pages workflow does not publish it; the owner enables it deliberately.
   It only reads (`configure` with `SkipWrite`, `getstorageinfo`, `read`, `power
   reset`), accepts only the hash-pinned Sonim programmer chosen by the user as a
   local file, and ships no binary. Never add a write, erase or patch path to
   those modules. `site/tests/backup.test.mjs` checks the flag. Details and
-  hardware evidence are in `docs/jailbreak.md`.
+  hardware evidence are in `docs/root.md`.
 - `scripts/`, `tests/`: site packaging and checks. CI packages only explicitly
   reviewed public files; never upload a worktree, phone data or local secrets.
 

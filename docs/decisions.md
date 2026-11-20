@@ -18,16 +18,17 @@ moving; resolve open questions when the relevant brief has evidence.
    section folders, package folders with an icon, name, description and a
    link to the binary. Binaries are downloaded on demand.
 4. **Fetching**: git's smart HTTP protocol in plain Java, shallow.
-5. **Jailbreak**: a WebUSB page in Chrome, Magisk 24.0 over EDL.
+5. **Rooting**: a WebUSB page in Chrome, Magisk 24.0 over EDL.
    This is the target, not the current implementation. Brief 09 delivers a
-   read-only diagnostic guide, adb over WebUSB, root-consent-gated module
-   Rescue, and local stock backup/readback verification. A read-only browser
+   read-only rooting guide at `/wave/root/`, adb over WebUSB,
+   root-consent-gated module Rescue, and local stock backup/readback
+   verification. A read-only browser
    backup over EDL (Sahara and Firehose, hash-pinned programmer chosen locally,
    two reads compared, image plus manifest download) is implemented and verified
    on the XP3800 but excluded from the default Pages bundle: it is built only
    with `build.py --with-device-backup`. The site build owner declined to stage
    an EDL transport by default; the owner enables it deliberately. Patch and
-   flash are not implemented. See `jailbreak.md`.
+   flash are not implemented. See `root.md`.
 6. **Root is required for system mods**, and Wave installs through `su`
    when it has root. Amended by working default 16: root is opt-in, and
    without it Wave still installs apps, through Installer where a phone
@@ -119,7 +120,7 @@ moving; resolve open questions when the relevant brief has evidence.
    `stock-<mod>`.
 8. **The site may use third-party JavaScript**; the phone apps still use
    none.
-9. **The Magisk app stays installed** after the jailbreak. The original
+9. **The Magisk app stays installed** after rooting. The original
    plan to pre-grant Wave root so no prompt appears is superseded by
    working default 16 (owner opt-in).
 10. **The default source can't be removed** from Wave.
@@ -149,7 +150,7 @@ moving; resolve open questions when the relevant brief has evidence.
 16. **Root is opt-in; nothing pre-grants Wave** (briefs 06 and 08, by the
     owner's instruction). Wave opens `su` only when the user asks for
     something that needs it; Magisk's prompt or Superuser screen decides.
-    Replaces the design draft's "the jailbreak pre-grants Wave". Without
+    Replaces the draft that had the rooting flow pre-grant Wave. Without
     root, apps still install through the Updater's Installer.
 17. **APKs are checked by the platform's parser** (brief 06):
     `PackageManager.getPackageArchiveInfo`, the parser `pm` uses, rather

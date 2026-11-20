@@ -202,7 +202,7 @@ does not prove: that a different phone, Magisk or ROM behaves the same; that a r
 (the test modules do nothing); that a mod which damages `/system` or the boot partitions is survivable (the
 broken module only stops zygote, and disarms itself before it does, so it breaks one boot at most, and gives
 the boot back after six minutes even if everything else fails); the first-run rooting itself (Magisk install,
-the Jailbreak page); or anything the checks do not assert. R03's alert comes from a record the harness writes
+the rooting guide); or anything the checks do not assert. R03's alert comes from a record the harness writes
 in the watchdog's format, so R03 proves Wave's reading of the record and R04 proves the watchdog's writing of it.
 Magisk's prompt window and its toasts are not in the accessibility tree, so R01 detects the prompt by window
 focus and the Wave toast is checked only by the screenshot a person reads.
@@ -220,7 +220,7 @@ The suite waits 13 minutes for a boot, then 12 more in the restore, and says
    off), or use the Rescue page (`site/rescue/`, needs the phone to reach adb).
 4. As the last resort flash the boot image back. The backups are in `~/Documents/wave-phone-backups/8516067e/`:
    `boot-stock.img` (stock) and `boot-magisk.img` (Magisk-patched, what the phone ran), with `SHA256SUMS` and
-   `SHA256SUMS-magisk`. Check the hashes, then fastboot or the vendor tool as in `docs/jailbreak.md` and
+   `SHA256SUMS-magisk`. Check the hashes, then fastboot or the vendor tool as in `docs/root.md` and
    `app/ROOT-TESTING.md` ("Ways out"). Flashing `boot-stock.img` unroots the phone.
 
 After any manual recovery, run `suite.py --rooted` once more or check by hand: `su -c 'magisk --sqlite "SELECT uid FROM policies"'`

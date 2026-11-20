@@ -11,7 +11,7 @@ Read `docs/design.md` before anything else, then the brief for your task in
 ```
 docs/design.md          the whole design
 docs/source-format.md   what a source is (normative; spec/ has the schemas)
-docs/jailbreak.md       the device guide and recovery scope
+docs/root.md            the device guide and recovery scope
 docs/decisions.md       decided, assumed, open
 docs/tasks/             one brief per piece of work; README.md has the order
 spec/                   JSON Schemas and example-source/ (also the test fixture)

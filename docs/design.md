@@ -1,16 +1,16 @@
 # Wave: design
 
 Wave is a package manager and modding framework for the Sonim XP3800, in the
-role Cydia had on a jailbroken iPhone. The intended onboarding is to
-jailbreak the phone from a web page and leave Wave on its launcher. Today
-that page is a device and recovery guide; see §6 for the difference. In
-Wave users add sources (git repositories of package manifests), browse and
-search them, and install apps and system mods.
+role Cydia had on the iPhone. The intended onboarding is to root the phone
+from a web page and leave Wave on its launcher. Today that page is a device
+and recovery guide; see §6 for the difference. In Wave users add sources
+(git repositories of package manifests), browse and search them, and install
+apps and system mods.
 
 This file is the whole picture. The details that other people build against
-are split out: `source-format.md` (what a source is), `jailbreak.md` (the web
-jailbreak), `decisions.md` (what was decided, what is assumed, what is open),
-and `tasks/` (the work, one brief per piece).
+are split out: `source-format.md` (what a source is), `root.md` (the rooting
+and recovery guide), `decisions.md` (what was decided, what is assumed, what
+is open), and `tasks/` (the work, one brief per piece).
 
 ## 1. The three repositories
 
@@ -234,7 +234,7 @@ detached root shell, because Android kills the app being replaced.
 
 Wave needs root for mods and says so: without a working `su`, the Wave tab
 has a Root row that opens one screen ("Wave Needs Root for Mods", with Check
-Again) pointing at the jailbreak site, and a mod is refused before anything is
+Again) pointing at the rooting guide, and a mod is refused before anything is
 downloaded. Apps still install without root (below). It keeps a single `su` shell open and sends it
 scripts; `:core` builds the scripts and parses their output, so that logic is
 tested on a desktop JVM. Operations:
@@ -266,7 +266,7 @@ not from its receipts, so it isn't misled about what is installed.
 Root is the user's to grant: Wave asks for it (opens `su`) only when the
 user does something that needs it, and Magisk's own prompt or Superuser
 screen decides; nothing grants Wave root silently. (An earlier draft had the
-jailbreak pre-grant Wave in Magisk's policy database; that was dropped, see
+rooting flow pre-grant Wave in Magisk's policy database; that was dropped, see
 decisions.) On a phone without root, Wave installs apps through the
 Updater's Installer as before (Android's own installer where Installer
 isn't on the phone) and can't do modules.
@@ -356,7 +356,7 @@ Three more ways out, in rising order of effort:
   A stock boot restore does not remove apps, their data, or changes to other
   partitions.
 
-## 6. The jailbreak
+## 6. Rooting the XP3800
 
 **Intended end-to-end flow (not shipped):** A static web page (GitHub Pages
 from this repo) drives the phone over WebUSB in Chrome: adb for the Android
@@ -364,7 +364,7 @@ side, Sahara and Firehose for EDL. The target automates `../rphone/ROOTING.md` e
 patch it **on the phone** with Magisk 24.0's own ARM binaries over adb, flash
 it over EDL, verify, then install the Magisk app and Wave. The owner
 approves root in Magisk, not the site. The user's stock boot image is saved to their computer. Steps, checks
-and the platform caveats are in `jailbreak.md`.
+and the platform caveats are in `root.md`.
 
 **Implementation status (brief 09):** The site provides a guided device check
 and recovery, adb over WebUSB, module Rescue on already-rooted phones, and
@@ -375,7 +375,7 @@ checks the copies match, and hands the owner the image and a manifest. It
 accepts only the hash-pinned Sonim programmer, selected locally. Automated boot
 patching, flashing and installation of Magisk and Wave are not implemented;
 they remain the owner's own documented steps, and authorization stays with
-the owner. See `jailbreak.md` for hardware and browser validation limits.
+the owner. See `root.md` for hardware and browser validation limits.
 
 The same site hosts the landing page and the setup-file generator (section 8).
 
