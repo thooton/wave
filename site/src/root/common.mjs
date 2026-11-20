@@ -49,11 +49,6 @@ export function mark(item, state, detail) {
     item.dataset.state = state;
     if (detail !== undefined) item.querySelector(".detail").textContent = detail;
 }
-// After a failure, steps that will no longer run leave the list.
-export function dropPending(list) {
-    for (const item of [...list.children])
-        if (item.dataset.state === "pending") item.remove();
-}
 export const percent = (item) => (done, total) =>
     mark(item, "active", `${Math.floor((done / total) * 100)}%`);
 

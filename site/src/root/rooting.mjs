@@ -10,16 +10,15 @@ import {
     checklist,
     chooserClosed,
     clearCallout,
-    dropPending,
     isWebUsb,
     logger,
     mark,
     percent,
     problem,
     show,
-} from "./common.mjs?v=redesign";
-import { makeBackupManifest } from "./backup-manifest.mjs?v=redesign";
-import { backupName, makeBackupFile } from "./backup-file.mjs?v=redesign";
+} from "./common.mjs?v=redesign2";
+import { makeBackupManifest } from "./backup-manifest.mjs?v=redesign2";
+import { backupName, makeBackupFile } from "./backup-file.mjs?v=redesign2";
 import {
     chooseEdl,
     claimEdl,
@@ -28,7 +27,7 @@ import {
     startProgrammer,
     waitForAndroid,
     waitForEdl,
-} from "./device.mjs?v=redesign";
+} from "./device.mjs?v=redesign2";
 import {
     MAGISK,
     WAVE_PACKAGE,
@@ -37,22 +36,22 @@ import {
     installedVersion,
     isMagiskPatched,
     patchOnPhone,
-} from "./magisk.mjs?v=redesign";
-import { sha256 } from "../protocols/boot-image.mjs?v=redesign";
+} from "./magisk.mjs?v=redesign2";
+import { sha256 } from "../protocols/boot-image.mjs?v=redesign2";
 import {
     verifyBootSignature,
     xp3800BootCertSha256,
-} from "../protocols/boot-signature.mjs?v=redesign";
-import { FirehoseBootReader } from "../protocols/firehose.mjs?v=redesign";
+} from "../protocols/boot-signature.mjs?v=redesign2";
+import { FirehoseBootReader } from "../protocols/firehose.mjs?v=redesign2";
 import {
     FirehoseBootWriter,
     WriteCheckError,
-} from "../protocols/firehose-write.mjs?v=redesign";
+} from "../protocols/firehose-write.mjs?v=redesign2";
 import {
     fetchProgrammer,
     fetchServed,
     servedFiles,
-} from "./served.mjs?v=redesign";
+} from "./served.mjs?v=redesign2";
 
 const KEY = "wave-rooting-v2";
 const PHASES = ["intro", "ready", "backup", "root", "finish"];
@@ -199,6 +198,7 @@ const edlHelp = (name, on) =>
 function say(name, text, ok = false) {
     show($(`${name}-status`), text);
     $(`${name}-status`).classList.toggle("ok", ok);
+    $(`${name}-status`).classList.remove("tick");
 }
 
 // Runs one action of a step. Errors become one line in that step's box; the
@@ -208,15 +208,11 @@ async function task(name, action) {
     busy = true;
     waiting = undefined;
     clearCallout($(`${name}-problem`));
-    log.clear();
     render();
     try {
         await action();
     } catch (error) {
-        if (active) {
-            mark(active, chooserClosed(error) ? "waiting" : "failed");
-            if (!chooserClosed(error)) dropPending(active.parentElement);
-        }
+        if (active) mark(active, chooserClosed(error) ? "waiting" : "failed");
         active = undefined;
         if (!chooserClosed(error)) {
             log.add(`${error.message}${error.detail ? `\n${error.detail}` : ""}`);
@@ -317,6 +313,7 @@ navigator.usb?.addEventListener("connect", (event) => {
 });
 async function checkDevice() {
     say("ready", "");
+    log.clear();
     const [model, rooted, files] = (lists.ready = checklist($("ready-list"), READY));
     visible("ready-list", true);
     begin(model);
@@ -361,11 +358,8 @@ function backupView() {
     edlHelp("backup", false);
 }
 function readyToSave() {
-    $("backup-status").replaceChildren();
-    const tick = document.createElement("span");
-    tick.className = "status ok";
-    tick.textContent = "✓ ";
-    $("backup-status").append(tick, "Backup ready to save!");
+    say("backup", "Backup ready to save!", true);
+    $("backup-status").classList.add("tick");
 }
 // After asking for EDL: the user picks the device, or one this site may
 // already use shows up by itself.
@@ -407,6 +401,8 @@ $("backup-edl").addEventListener("click", () =>
     }),
 );
 async function readBackup(device) {
+    // Every attempt starts from a whole list.
+    lists.backup = checklist($("backup-list"), BACKUP);
     const [edl, start, first, second, stock, restart] = lists.backup;
     begin(edl);
     say("backup", "");
@@ -596,7 +592,7 @@ $("root-edl").addEventListener("click", () =>
     }),
 );
 async function writeRoot(device) {
-    const items = lists.root;
+    const items = restore("root", rootSteps(), 4);
     const [edl, check, write, verify] = items.slice(4);
     const stock = await getImage("stock", state.stockSha),
         patched = await getImage("patched", state.patchedSha);
@@ -628,9 +624,8 @@ async function writeRoot(device) {
         if (error instanceof WriteCheckError && error.written) {
             log.add(error.message);
             mark(verify, "failed");
-            dropPending(items[0].parentElement);
-            const back = addItem("Restore backup"),
-                again = addItem("Verify backup");
+            const back = addItem(verify, "Restore backup"),
+                again = addItem(back, "Verify backup");
             last = undefined;
             try {
                 await writer.writeBoot(stock, {
@@ -667,9 +662,9 @@ async function writeRoot(device) {
     await writer.reset().catch(() => log.add("Restart not acknowledged."));
     await verifyRoot();
 }
-function addItem(label) {
+function addItem(after, label) {
     const [item] = checklist(document.createElement("ol"), [label]);
-    $("root-list").append(item);
+    after.after(item);
     return item;
 }
 async function verifyRoot() {

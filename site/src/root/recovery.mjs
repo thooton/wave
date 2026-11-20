@@ -8,15 +8,14 @@ import {
     checklist,
     chooserClosed,
     clearCallout,
-    dropPending,
     isWebUsb,
     logger,
     mark,
     percent,
     problem,
     show,
-} from "./common.mjs?v=redesign";
-import { BackupError, readBackup } from "./backup-file.mjs?v=redesign";
+} from "./common.mjs?v=redesign2";
+import { BackupError, readBackup } from "./backup-file.mjs?v=redesign2";
 import {
     chooseEdl,
     claimEdl,
@@ -25,10 +24,10 @@ import {
     knownAndroid,
     startProgrammer,
     waitForEdl,
-} from "./device.mjs?v=redesign";
-import { isMagiskPatched } from "./magisk.mjs?v=redesign";
-import { FirehoseBootWriter } from "../protocols/firehose-write.mjs?v=redesign";
-import { fetchProgrammer, servedFiles } from "./served.mjs?v=redesign";
+} from "./device.mjs?v=redesign2";
+import { isMagiskPatched } from "./magisk.mjs?v=redesign2";
+import { FirehoseBootWriter } from "../protocols/firehose-write.mjs?v=redesign2";
+import { fetchProgrammer, servedFiles } from "./served.mjs?v=redesign2";
 
 const STEPS = [
     "Verify backup file",
@@ -85,10 +84,7 @@ async function task(action) {
         if (chooserClosed(error)) {
             if (active) mark(active, "waiting");
         } else {
-            if (active) {
-                mark(active, "failed");
-                dropPending($("restore-list"));
-            }
+            if (active) mark(active, "failed");
             log.add(`${error.message}${error.detail ? `\n${error.detail}` : ""}`);
             say("");
             callout($("restore-problem"), problem(error));
@@ -251,6 +247,7 @@ $("choose-edl").addEventListener("click", () =>
 async function write(device) {
     const [, edl, start, identity, writeItem, verify, restart] = items;
     const { manifest, image } = backup;
+    for (const item of items.slice(1)) mark(item, "pending", "");
     begin(edl);
     say("");
     const link = await claimEdl(device);

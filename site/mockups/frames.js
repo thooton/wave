@@ -93,7 +93,7 @@ function spinner(size = 14) {
 function status(mode) {
   return `<div class="status">${mode ? `<span class="mode">${mode}</span>` : ''}${G.signal}${G.battery}</div>`;
 }
-// b: {title, back, l, r, lOn, rOn, rOff, spin, field}
+// b: {title, back, spin, field, fieldOn}
 function bar(b) {
   if (!b) return '';
   let s = '<div class="bar">';
@@ -105,11 +105,9 @@ function bar(b) {
   const back = b.back && (b.back.length > 9 ? 'Back' : b.back);
   if (back) s += `<div class="back">${back}</div>`;
   if (b.spin) s += `<div class="spin">${spinner()}</div>`;
-  if (b.l) s += `<div class="act l${b.lOn ? ' on' : ''}">${b.l}</div>`;
-  // The title is centred on the screen, clear of whatever is on its sides.
-  const side = back ? (back.length <= 5 ? 58 : 76) : (b.l || b.r || b.spin ? 62 : 10);
+  // The title is centred on the screen, clear of whatever is on its left.
+  const side = back ? (back.length <= 5 ? 58 : 76) : (b.spin ? 62 : 10);
   if (b.title) s += `<div class="title" style="left:${side}px;right:${side}px">${b.title}</div>`;
-  if (b.r) s += `<div class="act r${b.rOn ? ' on' : ''}${b.rOff ? ' off' : ''}">${b.r}</div>`;
   return s + '</div>';
 }
 function tabbar(active, badge) {
@@ -254,35 +252,31 @@ F('Wave tab', 'wave-home-reboot', 'Wave tab with a reboot pending',
 
 // ---- Sources tab
 F('Sources tab', 'sources', 'Sources',
-  K(TABS_LR, 'Move one source; Up on All Sources goes to Add on the bar.', 'Opens the source (All Sources: every package, by section).', BACK_TOP,
+  K(TABS_LR, 'Move one row; Up on All Sources stays there.', 'Opens the source (All Sources: every package, by section).', BACK_TOP,
     'Refresh Sources, Add a Source; on a source: Refresh, Copy Address, Remove (not on Wave\'s own).'),
-  screen({ tab: 1, badge: 2, bar: { l: 'Refresh', title: 'Sources', r: 'Add' }, page: sourcesPage({ focus: 'wave' }) }));
-F('Sources tab', 'sources-bar', 'Sources: Add on the bar',
-  K('On the bar: between Refresh and Add.', 'Down: back to the list.', 'Add: opens Add a Source. Refresh: refreshes every source.', BACK_TOP, 'Refresh Sources, Add a Source.'),
-  screen({ tab: 1, badge: 2, bar: { l: 'Refresh', title: 'Sources', r: 'Add', rOn: true }, page: sourcesPage({}) }),
-  'The bar\'s links are reached with Up from the top row, as Update All is in the Updater.');
+  screen({ tab: 1, badge: 2, bar: { title: 'Sources' }, page: sourcesPage({ focus: 'wave' }) }));
 F('Sources tab', 'sources-refreshing', 'Sources while refreshing',
   K(TABS_LR, 'As on Sources.', 'As on Sources.', BACK_TOP, 'Add a Source (no Refresh while one runs).'),
-  screen({ tab: 1, badge: 2, bar: { spin: true, title: 'Sources', r: 'Add' }, page: sourcesPage({ focus: 'all', refreshing: true }) }),
-  'Refresh becomes the spinner on the left; each source shows Refreshing… until its fetch ends.');
+  screen({ tab: 1, badge: 2, bar: { spin: true, title: 'Sources' }, page: sourcesPage({ focus: 'all', refreshing: true }) }),
+  'The spinner on the left shows that a refresh is running; each source shows Refreshing… until its fetch ends.');
 F('Sources tab', 'sources-menu', 'Menu on a source',
   K('Nothing while the menu is open.', 'Move in the menu.', 'Does the item. Remove asks first.', 'Closes the menu.', 'Closes the menu.'),
-  screen({ tab: 1, badge: 2, bar: { l: 'Refresh', title: 'Sources', r: 'Add' }, page: sourcesPage({ focus: 'games' }),
-    over: menu(['Refresh', 'Copy Address', 'Add a Source', '!Remove Source'], 151, 0) }),
+  screen({ tab: 1, badge: 2, bar: { title: 'Sources' }, page: sourcesPage({ focus: 'games' }),
+    over: menu(['Refresh', 'Copy Address', '!Remove Source', 'Refresh Sources', 'Add a Source'], 151, 0) }),
   'Over the row it is about, as the Updater\'s menu is.');
 F('Sources tab', 'add-source', 'Add a Source: typing the address',
   K('Move the cursor in the address (the field uses them).', 'Down: to Add. Up: nothing.', 'Add: as Down then OK.', 'Deletes a character; on an empty field, back to Sources.',
     'Paste, Clear.'),
   screen({ tab: 1, badge: 2, mode: 'abc', bar: { back: 'Sources', title: 'Add a Source' }, page:
     `<div class="lab">Address</div><div class="urlf">https://github.com/mkline/xp3-ga<span class="t9">m</span><span class="caret"></span></div>` +
-    `<div class="fieldnote">GitHub, GitLab, Codeberg or sourcehut</div>` +
+    `<div class="fieldnote">The https:// address of a Git source</div>` +
     `<div style="height:16px"></div><div class="btn">Add</div>` }),
   'Starts as https://github.com/ with the cursor at the end. Keys 2 to 9 type by multi-tap (the m underlined is still taking taps), 1 types . / - _, # switches abc / 123, * opens the phone\'s symbols.');
 F('Sources tab', 'add-source-button', 'Add a Source: on Add',
   K('Nothing.', 'Up: back into the address.', 'Fetches the source, then asks to trust it.', 'Back to Sources.', 'Paste, Clear.'),
   screen({ tab: 1, badge: 2, bar: { back: 'Sources', title: 'Add a Source' }, page:
     `<div class="lab">Address</div><div class="urlf rest">https://github.com/mkline/xp3-games</div>` +
-    `<div class="fieldnote">GitHub, GitLab, Codeberg or sourcehut</div>` +
+    `<div class="fieldnote">The https:// address of a Git source</div>` +
     `<div style="height:16px"></div><div class="btn press">Add</div>` }));
 F('Sources tab', 'add-source-fetching', 'Add a Source: fetching it',
   K('Nothing.', 'Nothing.', 'Nothing.', 'Stops the fetch, back to the address.', 'Nothing.'),
@@ -397,16 +391,13 @@ const instUpdates = (o = {}) =>
   H('Updates') + updRow(P.charge, { f: o.focus === 'charge' }) + updRow(P.music, { f: o.focus === 'music', last: true }) +
   H('Up to Date') + instRow(P.auth) + instRow(P.books) + instRow(P.dict) + instRow(P.launch, { f: o.focus === 'launch' }) + instRow(P.wave, { last: true });
 F('Installed tab', 'installed', 'Installed: with updates',
-  K(TABS_LR, 'Move one package; Up on the top row goes to Update All.', 'Presses the capsule: UPDATE queues it and opens the confirm; OPEN starts the app. A row without one (a mod) opens its details.',
+  K(TABS_LR, 'Move one package; Up on the top row stays there.', 'Presses the capsule: UPDATE queues it and opens the confirm; OPEN starts the app. A row without one (a mod) opens its details.',
     BACK_TOP, 'Update / Open, Details, Remove, Reinstall, What\'s New, Update All (n), Refresh.'),
-  screen({ tab: 2, badge: 2, bar: { title: 'Installed', r: 'Update All' }, page: instUpdates({ focus: 'charge' }) }),
+  screen({ tab: 2, badge: 2, bar: { title: 'Installed' }, page: instUpdates({ focus: 'charge' }) }),
   'The Updater\'s screen: a filled capsule means OK presses it. The badge on the tab counts updates.');
-F('Installed tab', 'installed-updateall', 'Installed: on Update All',
-  K('Nothing.', 'Down: back to the list.', 'Queues every update and opens the confirm.', BACK_TOP, 'As on a row.'),
-  screen({ tab: 2, badge: 2, bar: { title: 'Installed', r: 'Update All', rOn: true }, page: instUpdates({}) }));
 F('Installed tab', 'installed-more', 'Installed, scrolled: Up to Date',
   K(TABS_LR, 'Move one package.', 'OPEN starts the app; a mod (no capsule) opens its details.', BACK_TOP, 'Open, Details, Remove, Reinstall, What\'s New.'),
-  screen({ tab: 2, badge: 2, bar: { title: 'Installed', r: 'Update All' }, page: instUpdates({ focus: 'launch' }), scroll: 226 }),
+  screen({ tab: 2, badge: 2, bar: { title: 'Installed' }, page: instUpdates({ focus: 'launch' }), scroll: 226 }),
   'Up-to-date rows drop the notes; mods show "System mod, version" and a chevron.');
 F('Installed tab', 'installed-none', 'Installed: nothing to update',
   K(TABS_LR, 'Move one package.', 'OPEN starts the app; a mod opens its details.', BACK_TOP, 'Open, Details, Remove, Reinstall, What\'s New, Refresh.'),
@@ -415,10 +406,10 @@ F('Installed tab', 'installed-none', 'Installed: nothing to update',
   'No Update All, no heading for Updates, no badge.');
 F('Installed tab', 'installed-reboot', 'Installed: reboot pending',
   K(TABS_LR, 'The banner is the top row.', 'REBOOT: reboots now.', BACK_TOP, 'Reboot, Refresh.'),
-  screen({ tab: 2, badge: 2, bar: { title: 'Installed', r: 'Update All' }, page: instUpdates({ reboot: true, focus: 'reboot' }) }));
+  screen({ tab: 2, badge: 2, bar: { title: 'Installed' }, page: instUpdates({ reboot: true, focus: 'reboot' }) }));
 F('Installed tab', 'installed-menu', 'Installed: Menu on a row',
   K('Nothing.', 'Move in the menu.', 'Does the item.', 'Closes the menu.', 'Closes the menu.'),
-  screen({ tab: 2, badge: 2, bar: { title: 'Installed', r: 'Update All' }, page: instUpdates({ focus: 'charge' }),
+  screen({ tab: 2, badge: 2, bar: { title: 'Installed' }, page: instUpdates({ focus: 'charge' }),
     over: menu(['Update', 'Details', "What's New", '!Remove', 'Update All (2)'], 94, 1) }));
 
 // ---- Search tab
@@ -441,16 +432,18 @@ F('Search tab', 'search-none', 'Search: nothing found',
     `<div class="msg"><div class="t">No Results</div></div>` }));
 
 // ---- queue
-const confirmPage = `${H('Install', 'sm')}` +
-  `<div class="qrow c">${icon(P.msgs, 30)}<div class="tx"><div class="nm">Messages Improved</div><div class="sb">1.2.0, 4.1 MB</div></div></div>` +
-  `<div class="qrow c">${icon(P.sqlite, 30)}<div class="tx"><div class="nm">SQLite Upgrade</div><div class="sb blue">Needed by Messages Improved</div></div></div>` +
-  H('Remove', 'sm') +
-  `<div class="qrow c last">${icon(P.argon, 30)}<div class="tx"><div class="nm">Messages (argon)</div><div class="sb">Replaced by Messages Improved</div></div></div>`;
-F('The queue', 'queue-confirm', 'Confirm: the plan',
-  K('Between Cancel and Confirm.', 'Scroll the plan when it is longer than the screen.', 'Confirm: starts. Cancel: empties the queue.', 'As Cancel.', 'Nothing.'),
-  screen({ bar: { title: 'Confirm' }, page: confirmPage, pageBottom: 77,
-    foot: `<div class="foot"><div class="sum">5.0 MB to download, then a reboot</div><div class="two"><div class="btn">Cancel</div><div class="btn press">Confirm</div></div></div>` }),
-  'Modal: no tab bar. The dependency and the replaced package are named with why. Focus starts on Confirm. (SQLite Upgrade stands in for any dependency.)');
+const confirmSheet = (f) => `<div class="scrim"></div><div class="sheet">` +
+  `<div class="sh">${icon(P.msgs, 34)}<div><div class="st">Install Messages Improved?</div><div class="ss">Version 1.2.0</div></div></div>` +
+  `<div class="sf"><div>Also installs <b>SQLite Upgrade</b></div><div>Replaces <b>Messages (argon)</b></div>` +
+  `<div><b>5.0 MB</b> to download</div><div class="or">Needs a reboot to finish</div></div>` +
+  `<div class="sa"><div class="btn red${f === 0 ? ' press' : ''}">Cancel</div><div class="btn${f === 1 ? ' press' : ''}">Install</div></div></div>`;
+F('The queue', 'queue-confirm', 'Confirm: the sheet',
+  K('Between Cancel and Install.', 'Scroll the plan when it is longer than the screen.', 'Install: starts. Cancel: closes the sheet.', 'As Cancel.', 'Nothing.'),
+  screen({ tab: 1, badge: 2, bar: detBar('System'), page:
+    detHead(P.msgs, { cap: 'GET', press: true, after: '4.1 MB' }) + `<div class="hair"></div>` +
+    line(G.reboot('#007AFF'), 'System mod, needs a reboot'),
+    over: confirmSheet(1) }),
+  'A sheet over the page it was asked from. The dependency and the replaced package are named. Focus starts on the action, named for what it does; on a removal it starts on Cancel. Cancel is red while selected. (SQLite Upgrade stands in for any dependency.)');
 F('The queue', 'queue-progress', 'Working',
   K('Nothing.', 'Scroll the list.', 'Nothing.', 'Sends Wave to the back; the work carries on.', 'Nothing.'),
   screen({ bar: { title: 'Installing' }, page:
@@ -470,7 +463,7 @@ F('The queue', 'queue-reboot', 'Done: Reboot Now or Later',
     `<div class="qrow">${icon(P.sqlite, 30)}<div class="tx"><div class="nm">SQLite Upgrade</div><div class="sb" style="color:#248A3D">Installed 3.45.1</div></div>${G.tick('#248A3D')}</div>` +
     `<div class="qrow">${icon(P.msgs, 30)}<div class="tx"><div class="nm">Messages Improved</div><div class="sb" style="color:#248A3D">Installed 1.2.0</div></div>${G.tick('#248A3D')}</div>` +
     `<div class="qrow last">${icon(P.argon, 30)}<div class="tx"><div class="nm">Messages (argon)</div><div class="sb" style="color:#248A3D">Removed</div></div>${G.tick('#248A3D')}</div>`, pageBottom: 77,
-    foot: `<div class="foot"><div class="sum">They start after a reboot</div><div class="two"><div class="btn">Later</div><div class="btn press">Reboot Now</div></div></div>` }));
+    foot: `<div class="foot"><div class="sum">Reboot required</div><div class="two"><div class="btn red">Later</div><div class="btn press">Reboot Now</div></div></div>` }));
 
 // ---- no root
 F('No root', 'no-root', 'No root',
@@ -483,18 +476,18 @@ F('No root', 'no-root', 'No root',
 
 // ---- errors
 F('Errors', 'error-network', 'No network (nothing fetched yet)',
-  K(TABS_LR, 'Nothing.', 'Try Again: refreshes.', BACK_TOP, 'Refresh Sources.'),
-  screen({ tab: 1, bar: { title: 'Sources', r: 'Add' }, page:
+  K(TABS_LR, 'Nothing.', 'Try Again: refreshes.', BACK_TOP, 'Refresh Sources, Add a Source.'),
+  screen({ tab: 1, bar: { title: 'Sources' }, page:
     `<div class="msg"><div class="t">Cannot Load Sources</div><div class="d">No network.</div><div class="btn press">Try Again</div></div>` }),
   'The Updater\'s message screen, with its action as a button. Home is unchanged by source errors.');
 F('Errors', 'error-network-toast', 'No network (sources already fetched)',
   K(TABS_LR, 'As on Sources.', 'As on Sources.', BACK_TOP, 'As on Sources.'),
-  screen({ tab: 1, badge: 2, bar: { l: 'Refresh', title: 'Sources', r: 'Add' }, page: sourcesPage({ focus: 'wave' }),
+  screen({ tab: 1, badge: 2, bar: { title: 'Sources' }, page: sourcesPage({ focus: 'wave' }),
     over: toast("Couldn't refresh: No network.") }),
   'With a list already there, the list stays and a toast says why, as the Updater does.');
 F('Errors', 'error-source', "A source that won't refresh",
   K(TABS_LR, 'Move one source.', 'Opens the source as last fetched.', BACK_TOP, 'Refresh, Copy Address, Remove Source.'),
-  screen({ tab: 1, badge: 2, bar: { l: 'Refresh', title: 'Sources', r: 'Add' }, page: sourcesPage({ focus: 'tweaks', tweaksErr: true }) }),
+  screen({ tab: 1, badge: 2, bar: { title: 'Sources' }, page: sourcesPage({ focus: 'tweaks', tweaksErr: true }) }),
   'Its last good copy stays usable; the row says why in red until a refresh works, and the source\'s page says it in full ("Couldn\'t refresh: gitlab.com answered 404.").');
 F('Errors', 'error-hash', 'A download that fails its hash',
   K('Nothing.', 'Nothing.', 'OK: closes the alert; the queue goes on with the next package.', 'As OK.', 'Nothing.'),

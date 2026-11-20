@@ -1,4 +1,4 @@
-import { bootBytes } from './boot-image.mjs?v=redesign';
+import { bootBytes } from './boot-image.mjs?v=redesign2';
 
 export const sectorBytes = 512;
 const signature = (bytes, text) => [...text].every((c, i) => c.charCodeAt(0) === bytes[i]);

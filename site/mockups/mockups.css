@@ -70,11 +70,6 @@ body.solo { margin: 0; width: 240px; height: 320px; overflow: hidden; background
   white-space: nowrap; max-width: 74px; overflow: hidden; }
 .bar .back::before { content: ""; display: inline-block; width: 7px; height: 7px; border-left: 2px solid var(--blue);
   border-bottom: 2px solid var(--blue); transform: rotate(45deg); margin: 0 3px 1px 3px; }
-.bar .act { position: absolute; top: 7px; height: 20px; line-height: 20px; font-size: 13px; color: var(--blue);
-  padding: 0 6px; border-radius: 9px; white-space: nowrap; }
-.bar .act.l { left: 4px; } .bar .act.r { right: 4px; }
-.bar .act.on { background: var(--blue); color: #fff; }         /* under the d-pad: the link's capsule */
-.bar .act.off { color: #C4C4C9; }                               /* can't act yet */
 .bar .spin { position: absolute; left: 10px; top: 10px; }
 
 /* The search field takes the bar's place on Search (Cydia's). */
@@ -144,12 +139,14 @@ body.solo { margin: 0; width: 240px; height: 320px; overflow: hidden; background
 .urow .sb { font-size: 12px; color: var(--muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .urow .notes { font-size: 12px; line-height: 15px; margin-top: 7px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
-/* The capsule: blue capitals on pale grey; filled blue while the row it is
-   on is under the d-pad AND OK presses it ("press"). On a row where OK
-   opens the details instead, it stays pale. */
-.cap { flex: none; height: 22px; min-width: 56px; padding: 0 10px; border-radius: 11px; background: var(--pill); color: var(--blue);
-  font-size: 11.5px; font-weight: 700; line-height: 22px; text-align: center; white-space: nowrap; }
-.cap.press { background: var(--blue); color: #fff; }
+/* An action (Kit.Link): a word, not a button. Black at rest; while its row
+   is under the d-pad AND OK presses it ("press"), bold and underlined in
+   blue. The words are written in capitals in the frames and shown in title
+   case. */
+.cap { flex: none; height: 29px; padding: 0; color: #000; font-size: 13px; font-weight: 500; line-height: 29px; text-align: center;
+  white-space: nowrap; text-transform: lowercase; }
+.cap::first-letter { text-transform: uppercase; }
+.cap.press { color: var(--blue); font-weight: 700; text-decoration: underline 3px; text-underline-offset: 3px; }
 .cap.off { color: #B4B4BB; }
 .cap.ok { background: none; color: var(--muted); min-width: 0; padding: 0; font-weight: 500; }
 .ring { flex: none; margin: 0 16px; }
@@ -167,8 +164,8 @@ body.solo { margin: 0; width: 240px; height: 320px; overflow: hidden; background
 .det-head .tx { margin-left: 10px; min-width: 0; flex: 1; }
 .det-head .nm { font-size: 16px; font-weight: 500; line-height: 19px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .det-head .sb { font-size: 12px; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.det-head .cap { display: inline-block; margin-top: 7px; }
-.det-head .after { display: inline-block; font-size: 11.5px; color: var(--muted); margin-left: 6px; vertical-align: -1px; }
+.det-head .cap { display: inline-block; margin-top: 1px; }
+.det-head .after { display: inline-block; font-size: 12px; color: var(--muted); margin-left: 10px; vertical-align: 0; }
 .det-line { display: flex; align-items: flex-start; gap: 6px; font-size: 12px; line-height: 15px; padding: 6px 10px; background: #fff; }
 .det-line svg { flex: none; margin-top: 0; }
 .det-line.warn { color: #000; }
@@ -183,16 +180,30 @@ body.solo { margin: 0; width: 240px; height: 320px; overflow: hidden; background
 .hair { height: 1px; background: var(--sep); margin: 4px 10px; }
 
 /* ---------- buttons, banners, messages ---------- */
-.btn { display: block; height: 34px; line-height: 34px; border-radius: 9px; text-align: center; font-size: 14px; font-weight: 500;
-  background: var(--pill); color: var(--blue); margin: 0 10px; white-space: nowrap; }
-.btn.press { background: var(--blue); color: #fff; }
-.btn.red { color: var(--red); }
-.btn.red.press { background: var(--red); color: #fff; }
+.btn { display: block; height: 34px; line-height: 34px; text-align: center; font-size: 15px; font-weight: 500;
+  color: #000; margin: 0 10px; white-space: nowrap; }
+.btn.press { color: var(--blue); font-weight: 700; text-decoration: underline 3px; text-underline-offset: 3px; }
+.btn.red.press { color: var(--red); }
 .foot { position: absolute; left: 0; right: 0; bottom: 0; background: var(--bar); padding: 8px 0 8px; }
 .foot::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--bar-rule); }
 .foot .sum { font-size: 12px; color: var(--muted); text-align: center; margin: 0 10px 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .foot .two { display: flex; gap: 8px; margin: 0 10px; }
-.foot .two .btn { flex: 1; margin: 0; }
+.foot .two .btn { flex: 1; margin: 0; text-align: left; }
+.foot .two .btn + .btn { text-align: right; }
+
+/* Confirm: a sheet over the page it was asked from (ConfirmSheet). */
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; background: #fff; border-radius: 12px 12px 0 0; padding: 12px 12px 4px; }
+.sheet .sh { display: flex; align-items: center; gap: 9px; }
+.sheet .sh .ic { width: 34px; height: 34px; border-radius: 22.5%; overflow: hidden; flex: none; }
+.sheet .st { font-size: 15px; font-weight: 700; line-height: 18px; }
+.sheet .ss { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.sheet .sf { border-top: 1px solid #E3E3E8; margin-top: 9px; padding-top: 6px; }
+.sheet .sf div { font-size: 12.5px; line-height: 15px; padding: 2px 0; color: #3C3C43; }
+.sheet .sf b { font-weight: 500; color: #000; }
+.sheet .sf .or { color: #B25E00; }
+.sheet .sa { display: flex; margin-top: 6px; }
+.sheet .sa .btn { flex: 1; margin: 0; height: 36px; line-height: 36px; text-align: left; }
+.sheet .sa .btn + .btn { text-align: right; }
 
 .banner { position: relative; display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #fff; }
 .banner.f { background: var(--focus); }

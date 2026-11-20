@@ -2,11 +2,11 @@
 // docs/root.md and ROOTING.md step 4b do by hand: Magisk's own ARM binaries and
 // boot_patch.sh run as the adb shell user, then the app's own SignBoot signs the
 // result through dalvikvm. Nothing here needs root or writes outside the work folder.
-import { quoteShell } from '../protocols/adb.mjs?v=redesign';
-import { pull, push } from '../protocols/adb-sync.mjs?v=redesign';
-import { bootBytes, sha256 } from '../protocols/boot-image.mjs?v=redesign';
-import { checkPatchedBoot, parseBootHeader } from '../protocols/boot-signature.mjs?v=redesign';
-import { zipDirectory, zipEntry } from '../protocols/zip.mjs?v=redesign';
+import { quoteShell } from '../protocols/adb.mjs?v=redesign2';
+import { pull, push } from '../protocols/adb-sync.mjs?v=redesign2';
+import { bootBytes, sha256 } from '../protocols/boot-image.mjs?v=redesign2';
+import { checkPatchedBoot, parseBootHeader } from '../protocols/boot-signature.mjs?v=redesign2';
+import { zipDirectory, zipEntry } from '../protocols/zip.mjs?v=redesign2';
 
 export const MAGISK = Object.freeze({
   version: '24.0', versionCode: 24000, package: 'com.topjohnwu.magisk',

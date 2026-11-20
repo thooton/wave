@@ -28,7 +28,9 @@ Five frames (wave-home, sources, details-get, installed, search-results: the lan
 re-shot the same way on Wave 0.7.25 (`23a67de`, debug build, fixture `browse`); the rest above are still 0.7.12.
 The Home captures predate 0.7.31 and 0.7.32. The updated Home mockups, with
 root access status below the welcome header and no source shortcut, have not been checked
-on the handset.
+on the handset. The saved Sources captures also predate 0.7.37, which removes
+Refresh and Add from the title bar and leaves them in the menu. The Installed
+captures predate 0.7.38, which makes Update All menu-only.
 
 Ten of them are real data from the rooted phone instead (Wave 0.7.20 at
 `15dc337`, Magisk 24.0): no-root, details-module, queue-confirm,
@@ -64,43 +66,41 @@ intended (it scrolls), and is marked "scrolls".
 | wave-home | yes, scrolls | none | Welcome, green check, phone facts |
 | wave-home-no-root | yes, scrolls | row grey | Orange warning opens root instructions |
 | wave-home-more | yes, scrolls | none | Facts are text, not stops |
-| wave-home-reboot | yes, scrolls | banner grey, REBOOT filled | |
+| wave-home-reboot | yes, scrolls | banner grey, REBOOT underlined | |
 | sources | yes | row grey | 4 rows, URLs ellipsized |
-| sources-bar | yes | Add filled blue | |
-| sources-refreshing | yes | row grey | spinner replaces Refresh |
+| sources-refreshing | yes | row grey | spinner shows refresh progress |
 | sources-menu | yes | menu item washed | menu over its row |
 | add-source | yes | field outlined blue, caret, T9 underline | IME mode "abc" in status bar |
-| add-source-button | yes | Add filled | |
+| add-source-button | yes | Add underlined | |
 | add-source-fetching | yes | none (working) | |
 | add-source-trust | yes | "Add Source" washed | source named, with maintainer and count |
 | add-source-bad | yes | field outlined red, caret | reason under the field |
 | source | yes, scrolls | row grey | sections with counts, then Featured |
 | section | yes, scrolls | row grey | badges: grey tick installed, blue arrow update |
 | section-menu | yes | menu item washed | |
-| details-get | yes, scrolls | GET filled | |
+| details-get | yes, scrolls | GET underlined | |
 | details-get-more | yes, scrolls | (GET scrolled away, still OK's target) | Information facts |
-| details-installed | yes, scrolls | OPEN filled | |
+| details-installed | yes, scrolls | OPEN underlined | |
 | details-menu | yes | Remove washed | REMOVE only here |
-| details-update | yes, scrolls | UPDATE filled | 2.3.1 → 2.4.0, What's New first |
-| details-module | yes, scrolls | GET filled | reboot, replaces, firmware lines |
+| details-update | yes, scrolls | UPDATE underlined | 2.3.1 → 2.4.0, What's New first |
+| details-module | yes, scrolls | GET underlined | reboot, replaces, firmware lines |
 | details-unfit | yes | GET greyed (nothing to press) | red reason |
 | details-newer | yes | GET greyed | |
-| installed | yes, scrolls | row grey, UPDATE filled | Update All on bar, badge 2 on the tab |
-| installed-updateall | yes, scrolls | Update All filled | no row focus |
+| installed | yes, scrolls | row grey, UPDATE underlined | badge 2 on the tab |
 | installed-more | yes, scrolls | row grey | mod row: chevron, no capsule |
-| installed-none | yes, scrolls | row grey, OPEN filled | no Update All, no badge |
-| installed-reboot | yes, scrolls | banner grey, REBOOT filled | |
+| installed-none | yes, scrolls | row grey, OPEN underlined | no Update All, no badge |
+| installed-reboot | yes, scrolls | banner grey, REBOOT underlined | |
 | installed-menu | yes | menu item washed | |
 | search-empty | yes | field outlined, caret | |
 | search-typing | yes | field outlined, caret, T9 underline | live results |
 | search-results | yes | row grey; field at rest | |
 | search-none | yes | field outlined | "No Results" |
-| queue-confirm | yes | Confirm filled | whole plan fits: 2 installs (one a dependency, said why), 1 removal (replaced, said why) |
+| queue-confirm | yes | Install underlined | a sheet over Details; whole plan fits: 1 dependency, 1 replaced package, download, reboot |
 | queue-progress | yes | none (working) | ring with %, spinner for waiting |
-| queue-done | yes | Done filled | |
-| queue-reboot | yes | Reboot Now filled | Later beside it |
-| no-root | yes | Check Again filled | site address in blue |
-| error-network | yes | Try Again filled | |
+| queue-done | yes | Done underlined | |
+| queue-reboot | yes | Reboot Now underlined | Later beside it |
+| no-root | yes | Check Again underlined | site address in blue |
+| error-network | yes | Try Again underlined | |
 | error-network-toast | yes | row grey | toast over the list |
 | error-source | yes | row grey | red reason, orange warning |
 | error-hash | yes | OK washed | alert over the queue |
@@ -126,22 +126,22 @@ lands on a focus shown in a frame above. "Menu > X" is Menu, Down to X, OK.
 | :--- | :--- | :--- |
 | Switch tab | Left / Right from any row | every tab frame |
 | Open a Featured package | In Sources, open a source > Down to its Featured package > OK | source, details-get |
-| Get it | OK on details (GET) > OK on Confirm | details-get, queue-confirm |
+| Get it | OK on details (Get) > OK on Install (sheet) | details-get, queue-confirm |
 | Get without opening | Menu > Get on the row | section-menu |
 | Read root instructions | OK on the root warning | wave-home-no-root, no-root |
-| Add a Source (from Sources) | Right > Up from top row (Add) > OK | sources-bar |
+| Add a Source (from Sources) | Right to Sources > Menu > Add a Source | add-source |
 | Type the address | keys 2-9 multi-tap, 1 for . / - _, # abc/123, Back deletes, Left/Right cursor | add-source |
 | Submit it | Down (Add) > OK > (fetch) > OK on Add Source | add-source-button, -fetching, -trust |
 | Correct a bad address | Up into field, edit, Down, OK | add-source-bad |
-| Refresh every source | Sources: Up (bar) > Left (Refresh) > OK; or Menu > Refresh Sources | sources-bar, sources-refreshing |
+| Refresh every source | Sources: Menu > Refresh Sources | sources-refreshing |
 | Refresh / remove one source | Menu on its row > Refresh / Remove Source | sources-menu |
 | Browse a source | OK on source > OK on section > OK on package | source, section, details-get |
 | Read a long details page | Up / Down scroll; OK stays on the capsule | details-get-more |
-| Update one | Installed: OK on its UPDATE > OK on Confirm | installed |
-| Update all | Installed: Up from top row (Update All) > OK > Confirm | installed-updateall |
+| Update one | Installed: OK on its Update > OK on Update (sheet) | installed |
+| Update all | Installed: Menu > Update All (n) > Update (sheet) | installed-menu |
 | Open an installed app | Installed: OK on OPEN; or details OK | installed-none, details-installed |
 | Details from Installed | Menu > Details; a mod's row: OK | installed-menu, installed-more |
-| Remove a package | details: Menu > Remove > Confirm | details-menu |
+| Remove a package | details: Menu > Remove > Right > Remove (sheet starts on Cancel) | details-menu |
 | Reinstall | Menu > Reinstall | details-menu |
 | What's New | details page; or Menu > What's New | details-update, installed-menu |
 | Search | Right to Search, type, Down into results, OK | search-typing, search-results |
@@ -158,14 +158,13 @@ lands on a focus shown in a frame above. "Menu > X" is Menu, Down to X, OK.
 
 Result: **every action is reachable** with Left/Right, Up/Down, OK, Back and
 Menu (and the keypad for typing). Where Left/Right don't switch tabs, the
-screen uses them and says so in its keys: the bar's two links on Sources,
-the address field's cursor, two-button feet and dialogs. Nothing needs a
-long press.
+screen uses them and says so in its keys: the address field's cursor,
+two-button feet and dialogs. Nothing needs a long press.
 
 ## 3. Notes for brief 07 (implementation)
 
-- One rule tells the user what OK does: **a filled capsule (or button) is
-  what OK presses; otherwise OK opens the row** (a chevron says so). Browse
+- One rule tells the user what OK does: **an underlined action (or
+  button) is what OK presses; otherwise OK opens the row** (a chevron says so). Browse
   rows (sections, All Packages, Featured, search) have no capsule: their
   state is a badge on the icon. Installed rows are the Updater's and keep
   OK-presses-the-capsule. A mod's row and Wave's own have no capsule.
@@ -175,8 +174,6 @@ long press.
 - Home and Sources: a ListView with headings as part of the row (as
   `row_app.xml` does) keeps one position per focus stop; Home's facts and
   links are a footer below the last focus stop, scrolled in by Down.
-- Bar links (Refresh, Add, Update All) are focusable views above the list,
-  reached by Up from the top row, drawn with the Updater's `link` drawable.
 - Back's label on the bar is drawn but never focused; over 9 characters it
   reads "Back".
 - The tab bar is 36dp: 18dp icons over 10sp labels, the open tab `#007AFF`,
@@ -187,7 +184,10 @@ long press.
   maintainer and package count.
 - Search keeps the cursor at the end so Left/Right stay free for tabs; Back
   deletes; results update on each key.
-- Queue screens (Confirm, Installing, Done) are modal: no tab bar, buttons
-  in a foot on the bar colour; focus starts on the forward action.
+- Confirm is a sheet over the page it came from (dimmed). Installing and
+  Done are modal: no tab bar, actions in a foot on the bar colour; focus
+  starts on the forward action (on a removal's sheet, on Cancel).
+- Actions are words: black at rest, bold and underlined when selected, blue
+  to go ahead, red to back out or destroy (Cancel, Later, Remove).
 - Sample data is illustrative (SQLite Upgrade stands in for any
   dependency, XP3 Games and Sonim Tweaks for third-party sources).

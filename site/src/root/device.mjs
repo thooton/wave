@@ -1,15 +1,15 @@
 // Connecting to the XP3800 for the rooting and stock-boot pages: Android over
 // adb (waiting for boot, checking it is the expected phone) and EDL with the
 // pinned programmer.
-import { validateIdentity } from "./backup-manifest.mjs?v=redesign";
-import { Adb } from "../protocols/adb.mjs?v=redesign";
-import { adbCredential, newAdbKey } from "../protocols/adb-credential.mjs?v=redesign";
-import { startReadOnlyProgrammer } from "../protocols/sahara.mjs?v=redesign";
+import { validateIdentity } from "./backup-manifest.mjs?v=redesign2";
+import { Adb } from "../protocols/adb.mjs?v=redesign2";
+import { adbCredential, newAdbKey } from "../protocols/adb-credential.mjs?v=redesign2";
+import { startReadOnlyProgrammer } from "../protocols/sahara.mjs?v=redesign2";
 import {
     claimBulk,
     pickDevice,
     SONIM_ADB_FILTER,
-} from "../protocols/webusb.mjs?v=redesign";
+} from "../protocols/webusb.mjs?v=redesign2";
 
 export const EDL = { vendorId: 0x05c6, productId: 0x9008 },
     DUMP = { vendorId: 0x05c6, productId: 0x900e };
@@ -227,15 +227,23 @@ export async function claimEdl(device) {
         throw new Error(
             "Crash-dump mode detected (something went wrong!) Try unplugging, taking the battery out, putting it back in, and then trying again",
         );
-    try {
-        return await claimBulk(device, { filter: EDL, timeoutMs: 8000 });
-    } catch (error) {
-        throw Object.assign(
-            new Error(
-                "Device in EDL can't be accessed. See “Can’t find device?” below, then try again",
-            ),
-            { code: "claim", detail: error?.message },
-        );
+    // Just after EDL appears, opening it can lose a race with the OS; retry briefly.
+    for (let attempt = 1; ; attempt++) {
+        try {
+            return await claimBulk(device, { filter: EDL, timeoutMs: 8000 });
+        } catch (error) {
+            if (attempt < 5) {
+                await device.close().catch(() => {});
+                await new Promise((resolve) => setTimeout(resolve, 1500));
+                continue;
+            }
+            throw Object.assign(
+                new Error(
+                    "Device in EDL can't be accessed. See “Can’t find device?” below, then try again",
+                ),
+                { code: "claim", detail: error?.message },
+            );
+        }
     }
 }
 

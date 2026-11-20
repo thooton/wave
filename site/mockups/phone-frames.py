@@ -10,21 +10,21 @@ os.makedirs(out, exist_ok=True)
 
 SEQ = [
     ('browse', 'launch shot:wave-home DOWN*6 shot:wave-home-more'),
-    ('browse', 'launch RIGHT shot:sources UP shot:sources-bar DOWN DOWN MENU shot:sources-menu BACK'
-               ' UP UP LEFT ENTER wait:300 shot:sources-refreshing wait:2500'),
+    ('browse', 'launch RIGHT shot:sources DOWN*2 MENU shot:sources-menu BACK'
+               ' UP*2 MENU DOWN ENTER wait:300 shot:sources-refreshing wait:2500'),
     ('browse', 'launch RIGHT DOWN ENTER wait:300 shot:source ENTER DOWN*2 shot:section MENU shot:section-menu BACK'
                ' ENTER shot:details-get DOWN*3 shot:details-get-more MENU shot:details-menu BACK BACK'
                ' UP ENTER shot:details-installed BACK DOWN*2 ENTER shot:details-update BACK'),
     ('browse', 'launch RIGHT DOWN*2 ENTER wait:300 DOWN ENTER DOWN ENTER shot:details-unfit'),
     ('browse', 'launch RIGHT DOWN*3 ENTER wait:300 DOWN ENTER ENTER shot:details-newer'),
-    ('browse', 'launch RIGHT*2 shot:installed UP shot:installed-updateall DOWN MENU shot:installed-menu BACK DOWN*5 shot:installed-more'),
+    ('browse', 'launch RIGHT*2 shot:installed MENU shot:installed-menu BACK DOWN*5 shot:installed-more'),
     ('browse', 'launch LEFT shot:search-empty text:mu shot:search-typing text:s DOWN shot:search-results UP BACK*3 text:xyzzy shot:search-none'),
-    ('browse', 'launch RIGHT UP ENTER shot:add-source text:mkline/games DOWN shot:add-source-button ENTER wait:200 shot:add-source-fetching'
+    ('browse', 'launch RIGHT MENU DOWN*2 ENTER shot:add-source text:mkline/games DOWN shot:add-source-button ENTER wait:200 shot:add-source-fetching'
                ' wait:1800 shot:add-source-trust BACK UP BACK*5 text:nope ENTER wait:2000 shot:add-source-bad'),
     ('browse', 'launch RIGHT DOWN ENTER DOWN*3 ENTER shot:details-module ENTER wait:400 shot:queue-confirm ENTER wait:4500 shot:queue-progress wait:11000 shot:queue-reboot'),
     ('browse', 'launch RIGHT DOWN ENTER ENTER DOWN*2 ENTER ENTER wait:400 ENTER wait:6000 shot:queue-done'),
     ('browse', 'launch RIGHT DOWN ENTER DOWN*4 ENTER ENTER wait:400 ENTER wait:5000 shot:error-hash'),
-    ('errors', 'launch shot:error-watchdog ENTER RIGHT DOWN*3 shot:error-source UP UP LEFT ENTER wait:2150 shot:error-network-toast'
+    ('errors', 'launch shot:error-watchdog ENTER RIGHT DOWN*3 shot:error-source UP*3 MENU DOWN ENTER wait:2150 shot:error-network-toast'
                ' RIGHT*2 DOWN*8 shot:error-watchdog-row'),
     ('offline', 'launch RIGHT shot:error-network'),
     ('reboot', 'launch shot:wave-home-reboot RIGHT*2 shot:installed-reboot'),

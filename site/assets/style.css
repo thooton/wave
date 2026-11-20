@@ -590,3 +590,16 @@ fieldset .toggle {
     color: #2495e6;
     font-variant-numeric: tabular-nums;
 }
+
+/* A success line in the checklist's columns: "✓ Backup ready to save!" */
+.status.tick {
+    display: grid;
+    grid-template-columns: 2ch minmax(0, 1fr);
+    gap: 8px;
+    margin-top: 2px;
+    padding: 2px 0;
+}
+.status.tick::before {
+    content: "✓";
+    text-align: center;
+}
