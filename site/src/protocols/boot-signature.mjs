@@ -1,7 +1,7 @@
 // Android boot header v0 and its AVB 1.0 BootSignature (AOSP BootSignature.java),
 // which the XP3800's stock boot carries and its bootloader requires. Verified with
 // WebCrypto: SHA256withRSA over the payload followed by the DER authenticatedAttributes.
-import { bootBytes, sha256 } from './boot-image.mjs?v=redesign4';
+import { bootBytes, sha256 } from './boot-image.mjs?v=redesign5';
 
 export const headerBytes = 1632;
 // The public AOSP verity test certificate the XP3800's stock boot is signed with.

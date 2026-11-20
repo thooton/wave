@@ -604,3 +604,9 @@ fieldset .toggle {
     content: "✓";
     text-align: center;
 }
+
+.finish-note {
+    margin-top: 14px;
+    font-size: 15px;
+    color: #aaa;
+}

@@ -14,8 +14,8 @@ import {
     percent,
     problem,
     show,
-} from "./common.mjs?v=redesign4";
-import { BackupError, readBackup } from "./backup-file.mjs?v=redesign4";
+} from "./common.mjs?v=redesign5";
+import { BackupError, readBackup } from "./backup-file.mjs?v=redesign5";
 import {
     chooseEdl,
     claimEdl,
@@ -24,10 +24,10 @@ import {
     knownAndroid,
     startProgrammer,
     waitForEdl,
-} from "./device.mjs?v=redesign4";
-import { isMagiskPatched } from "./magisk.mjs?v=redesign4";
-import { FirehoseBootWriter } from "../protocols/firehose-write.mjs?v=redesign4";
-import { fetchProgrammer, servedFiles } from "./served.mjs?v=redesign4";
+} from "./device.mjs?v=redesign5";
+import { isMagiskPatched } from "./magisk.mjs?v=redesign5";
+import { FirehoseBootWriter } from "../protocols/firehose-write.mjs?v=redesign5";
+import { fetchProgrammer, servedFiles } from "./served.mjs?v=redesign5";
 
 const STEPS = [
     "Verify backup file",

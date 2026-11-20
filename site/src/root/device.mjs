@@ -1,15 +1,15 @@
 // Connecting to the XP3800 for the rooting and stock-boot pages: Android over
 // adb (waiting for boot, checking it is the expected phone) and EDL with the
 // pinned programmer.
-import { validateIdentity } from "./backup-manifest.mjs?v=redesign4";
-import { Adb } from "../protocols/adb.mjs?v=redesign4";
-import { adbCredential, newAdbKey } from "../protocols/adb-credential.mjs?v=redesign4";
-import { startReadOnlyProgrammer } from "../protocols/sahara.mjs?v=redesign4";
+import { validateIdentity } from "./backup-manifest.mjs?v=redesign5";
+import { Adb } from "../protocols/adb.mjs?v=redesign5";
+import { adbCredential, newAdbKey } from "../protocols/adb-credential.mjs?v=redesign5";
+import { startReadOnlyProgrammer } from "../protocols/sahara.mjs?v=redesign5";
 import {
     claimBulk,
     pickDevice,
     SONIM_ADB_FILTER,
-} from "../protocols/webusb.mjs?v=redesign4";
+} from "../protocols/webusb.mjs?v=redesign5";
 
 export const EDL = { vendorId: 0x05c6, productId: 0x9008 },
     DUMP = { vendorId: 0x05c6, productId: 0x900e };

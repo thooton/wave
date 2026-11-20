@@ -1,4 +1,4 @@
-import { sha256 } from './boot-image.mjs?v=redesign4';
+import { sha256 } from './boot-image.mjs?v=redesign5';
 
 // The only programmer accepted by this diagnostic client is the known
 // Sonim-signed MSM8909 image; no arbitrary image upload or command mode.

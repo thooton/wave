@@ -16,9 +16,9 @@ import {
     percent,
     problem,
     show,
-} from "./common.mjs?v=redesign4";
-import { makeBackupManifest } from "./backup-manifest.mjs?v=redesign4";
-import { backupName, makeBackupFile } from "./backup-file.mjs?v=redesign4";
+} from "./common.mjs?v=redesign5";
+import { makeBackupManifest } from "./backup-manifest.mjs?v=redesign5";
+import { backupName, makeBackupFile } from "./backup-file.mjs?v=redesign5";
 import {
     chooseEdl,
     claimEdl,
@@ -27,7 +27,7 @@ import {
     startProgrammer,
     waitForAndroid,
     waitForEdl,
-} from "./device.mjs?v=redesign4";
+} from "./device.mjs?v=redesign5";
 import {
     MAGISK,
     WAVE_PACKAGE,
@@ -36,22 +36,22 @@ import {
     installedVersion,
     isMagiskPatched,
     patchOnPhone,
-} from "./magisk.mjs?v=redesign4";
-import { sha256 } from "../protocols/boot-image.mjs?v=redesign4";
+} from "./magisk.mjs?v=redesign5";
+import { sha256 } from "../protocols/boot-image.mjs?v=redesign5";
 import {
     verifyBootSignature,
     xp3800BootCertSha256,
-} from "../protocols/boot-signature.mjs?v=redesign4";
-import { FirehoseBootReader } from "../protocols/firehose.mjs?v=redesign4";
+} from "../protocols/boot-signature.mjs?v=redesign5";
+import { FirehoseBootReader } from "../protocols/firehose.mjs?v=redesign5";
 import {
     FirehoseBootWriter,
     WriteCheckError,
-} from "../protocols/firehose-write.mjs?v=redesign4";
+} from "../protocols/firehose-write.mjs?v=redesign5";
 import {
     fetchProgrammer,
     fetchServed,
     servedFiles,
-} from "./served.mjs?v=redesign4";
+} from "./served.mjs?v=redesign5";
 
 const KEY = "wave-rooting-v2";
 const PHASES = ["intro", "ready", "backup", "root", "finish"];
@@ -699,6 +699,7 @@ function finishView() {
     const [open] = (lists.finish = checklist($("finish-list"), ["Open Wave"]));
     if (state.finished) mark(open, "done");
     say("finish", state.finished ? "Installation complete" : "", state.finished);
+    visible("finish-note", !!state.finished);
 }
 $("open-wave").addEventListener("click", () =>
     task("finish", async () => {
@@ -724,6 +725,7 @@ $("open-wave").addEventListener("click", () =>
         await dropImages();
         save({ finished: true, stockSha: undefined, patchedSha: undefined });
         say("finish", "Installation complete", true);
+        visible("finish-note", true);
     }),
 );
 
