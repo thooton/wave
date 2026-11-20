@@ -33,16 +33,16 @@
       <div class="content" id="content">
         <section id="step-intro" aria-labelledby="intro-title">
           <img class="logo" src="assets/wave-icon.svg" width="48" height="48" alt="">
-          <h1 id="intro-title" tabindex="-1">Welcome to Wave</h1>
-          <p class="muted">Root your Sonim XP3800 and install Wave.</p>
-          <p>This rewrites the phone’s boot partition. Keep the stock backup it saves.</p>
+          <h1 id="intro-title" tabindex="-1">Welcome to Wave Installer</h1>
+          <p class="muted">This website will root the connected Sonim XP3800 and install Wave.</p>
+          <p>The installation rewrites the boot partition on the connected device, so it is recommended to keep the provided stock backup.</p>
         </section>
         <section id="step-files" aria-labelledby="files-title" hidden>
           <h2 id="files-title" tabindex="-1">Choose files</h2>
           <div class="field" id="programmer-pick">
             <label for="programmer">Sonim service programmer</label>
             <input id="programmer" type="file" aria-describedby="programmer-note">
-            <small id="programmer-note"><code>prog_emmc_firehose_8909_ddr.mbn</code>, verified copy (SHA-256 <code>e6f2dbcf…2767</code>).</small>
+            <small id="programmer-note"><code>prog_emmc_firehose_8909_ddr.mbn</code> (verified SHA-256 <code>e6f2dbcf…2767</code>)</small>
           </div>
           <div class="field" id="magisk-pick">
             <label for="magisk">Magisk 24.0 APK</label>
@@ -59,25 +59,25 @@
         <section id="step-check" aria-labelledby="check-title" hidden>
           <h2 id="check-title" tabindex="-1">Connect your phone</h2>
           <ol class="instructions">
-            <li>Charge to at least 40%. In <strong>About phone</strong>, select <strong>Build number</strong> seven times, then enable <strong>USB debugging</strong> in Developer options.</li>
-            <li>Connect only this phone with a data cable. Close desktop ADB (<code>adb kill-server</code>).</li>
-            <li>Approve USB debugging on the phone. Leave “Always allow” off.</li>
+            <li>First, please charge the device to at least 40%. Next, in “<strong>About phone</strong>”, please navigate to <strong>Build number</strong>, and press it 7 times. Then, navigate to the developer options, and enable <strong>USB debugging</strong>.</li>
+            <li>Please connect the device to the computer, and close any ADB processes (if you don’t know what that is, you can ignore this.)</li>
+            <li>Please approve USB debugging on the connected device</li>
           </ol>
         </section>
         <section id="step-backup" aria-labelledby="backup-title" hidden>
           <h2 id="backup-title" tabindex="-1">Read stock boot</h2>
-          <p>The screen stays dark. Choose <strong>Qualcomm … 9008</strong> in the USB chooser.</p>
+          <p>The screen stays dark. Select <strong>Qualcomm … 9008</strong> in the USB chooser.</p>
           <details class="help">
             <summary>The phone isn’t in the list</summary>
-            <p>Use <code>05c6:9008</code> only (<code>05c6:900e</code> is crash dump: take the battery out and start again).</p>
-            <p><strong>Windows:</strong> in Zadig, choose Options › List All Devices, select <code>05C6 9008</code>, replace its driver with WinUSB, then reload this page.</p>
-            <p><strong>Linux:</strong> allow the device with a udev rule (<code>SUBSYSTEM=="usb", ATTR{idVendor}=="05c6", ATTR{idProduct}=="9008", TAG+="uaccess"</code>). If it still can’t be claimed, <code>qcserial</code> holds it: <code>sudo modprobe -r qcserial</code>.</p>
+            <p>Use <code>05c6:9008</code> only. If you see <code>05c6:900e</code> (crash dump), remove the battery and start again.</p>
+            <p><strong>Windows:</strong> In Zadig, go to Options › List All Devices, select <code>05C6 9008</code>, replace the driver with WinUSB, and reload this page.</p>
+            <p><strong>Linux:</strong> Allow the device with a udev rule (<code>SUBSYSTEM=="usb", ATTR{idVendor}=="05c6", ATTR{idProduct}=="9008", TAG+="uaccess"</code>). If it still cannot be claimed, <code>qcserial</code> may be holding it: <code>sudo modprobe -r qcserial</code>.</p>
             <p>Close other phone tools and <code>adb</code>; only one program can use the phone at a time.</p>
           </details>
         </section>
         <section id="step-save" aria-labelledby="save-title" hidden>
           <h2 id="save-title" tabindex="-1">Save your backup</h2>
-          <p>Save both files off the phone, then select the saved boot image to verify it.</p>
+          <p>Save both files to your computer, then select the saved boot image to verify it.</p>
           <div class="downloads">
             <a id="save-image" download hidden>Save boot image</a>
             <a id="save-manifest" download hidden>Save manifest</a>
@@ -89,11 +89,11 @@
         </section>
         <section id="step-patch" aria-labelledby="patch-title" hidden>
           <h2 id="patch-title" tabindex="-1">Patch boot</h2>
-          <p>Wait for Android to start, then reconnect. Approve USB debugging if asked.</p>
+          <p>Wait for Android to start, then reconnect. Allow USB debugging if prompted.</p>
         </section>
         <section id="step-flash" aria-labelledby="flash-title" hidden>
           <h2 id="flash-title" tabindex="-1">Write patched boot</h2>
-          <p>Choose <strong>Qualcomm … 9008</strong> again. Keep the phone connected until the write is verified.</p>
+          <p>Select <strong>Qualcomm … 9008</strong> again. Keep the phone connected until the write is verified.</p>
         </section>
         <section id="step-finish" aria-labelledby="finish-title" hidden>
           <h2 id="finish-title" tabindex="-1">Verify root</h2>
@@ -101,10 +101,10 @@
         </section>
         <section id="step-done" aria-labelledby="done-title" hidden>
           <h2 id="done-title" tabindex="-1">Open Wave</h2>
-          <p>If Magisk shows <strong>Requires Additional Setup</strong>, choose <strong>OK</strong> and wait for the restart.</p>
-          <p>Optional: grant USB root so <a href="recovery/#step-modules">Recovery</a> can turn off a broken Magisk module later. Approve it in Magisk on the phone.</p>
+          <p>If Magisk shows <strong>Requires Additional Setup</strong>, select <strong>OK</strong> and wait for the restart.</p>
+          <p>Optional: grant USB root so <a href="recovery/#step-modules">Recovery</a> can disable a broken Magisk module later. Approve this in Magisk on the phone.</p>
         </section>
-        <button type="button" id="choose-files" class="text-button" hidden>Choose missing files</button>
+        <button type="button" id="choose-files" class="text-button" hidden>Select missing files</button>
         <p class="status" id="activity" role="status"></p>
         <label for="progress" id="progress-label" class="visually-hidden" hidden>Progress</label>
         <progress id="progress" value="0" max="100" hidden></progress>
@@ -115,7 +115,7 @@
         <button type="button" id="start-over" class="text-button" hidden>Start over</button>
         <div class="forward">
           <button type="button" id="back" hidden>Back</button>
-          <button type="button" id="resume" hidden>Return to current step</button>
+          <button type="button" id="resume" hidden>Resume</button>
           <div data-actions="intro"><button type="button" class="primary" id="start" disabled>Start</button></div>
           <div data-actions="files" hidden><button type="button" class="primary" id="continue" aria-describedby="files-status">Continue</button></div>
           <div data-actions="check" hidden><button type="button" class="primary" id="check">Check &amp; restart into EDL</button></div>
@@ -124,7 +124,7 @@
           <div data-actions="flash" hidden><button type="button" class="primary" id="flash">Write boot</button></div>
           <div data-actions="finish" hidden><button type="button" class="primary" id="finish">Check root</button></div>
           <div data-actions="done" hidden>
-            <button type="button" id="grant">Ask for USB root</button>
+            <button type="button" id="grant">Request USB root</button>
             <button type="button" class="primary" id="open-wave">Open Wave</button>
           </div>
         </div>

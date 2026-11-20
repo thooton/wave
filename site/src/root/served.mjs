@@ -26,6 +26,6 @@ export async function fetchServed(base, entry) {
   const response = await fetch(new URL(entry.file, base));
   if (!response.ok) throw new Error(`Could not download ${entry.file} from this site.`);
   const bytes = new Uint8Array(await response.arrayBuffer());
-  if (await sha256(bytes) !== entry.sha256) throw new Error(`${entry.file} from this site does not match its listed SHA-256.`);
+  if (await sha256(bytes) !== entry.sha256) throw new Error(`${entry.file} does not match the listed SHA-256.`);
   return bytes;
 }

@@ -3,7 +3,7 @@ export const SONIM_ADB_FILTER = { vendorId: 0x1d9c, classCode: 0xff, subclassCod
 
 export function pickDevice(filters) {
   if (!globalThis.isSecureContext || !globalThis.navigator?.usb) {
-    throw new Error('WebUSB needs a secure context and a supported browser. See the USB guide.');
+    throw new Error('WebUSB requires a secure context and a supported browser. See the USB guide.');
   }
   // Invoke directly inside the button click; waiting here can consume user activation.
   return navigator.usb.requestDevice({ filters });
@@ -29,7 +29,7 @@ export async function claimBulk(device, { filter, timeoutMs = 15000, blockSize =
         }
       }
     }
-    if (candidates.length !== 1) throw new Error('Could not uniquely identify the USB debugging or service interface.');
+    if (candidates.length !== 1) throw new Error('Unable to uniquely identify the USB debugging or service interface.');
     const { iface, alt, input, output } = candidates[0];
     await device.claimInterface(iface.interfaceNumber);
     if (iface.alternate.alternateSetting !== alt.alternateSetting) {
@@ -44,13 +44,13 @@ export async function claimBulk(device, { filter, timeoutMs = 15000, blockSize =
       if (device.opened) await device.close().catch(() => {});
     }
     async function transfer(job, ms) {
-      if (closed) throw new Error('USB connection is closed.');
+      if (closed) throw new Error('USB connection closed.');
       let timer;
       try {
         return await Promise.race([
           job(),
           new Promise((_, reject) => {
-            timer = setTimeout(() => reject(new Error('USB transfer timed out. Reconnect before trying again.')), ms);
+            timer = setTimeout(() => reject(new Error('USB transfer timed out. Reconnect and try again.')), ms);
           }),
         ]);
       } catch (error) {
@@ -68,7 +68,7 @@ export async function claimBulk(device, { filter, timeoutMs = 15000, blockSize =
         const result = await transfer(() => device.transferIn(input.endpointNumber, length), ms);
         if (result.status !== 'ok' || !result.data) {
           void close();
-          throw new Error(`USB input failed (${result.status}).`);
+          throw new Error(`USB input failed (${result.status})`);
         }
         return new Uint8Array(result.data.buffer, result.data.byteOffset, result.data.byteLength);
       },
@@ -78,14 +78,14 @@ export async function claimBulk(device, { filter, timeoutMs = 15000, blockSize =
           const result = await transfer(() => device.transferOut(output.endpointNumber, part), timeoutMs);
           if (result.status !== 'ok' || result.bytesWritten !== part.length) {
             void close();
-            throw new Error(`USB output incomplete (${result.status}).`);
+            throw new Error(`USB output incomplete (${result.status})`);
           }
         }
         if (terminate && bytes.length % output.packetSize === 0) {
           const result = await transfer(() => device.transferOut(output.endpointNumber, new Uint8Array()), timeoutMs);
           if (result.status !== 'ok') {
             void close();
-            throw new Error(`USB output termination failed (${result.status}).`);
+            throw new Error(`USB output termination failed (${result.status})`);
           }
         }
       },
@@ -103,8 +103,8 @@ export async function exact(link, size, max = 16384, timeoutMs, onProgress) {
   let blanks = 0;
   for (let pos = 0; pos < size;) {
     const chunk = await link.read(Math.min(size - pos, max), timeoutMs);
-    if (!chunk.length && ++blanks > 3) throw new Error('USB returned no more data.');
-    if (chunk.length > size - pos) throw new Error('USB returned excess data.');
+    if (!chunk.length && ++blanks > 3) throw new Error('USB returned no more data');
+    if (chunk.length > size - pos) throw new Error('USB returned excess data');
     result.set(chunk, pos);
     pos += chunk.length;
     if (chunk.length) {

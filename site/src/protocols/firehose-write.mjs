@@ -30,7 +30,7 @@ export class FirehoseBootWriter {
     this.#configured = true;
   }
 
-  #ready() { if (!this.#configured) throw new Error('Firehose eMMC has not been configured.'); }
+  #ready() { if (!this.#configured) throw new Error('Firehose eMMC is not configured.'); }
 
   async readGpt() {
     this.#ready();
@@ -57,7 +57,7 @@ export class FirehoseBootWriter {
       onProgress?.(Math.min(at + channel.toTarget, data.length), data.length);
     }
     const { response } = await channel.response(undefined, false, 60000);
-    if (response.rawmode !== undefined && response.rawmode !== 'false') throw new Error('Firehose did not end the write.');
+    if (response.rawmode !== undefined && response.rawmode !== 'false') throw new Error('Firehose didn\'t end the write.');
   }
 
   // True once a program request has been sent in this session.
@@ -72,17 +72,17 @@ export class FirehoseBootWriter {
     this.#ready();
     if (image.length === bootBytes) checkBootImage(image);
     else {
-      if (!current) throw new Error('A patched image is written only over the stock image it was made from.');
+      if (!current) throw new Error('Patched images can only be written over the stock image they were made from.');
       await checkPatchedBoot(image, current, { certSha256 });
     }
     if (current) checkBootImage(current);
     const progress = phase => (done, total) => onProgress?.(phase, done, total);
     const { boot } = await this.readGpt();
     const length = Math.ceil(image.length / sectorBytes) * sectorBytes;
-    if (length > boot.sectors * sectorBytes) throw new Error('The image is larger than the boot partition.');
+    if (length > boot.sectors * sectorBytes) throw new Error('Image is larger than the boot partition.');
     const before = await this.readBoot(progress('check'));
     if (current && differs(before, current)) {
-      throw new WriteCheckError('The boot partition no longer holds the backup this page checked. Nothing was written.', false);
+      throw new WriteCheckError('Boot partition no longer contains the backup checked by this page. Nothing was written.', false);
     }
     const data = new Uint8Array(length);
     data.set(image);
@@ -94,7 +94,7 @@ export class FirehoseBootWriter {
       await this.#program(boot.start, data, progress('write'));
       return this.#channel.readSectors(boot.start, boot.sectors, progress('verify'));
     });
-    if (differs(after, expected)) throw new WriteCheckError('The boot partition read back after the write does not match what was written.', true);
+    if (differs(after, expected)) throw new WriteCheckError('Boot partition read-back doesn\'t match what was written.', true);
     return { before, after, written: true };
   }
 

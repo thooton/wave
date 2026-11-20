@@ -13,7 +13,7 @@ export function show(status, message, error = false) {
 export async function connectAndroid(status) {
   const device = await pickDevice([SONIM_ADB_FILTER]);
   const adb = await Adb.connect(await claimBulk(device, { filter: SONIM_ADB_FILTER }), {
-    onAuthorization: () => show(status, 'Accept the USB debugging prompt on the phone. Leave “Always allow” off for this session.'),
+    onAuthorization: () => show(status, 'Accept the USB debugging prompt on the phone. Do not select “Always allow” for this session.'),
   });
   try {
     const result = await adb.shell(`getprop ro.product.model; getprop ro.build.version.sdk; getprop ro.product.cpu.abi; getprop ro.build.fingerprint; getprop sys.boot_completed; dumpsys battery | grep 'level:'`);
@@ -30,7 +30,7 @@ export async function connectAndroid(status) {
 }
 
 export function problem(error) {
-  if (error?.name === 'NotFoundError') return 'No device was selected, or the selected device disconnected.';
+  if (error?.name === 'NotFoundError') return 'No device selected, or the device disconnected.';
   if (['SecurityError', 'NetworkError'].includes(error?.name)) return 'The browser could not claim the USB interface. Close other USB tools and check the USB guide.';
-  return error?.message || 'The device operation failed.';
+  return error?.message || 'Device operation failed.';
 }

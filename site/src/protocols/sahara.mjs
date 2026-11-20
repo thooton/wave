@@ -7,7 +7,7 @@ const programmerSize = 285524;
 
 export async function checkProgrammer(bytes) {
   if (bytes.length !== programmerSize || await sha256(bytes) !== programmerSha256) {
-    throw new Error('This is not the recognized Sonim-signed MSM8909 service programmer. No USB data was sent.');
+    throw new Error('The recognized Sonim-signed MSM8909 service programmer was not detected. No USB data was sent.');
   }
 }
 
@@ -28,13 +28,13 @@ async function receive(link) {
     if (word(1) !== packet.length) throw new Error('Invalid Sahara packet length.');
     return { command: word(0), length: packet.length, word };
   }
-  throw new Error('Sahara did not send a packet.');
+  throw new Error('Sahara sent no packet.');
 }
 
 async function saharaExchange(link, image) {
   const hello = await receive(link);
   if (hello.command !== 1 || hello.length !== 48 || hello.word(2) !== 2 || hello.word(3) > 1 || hello.word(5) !== 0) {
-    throw new Error('Expected the XP3800 Sahara v2 startup hello. Disconnect and check the USB mode.');
+    throw new Error('Expected XP3800 Sahara v2 startup hello. Disconnect and check USB mode.');
   }
   await link.write(frame(2, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6));
   for (let count = 0; count < 512; count++) {
@@ -43,11 +43,11 @@ async function saharaExchange(link, image) {
       if (packet.word(2) !== 13 || packet.word(3) !== 0 || count === 0) throw new Error('Sahara rejected the signed programmer.');
       await link.write(frame(5));
       const done = await receive(link);
-      if (done.command !== 6 || done.length !== 12 || done.word(2) !== 0) throw new Error('Sahara did not finish the programmer handoff.');
+      if (done.command !== 6 || done.length !== 12 || done.word(2) !== 0) throw new Error('Sahara did not complete the programmer handoff.');
       return;
     }
     if (packet.command !== 3 || packet.length !== 20 || packet.word(2) !== 13) {
-      throw new Error('Unexpected Sahara command. Only the XP3800 image transfer is supported.');
+      throw new Error('Unexpected Sahara command. Only XP3800 image transfer is supported.');
     }
     const offset = packet.word(3), length = packet.word(4);
     if (!length || length > 16384 || offset + length > image.length) throw new Error('Sahara requested bytes outside the programmer.');

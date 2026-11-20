@@ -13,7 +13,7 @@ const crc = bytes => {
 };
 
 export function readGptHeader(bytes) {
-  if (bytes.length !== sectorBytes || !signature(bytes, 'EFI PART')) throw new Error('Primary GPT signature is missing.');
+  if (bytes.length !== sectorBytes || !signature(bytes, 'EFI PART')) throw new Error('Primary GPT signature missing.');
   const view = fields(bytes), size = view.getUint32(12, true);
   if (view.getUint32(8, true) !== 0x00010000 || size < 92 || size > sectorBytes || view.getBigUint64(24, true) !== 1n) {
     throw new Error('Unsupported GPT header.');
@@ -51,7 +51,7 @@ export function parseXp3800Gpt(gpt, table) {
       || !['DDR', 'sec', 'system', 'persist', 'recovery', 'devinfo', 'aboot', 'devcfg', 'vendor', 'userdata'].every(name => entries.has(name))
       || entries.get('sec').end + 1 !== boot.start || boot.end + 1 !== entries.get('system').start
       || entries.has('boot_a') || entries.has('boot_b') || entries.has('vbmeta')) {
-    throw new Error('GPT is not the recognized single-slot XP3800 layout.');
+    throw new Error('GPT is not a recognized single-slot XP3800 layout.');
   }
   // Expose named geometry without publishing per-phone/disk identifiers.
   return Object.freeze({

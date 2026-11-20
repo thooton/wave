@@ -57,7 +57,7 @@ async function store(mode, use) {
     return await new Promise((resolve, reject) => {
       const tx = handle.transaction('images', mode), request = use(tx.objectStore('images'));
       tx.oncomplete = () => resolve(request?.result);
-      tx.onerror = tx.onabort = () => reject(tx.error ?? new Error('Browser storage failed.'));
+      tx.onerror = tx.onabort = () => reject(tx.error ?? new Error('Browser storage error.'));
     });
   } finally { handle.close(); }
 }
@@ -67,8 +67,8 @@ async function getImage(name, hash) {
   const bytes = await store('readonly', s => s.get(name));
   if (!(bytes instanceof Uint8Array) || await sha256(bytes) !== hash) {
     throw new Error(name === 'stock'
-      ? 'This browser no longer has the backup. Choose your saved boot image again in Save backup.'
-      : 'This browser no longer has the patched image. Run Patch boot again.');
+      ? 'Backup not found in this browser. Select your boot image again in Save backup.'
+      : 'Patched image not found in this browser. Run Patch boot again.');
   }
   return bytes;
 }
@@ -187,7 +187,7 @@ async function readFile(input, check) {
   return bytes;
 }
 async function checkApk(bytes) {
-  if (bytes.length < 22 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) throw new Error('The Wave file is not an APK.');
+  if (bytes.length < 22 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) throw new Error('Wave file is not an APK.');
 }
 for (const [id, check, label] of [['programmer', checkProgrammer, 'Programmer'], ['magisk', checkMagiskApk, 'Magisk 24.0'], ['wave', checkApk, 'Wave APK']]) {
   $(id).addEventListener('change', async () => {
@@ -208,13 +208,13 @@ async function loadStaged() {
   staged = await servedFiles(SERVED);
   for (const name of Object.keys(staged)) $(`${name}-pick`).hidden = true;
   const served = Object.keys(staged).filter(name => !files[name]);
-  if (served.length && !allServed()) show($('files-status'), `This site provides the ${served.map(name => LABELS[name]).join(' and ')}.`);
+  if (served.length && !allServed()) show($('files-status'), `This site provides ${served.map(name => LABELS[name]).join(' and ')}.`);
   render();
 }
 async function fileFor(name) {
   if (files[name]) return files[name];
   const entry = staged[name];
-  if (!entry) throw new Error(`Choose the ${LABELS[name]} in Choose files.`);
+  if (!entry) throw new Error(`Select ${LABELS[name]} in Choose files.`);
   if (!fetched[name]) {
     const bytes = await fetchServed(SERVED, entry);
     if (name === 'programmer') await checkProgrammer(bytes);
@@ -232,11 +232,11 @@ $('check').addEventListener('click', () => task(async say => {
   const { adb, serial, fingerprint, battery } = await connect(say);
   try {
     const rooted = await adb.shell('command -v su; ls /sbin/magisk /sbin/su 2>/dev/null');
-    if (rooted.stdout.trim()) throw new Error('This phone already has su, so it is probably rooted. To start from stock, write its stock boot image back first (Recovery, linked under the steps).');
+    if (rooted.stdout.trim()) throw new Error('This phone already has su and is likely rooted. To return to stock, first flash the stock boot image (Recovery, linked in the steps).');
     note(`XP3800, serial ${serial}, battery ${battery}%.\n${fingerprint}`);
     await clearImages();
     save({ stage: 'backup', serial, fingerprint, stockSha: undefined, patchedSha: undefined });
-    say('Restarting into EDL. The screen stays dark; then continue with Read boot.');
+    say('Restarting into EDL. The screen will stay dark; then continue with Read boot.');
     await adb.reboot('edl');
   } finally { await adb.close(); }
 }));
@@ -246,28 +246,28 @@ $('backup').addEventListener('click', () => task(async say => {
   const reader = new FirehoseBootReader(link);
   let first;
   try {
-    say('Checking the partition table.');
+    say('Checking partition table.');
     await reader.configure();
     const { boot, partitions } = await reader.readGpt();
-    note(`XP3800 partition table: ${partitions.length} entries, boot at sector ${boot.start}.`);
-    say('Reading boot (1 of 2).');
+    note(`XP3800 partition table: ${partitions.length} entries, boot partition at sector ${boot.start}.`);
+    say('Reading boot image (1 of 2).');
     first = await reader.readBoot((done, total) => setProgress(done / total / 2));
-    say('Reading boot again (2 of 2).');
+    say('Reading boot image again (2 of 2).');
     const second = await reader.readBoot((done, total) => setProgress(0.5 + done / total / 2));
-    if (differs(first, second)) throw new Error('The two reads differ. Nothing was saved; check the cable and try again.');
+    if (differs(first, second)) throw new Error('The two reads of the boot partition returned different data. Nothing was saved; check the cable and try again.');
   } catch (error) {
     await reader.reset().catch(() => {});
     throw error;
   }
   say('Restarting Android.');
   let resetNote = '';
-  await reader.reset().catch(() => { resetNote = ' The restart was not acknowledged: if the screen stays dark, hold the power key.'; });
+  await reader.reset().catch(() => { resetNote = ' Restart not acknowledged: if the screen stays dark, hold the power key.'; });
   const signature = await verifyBootSignature(first);
-  if (signature.certSha256 !== xp3800BootCertSha256) throw new Error('This boot image is not signed with the XP3800’s stock certificate. Stopping.');
-  if (await isMagiskPatched(first)) throw new Error('This boot image is already patched by Magisk, so it is not stock. Stopping.');
+  if (signature.certSha256 !== xp3800BootCertSha256) throw new Error('Boot image is not signed with the XP3800 stock certificate. Stopping.');
+  if (await isMagiskPatched(first)) throw new Error('Boot image is already patched by Magisk and is not stock. Stopping.');
   const hash = await sha256(first);
   await putImage('stock', first);
-  note(`Stock boot: ${first.length} bytes, SHA-256 ${hash}. Two reads match; stock signature verifies.`);
+  note(`Stock boot image: ${first.length} bytes, SHA-256 ${hash}. Two reads match; stock signature verified.`);
   save({ stage: 'save', stockSha: hash, date: new Date().toISOString() });
   await offerBackup(first);
   say(`Backup read.${resetNote} Save it while Android starts.`);
@@ -291,9 +291,9 @@ async function offerBackup(bytes) {
 $('saved').addEventListener('change', () => task(async say => {
   const file = $('saved').files[0];
   if (!file) return;
-  if (file.size !== bootBytes) throw new Error('That file is not the 32 MiB boot image.');
+  if (file.size !== bootBytes) throw new Error('This file is not the 32 MiB boot image.');
   const bytes = new Uint8Array(await file.arrayBuffer());
-  if (await sha256(bytes) !== state.stockSha) throw new Error('That file does not match the backup just read. Save the image again and choose the saved copy.');
+  if (await sha256(bytes) !== state.stockSha) throw new Error('File does not match the backup. Save the image again and select the saved copy.');
   // A reload may have lost the browser's copy; the checked file replaces it.
   await putImage('stock', bytes);
   save({ stage: 'patch' });
@@ -307,17 +307,17 @@ $('patch').addEventListener('click', () => task(async say => {
   try {
     say('Patching on the phone. Keep it connected.');
     const patched = await patchOnPhone(adb, { stock, apk: magisk, log: note });
-    say('Installing the Magisk app.');
+    say('Installing Magisk.');
     await installApk(adb, magisk, '/data/local/tmp/wave-magisk.apk', 'Magisk');
-    if (await installedVersion(adb, MAGISK.package) !== MAGISK.version) throw new Error('The Magisk app did not install as version 24.0.');
+    if (await installedVersion(adb, MAGISK.package) !== MAGISK.version) throw new Error('Magisk version 24.0 did not install.');
     say('Installing Wave.');
     await installApk(adb, wave, '/data/local/tmp/wave-app.apk', 'Wave');
     const version = await installedVersion(adb, WAVE_PACKAGE);
-    if (!version) throw new Error(`The chosen APK is not Wave (${WAVE_PACKAGE}). Choose the Wave APK and run this step again.`);
+    if (!version) throw new Error(`The selected APK is not Wave (${WAVE_PACKAGE}). Choose the Wave APK and try again.`);
     note(`Installed Magisk ${MAGISK.version} and Wave ${version}.`);
     await putImage('patched', patched);
     save({ stage: 'flash', patchedSha: await sha256(patched), patchedSize: patched.length });
-    say('Patched and checked. Restarting into EDL; then continue with Write boot.');
+    say('Patched and verified. Restarting into EDL; then Write boot.');
     await adb.reboot('edl');
   } finally { await adb.close(); }
 }));
@@ -329,10 +329,10 @@ $('flash').addEventListener('click', () => task(async say => {
   const writer = new FirehoseBootWriter(link);
   let result;
   try {
-    say('Checking the partition table.');
+    say('Checking partition table.');
     await writer.configure();
     await writer.readGpt();
-    const phases = { check: [0, 'Checking that boot still holds your backup.'], write: [1, 'Writing the patched boot. Keep the phone connected.'], verify: [2, 'Reading the whole partition back.'] };
+    const phases = { check: [0, 'Verifying that the current contents of the boot partition exactly match your backup.'], write: [1, 'Writing patched boot image. Keep the phone connected.'], verify: [2, 'Reading the whole partition back.'] };
     let last;
     result = await writer.writeBoot(patched, {
       current: stock,
@@ -344,27 +344,27 @@ $('flash').addEventListener('click', () => task(async say => {
   } catch (error) {
     if (error instanceof WriteCheckError && error.written) {
       // The session is still open: put the stock image back now, verified.
-      note(`${error.message} Writing your stock backup back.`);
-      say('The write did not verify. Writing your stock backup back.');
+      note(`${error.message} Restoring stock backup.`);
+      say('Write verification failed. Restoring stock backup.');
       try {
         await writer.writeBoot(stock, { onProgress: (phase, done, total) => setProgress(done / total) });
         await writer.reset().catch(() => {});
         save({ stage: 'patch' });
-        throw new Error('The patched write did not verify, so the stock image was written back and verified, and Android is restarting. Nothing changed; run Patch boot and Write boot again.');
+        throw new Error('The patched write failed verification, so the stock image was written back and verified. Android is restarting; no changes were made to the boot image. Run Patch boot and Write boot again.');
       } catch (restoreError) {
         if (/written back and verified/.test(restoreError.message)) throw restoreError;
-        throw new Error(`The patched write did not verify, and writing stock back failed too (${restoreError.message}). Don’t restart Android: take the battery out, start EDL cold, and write your saved backup on the Recovery page.`);
+        throw new Error(`The patched write failed verification, and restoring the stock image also failed (${restoreError.message}). Do not restart Android: remove the battery, perform a cold start into EDL, and write your saved backup on the Recovery page.`);
       }
     }
     if (!writer.touched) await writer.reset().catch(() => {});
-    else throw new Error(`${error.message} The write may be incomplete. Take the battery out, start EDL cold, and write your saved backup on the Recovery page.`);
+    else throw new Error(`${error.message} The write may be incomplete. Remove the battery, cold boot into EDL, and write your backup on the Recovery page.`);
     throw error;
   }
-  note(result.written ? `Wrote ${state.patchedSize} bytes at boot; the whole partition reads back as expected.` : 'boot already held the patched image; nothing was written.');
+  note(result.written ? `Wrote ${state.patchedSize} bytes at boot; the whole partition reads back as expected.` : 'Boot partition already contained the patched image; nothing was written.');
   save({ stage: 'finish' });
   say('Restarting Android.');
-  await writer.reset().catch(() => note('The restart was not acknowledged: if the screen stays dark, hold the power key.'));
-  say('Written and verified. The first rooted start takes a little longer; then continue with Verify root.');
+  await writer.reset().catch(() => note('Restart not acknowledged. If the screen remains dark, hold the power button.'));
+  say('Written and verified. The first rooted boot may take a little longer. Then, continue with Verify root.');
 }));
 
 $('finish').addEventListener('click', () => task(async say => {
@@ -372,26 +372,26 @@ $('finish').addEventListener('click', () => task(async say => {
   try {
     const su = await adb.shell('ls -l /sbin/su');
     if (su.code !== 0 || !/->\s*\.?\/?magisk/.test(su.stdout)) {
-      throw new Error('Magisk did not start: /sbin/su is missing. If Android started normally, the stock image may still be in boot; run Patch boot and Write boot again.');
+      throw new Error('Magisk failed to start: /sbin/su is missing. If Android booted normally, the stock image may still be in the boot partition; run Patch boot and Write boot again.');
     }
-    note('Magisk is running from the patched boot (/sbin/su → magisk).');
+    note('Magisk is running from the patched boot image (/sbin/su → magisk).');
     await adb.shell(`monkey -p ${MAGISK.package} -c android.intent.category.LAUNCHER 1`);
     save({ stage: 'done' });
-    say('Root works. Magisk is open on the phone: if it shows “Requires Additional Setup”, choose OK and let the phone restart. Then open Wave.');
+    say('Root is working. Magisk is open on the phone: if it displays “Requires Additional Setup”, select OK and let the phone restart. Then, open Wave.');
   } finally { await adb.close(); }
 }));
 
 $('grant').addEventListener('click', () => task(async say => {
   const { adb } = await connect(say);
   try {
-    say('Answer Magisk’s prompt on the phone now: Grant (choose Forever to remember it).');
+    say('Respond to the Magisk prompt on the phone: Grant (select Forever to remember).');
     const result = await adb.shell('su -c id', undefined, 40000);
     if (result.code !== 0 || !result.stdout.includes('uid=0(root)')) {
-      throw new Error('Magisk did not grant root to USB debugging. You can allow Shell later in Magisk’s Superuser tab.');
+      throw new Error('Magisk did not grant root to USB debugging. You can allow Shell later in Magisk\'s Superuser tab.');
     }
     const env = await adb.shell(`su -c 'test -f /data/adb/magisk/util_functions.sh && test -x /data/adb/magisk/busybox'`, undefined, 40000);
-    say(env.code === 0 ? 'USB debugging can use root. Magisk’s setup is complete.'
-      : 'USB debugging can use root, but Magisk’s setup is not finished: open Magisk and choose OK on “Requires Additional Setup”. Wave needs it for mods.');
+    say(env.code === 0 ? 'USB debugging has root access. Magisk setup is complete.'
+      : 'USB debugging has root access, but Magisk setup is not complete. Open Magisk and select OK on “Requires Additional Setup”; this additional setup is required for mods in Wave.');
   } finally { await adb.close(); }
 }));
 
@@ -399,14 +399,14 @@ $('open-wave').addEventListener('click', () => task(async say => {
   const { adb } = await connect(say);
   try {
     const result = await adb.shell(`monkey -p ${WAVE_PACKAGE} -c android.intent.category.LAUNCHER 1`);
-    if (result.code !== 0 || /No activities found|monkey aborted/i.test(result.stdout + result.stderr)) throw new Error('Could not open Wave. Find it on the phone’s launcher.');
+    if (result.code !== 0 || /No activities found|monkey aborted/i.test(result.stdout + result.stderr)) throw new Error('Could not open Wave. Open it from the phone\'s launcher.');
     await clearImages();
-    say('Wave is open on the phone. Your phone is rooted; keep the saved stock image. This page has forgotten its copies.');
+    say('Wave is open. Your phone is rooted. Keep the saved stock image; this page no longer has copies.');
   } finally { await adb.close(); }
 }));
 
 $('start-over').addEventListener('click', async () => {
-  if (!confirm('Forget this page’s progress and its copies of the images? Your saved backup files are not touched.')) return;
+  if (!confirm('Discard progress and cached images? Saved backups will not be affected.')) return;
   busy = true;
   render();
   await clearImages().catch(() => {});

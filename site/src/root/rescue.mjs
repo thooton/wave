@@ -37,7 +37,7 @@ done`;
 
 async function asRoot(script) {
   const result = await session.shell('su -c ' + quoteShell('test "$(id -u)" = 0 || exit 13; ' + script), 32768);
-  if (result.code !== 0) throw new Error('Root command failed. Check shell authorization and the Magisk app; then reconnect to inspect the current module state.');
+  if (result.code !== 0) throw new Error('Root command failed. Check shell authorization and the Magisk app, then reconnect to check module state.');
   return result.stdout;
 }
 
@@ -73,9 +73,9 @@ async function operation(action) {
 connect.addEventListener('click', () => operation(async () => {
   show(status, 'Select the Sonim phone in the USB chooser.');
   session = (await connectAndroid(status)).adb;
-  show(status, 'Reading module names. If Magisk asks, authorize Shell on the phone.');
+  show(status, 'Reading module names. Authorize Shell on the phone if prompted by Magisk.');
   const count = await listModules();
-  show(status, count ? 'Select the modules to disable before restarting.' : 'No enabled modules found.');
+  show(status, count ? 'Select modules to disable before restarting.' : 'No enabled modules found.');
   reboot.hidden = false;
 }));
 selectAll.addEventListener('click', () => {
@@ -84,8 +84,8 @@ selectAll.addEventListener('click', () => {
 });
 disable.addEventListener('click', () => operation(async () => {
   const ids = selected();
-  if (!ids.length || ids.some(id => !moduleId.test(id))) throw new Error('Choose valid modules from the list.');
-  show(status, 'Disabling selected modules. Do not disconnect yet.');
+  if (!ids.length || ids.some(id => !moduleId.test(id))) throw new Error('Select valid modules from the list.');
+  show(status, 'Disabling selected modules. Do not disconnect.');
   // Work one ID at a time so there is no unbounded shell argument. A later
   // failure can leave earlier modules disabled; re-list before restarting.
   for (const id of ids) {

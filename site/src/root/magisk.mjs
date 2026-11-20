@@ -24,7 +24,7 @@ const signer = `cd ${workDir} && ANDROID_DATA=${workDir}/art /system/bin/dalvikv
 
 export async function checkMagiskApk(bytes) {
   if (bytes.length !== MAGISK.size || await sha256(bytes) !== MAGISK.sha256) {
-    throw new Error('This is not the official Magisk 24.0 APK (Magisk-v24.0.apk, SHA-256 f7ac4e2a…346a). Use exactly that release.');
+    throw new Error('This is not the official Magisk 24.0 APK (Magisk-v24.0.apk, SHA-256 f7ac4e2a…346a). Use that exact release.');
   }
 }
 
@@ -64,7 +64,7 @@ async function run(adb, command, what, timeoutMs = 60000) {
 async function freeKiB(adb, path) {
   const line = (await run(adb, `df -k ${quoteShell(path)} | tail -n 1`, 'Checking free space')).trim().split(/\s+/);
   const free = Number(line[3]);
-  if (!Number.isInteger(free)) throw new Error('Could not read the free space on the phone.');
+  if (!Number.isInteger(free)) throw new Error('Could not read the phone\'s free space.');
   return free;
 }
 
@@ -72,42 +72,42 @@ async function freeKiB(adb, path) {
 // checked with checkMagiskApk. log(message) reports each step. certSha256 is
 // the stock signing certificate (tests use their own). Returns the signed image.
 export async function patchOnPhone(adb, { stock, apk, log = () => {}, certSha256 }) {
-  if (stock.length !== bootBytes) throw new Error('Patch only a full 32 MiB stock backup.');
+  if (stock.length !== bootBytes) throw new Error('Only patch a full 32 MiB stock backup.');
   const files = await magiskFiles(apk);
   const apkSha = await sha256(apk);
-  const props = (await run(adb, 'getprop ro.build.system_root_image; getprop ro.crypto.state', 'Reading the phone’s properties')).split('\n');
-  if (props[0].trim() === 'true') throw new Error('This phone reports system-as-root, which the XP3800 does not use. Stopping.');
+  const props = (await run(adb, 'getprop ro.build.system_root_image; getprop ro.crypto.state', 'Reading phone properties')).split('\n');
+  if (props[0].trim() === 'true') throw new Error('This phone uses system-as-root, which XP3800 does not support. Stopping.');
   // As the Magisk app decides: keep forced encryption on an encrypted phone.
   const keepEncrypt = props[1]?.trim() === 'encrypted';
-  if (await freeKiB(adb, '/data/local/tmp') < 160 * 1024) throw new Error('The phone needs 160 MB free in its internal storage to patch.');
-  await run(adb, `rm -rf ${workDir} && mkdir -p ${workDir}/art/dalvik-cache`, 'Making the work folder');
+  if (await freeKiB(adb, '/data/local/tmp') < 160 * 1024) throw new Error('The phone needs 160 MB of free internal storage to patch.');
+  await run(adb, `rm -rf ${workDir} && mkdir -p ${workDir}/art/dalvik-cache`, 'Creating work folder');
   try {
-    log('Copying Magisk 24.0’s ARM tools to the phone.');
+    log('Copying Magisk 24.0 ARM tools to the phone.');
     for (const [name, bytes] of files) await push(adb, `${workDir}/${name}`, bytes);
-    log('Copying the stock boot image and the Magisk app to the phone.');
+    log('Copying stock boot image and Magisk app to phone.');
     await push(adb, `${workDir}/boot.img`, stock);
     await push(adb, `${workDir}/magisk.apk`, apk);
-    const sums = await run(adb, `cd ${workDir} && sha256sum boot.img magisk.apk`, 'Checking the copies');
+    const sums = await run(adb, `cd ${workDir} && sha256sum boot.img magisk.apk`, 'Checking copies');
     if (!sums.includes(`${await sha256(stock)}  boot.img`) || !sums.includes(`${apkSha}  magisk.apk`)) {
-      throw new Error('The files copied to the phone do not match. Check the cable and try again.');
+      throw new Error('Copied files do not match. Check the cable and try again.');
     }
-    await run(adb, `cd ${workDir} && chmod 755 magiskboot magiskinit magisk32 busybox boot_patch.sh`, 'Preparing the tools');
-    log('Patching the boot image with boot_patch.sh (about a minute).');
+    await run(adb, `cd ${workDir} && chmod 755 magiskboot magiskinit magisk32 busybox boot_patch.sh`, 'Preparing tools');
+    log('Patching boot image with boot_patch.sh (about 1 minute).');
     const patchLog = await run(adb, `cd ${workDir} && KEEPVERITY=false KEEPFORCEENCRYPT=${keepEncrypt} RECOVERYMODE=false ASH_STANDALONE=1 ./busybox sh ./boot_patch.sh boot.img 2>&1 && test -s new-boot.img`, 'Patching', 300000);
     log(patchLog.trim().split('\n').filter(line => line.startsWith('- ')).join('\n') || 'Patched.');
-    log('Signing the patched image with Magisk’s SignBoot (about a minute).');
+    log('Signing patched image with Magisk SignBoot (about 1 minute).');
     await run(adb, `${signer} -sign < new-boot.img > signed.img`, 'Signing', 300000);
-    const verdict = await run(adb, `${signer} -verify < signed.img 2>&1`, 'Checking the signature', 300000);
+    const verdict = await run(adb, `${signer} -verify < signed.img 2>&1`, 'Verifying signature', 300000);
     if (!verdict.includes('Signature is VALID')) throw new Error('Magisk’s SignBoot did not report a valid signature.');
-    const length = Number((await run(adb, `stat -c %s ${workDir}/signed.img`, 'Reading the image size')).trim());
-    if (!Number.isInteger(length) || length <= 0 || length >= bootBytes) throw new Error('The signed image has an unexpected size.');
-    log('Copying the signed image back to this computer.');
+    const length = Number((await run(adb, `stat -c %s ${workDir}/signed.img`, 'Reading image size')).trim());
+    if (!Number.isInteger(length) || length <= 0 || length >= bootBytes) throw new Error('The signed image is the wrong size.');
+    log('Copying signed image back to this computer.');
     const signed = await pull(adb, `${workDir}/signed.img`, bootBytes);
-    const phoneSum = (await run(adb, `sha256sum ${workDir}/signed.img`, 'Checking the copy')).split(/\s+/)[0];
-    if (signed.length !== length || await sha256(signed) !== phoneSum) throw new Error('The signed image did not copy back intact.');
+    const phoneSum = (await run(adb, `sha256sum ${workDir}/signed.img`, 'Verifying copy')).split(/\s+/)[0];
+    if (signed.length !== length || await sha256(signed) !== phoneSum) throw new Error('The signed image didn\'t copy back correctly.');
     await checkPatchedBoot(signed, stock, { certSha256 });
-    if (await isMagiskPatched(signed) === false) throw new Error('The patched image’s ramdisk has no Magisk files.');
-    log(`Signed Magisk image checked in this browser: ${signed.length} bytes, signature verifies with the stock certificate.`);
+    if (await isMagiskPatched(signed) === false) throw new Error('No Magisk files found in the patched image\'s ramdisk.');
+    log(`Signed Magisk image: ${signed.length} bytes. Signature verified with stock certificate.`);
     return signed;
   } finally {
     await adb.shell(`rm -rf ${workDir}`).catch(() => {});
@@ -119,7 +119,7 @@ export async function installApk(adb, apk, path, what, timeoutMs = 180000) {
   try {
     const result = await adb.shell(`pm install -r ${quoteShell(path)}`, undefined, timeoutMs);
     if (result.code !== 0 || !result.stdout.trim().endsWith('Success')) {
-      throw new Error(`Installing ${what} failed: ${(result.stderr || result.stdout).trim() || 'no reason given'}`);
+      throw new Error(`Failed to install ${what}: ${(result.stderr || result.stdout).trim() || 'no reason given'}`);
     }
   } finally {
     await adb.shell(`rm -f ${quoteShell(path)}`).catch(() => {});

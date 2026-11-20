@@ -31,7 +31,7 @@ export async function connectPhone(say, options = {}) {
     try { return await connectOnce(say, options); }
     catch (error) {
       if (attempt >= 4 || !transient(error)) throw error;
-      say(error.message === settled ? 'Android has started. Connecting again.' : 'The phone reconnected to USB. Connecting again.');
+      say(error.message === settled ? 'Android started. Reconnecting.' : 'Phone reconnected. Reconnecting.');
       await sleep(5000);
     }
   }
@@ -54,8 +54,8 @@ async function connectTo(device, say, { expect, minBattery }) {
     for (let i = 0; ; i++) {
       const booted = await adb.shell('getprop sys.boot_completed');
       if (booted.stdout.trim() === '1') break;
-      if (i >= 90) throw new Error('Android did not finish starting. Wait for the home screen and try again.');
-      if (i === 0) say('Waiting for Android to finish starting.');
+      if (i >= 90) throw new Error('Android didn\'t finish starting. Wait for the home screen and try again.');
+      if (i === 0) say('Waiting for Android to start.');
       await sleep(2000);
       // Once it has started, give USB time to settle, then start afresh.
       if ((await adb.shell('getprop sys.boot_completed')).stdout.trim() === '1') {
@@ -68,14 +68,14 @@ async function connectTo(device, say, { expect, minBattery }) {
     const [model, sdk, abi, fingerprint, batteryLine] = result.stdout.trimEnd().split('\n').map(line => line.trim());
     const battery = Number(/^level:\s*(\d+)$/.exec(batteryLine ?? '')?.[1]);
     if (result.code !== 0 || model !== 'XP3800' || sdk !== '27' || abi !== 'armeabi-v7a' || !fingerprint?.startsWith('Sonim/')) {
-      throw new Error('This is not a Sonim XP3800 on Android 8.1 (32-bit ARM). Stopping.');
+      throw new Error('Device is not a Sonim XP3800 on Android 8.1 (32-bit ARM). Stopping.');
     }
     const serial = device.serialNumber ?? '';
     validateIdentity(serial, fingerprint);
     if (expect && (serial !== expect.serial || fingerprint !== expect.fingerprint)) {
-      throw new Error(`This is not the expected phone (serial ${expect.serial}, build ${expect.fingerprint}).`);
+      throw new Error(`Unexpected phone (serial ${expect.serial}, build ${expect.fingerprint}).`);
     }
-    if (!Number.isInteger(battery) || battery < minBattery) throw new Error(`The battery is at ${battery}%. Charge it to at least ${minBattery}% first.`);
+    if (!Number.isInteger(battery) || battery < minBattery) throw new Error(`Battery is at ${battery}%. Charge to at least ${minBattery}%.`);
     return { adb, serial, fingerprint, battery };
   } catch (error) {
     await adb.close();
@@ -96,23 +96,23 @@ async function edlDevice() {
 
 // programmer: bytes already checked with checkProgrammer. Returns a link with Firehose running.
 export async function openEdl(say, programmer) {
-  if (!programmer) throw new Error('Choose the service programmer first.');
-  say('Select the XP3800 in EDL (Qualcomm, 05c6:9008) in the USB chooser.');
+  if (!programmer) throw new Error('Select the service programmer first.');
+  say('Select XP3800 in EDL (Qualcomm, 05c6:9008) in the USB chooser.');
   let device;
   try { device = await edlDevice(); }
   catch (error) {
-    if (error.name === 'NotFoundError') throw new Error('No EDL device chosen. If none was listed, wait a few seconds for the phone to restart into EDL, or see the USB guide.');
+    if (error.name === 'NotFoundError') throw new Error('No EDL device selected. If none are listed, wait for the phone to restart into EDL or see the USB guide.');
     throw error;
   }
-  if (device.productId === DUMP.productId) throw new Error('05c6:900e is crash-dump mode, not EDL. Unplug, take the battery out, and use the cold start (hold both volume keys while refitting it and plugging in USB).');
+  if (device.productId === DUMP.productId) throw new Error('05c6:900e is crash-dump mode, not EDL. Unplug, remove the battery, and cold start (hold both volume keys while reinserting the battery and plugging in USB).');
   let link;
   try { link = await claimBulk(device, { filter: EDL, timeoutMs: 8000 }); }
-  catch { throw new Error('Could not claim the EDL interface. Close other service tools; on Linux a kernel driver (qcserial) may hold it: see the USB guide.'); }
+  catch { throw new Error('Could not claim the EDL interface. Close other service tools. On Linux, the qcserial kernel driver may be using it; see the USB guide.'); }
   say('Starting the Sonim service programmer.');
   try { await startReadOnlyProgrammer(link, programmer); }
   catch (error) {
     await link.close();
-    throw new Error(`${error.message} If the phone was already in EDL from an earlier try, unplug it, take the battery out and start EDL again.`);
+    throw new Error(`${error.message} If the phone was already in EDL, unplug it, remove the battery, and restart EDL.`);
   }
   return link;
 }

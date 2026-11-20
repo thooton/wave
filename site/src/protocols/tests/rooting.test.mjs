@@ -102,19 +102,19 @@ test('AVB 1.0 boot signatures verify, and only a signed patch of the same stock 
   assert.equal(await isMagiskPatched(patchedSigned), true);
   await checkPatchedBoot(patchedSigned, stockFull, opts);
   // The default pin is the XP3800's real certificate, which this test key is not.
-  await assert.rejects(checkPatchedBoot(patchedSigned, stockFull), /XP3800’s boot certificate/);
+  await assert.rejects(checkPatchedBoot(patchedSigned, stockFull), /not signed with the XP3800 boot certificate/);
   const tampered = patchedSigned.slice();
   tampered[3000] ^= 1;
-  await assert.rejects(checkPatchedBoot(tampered, stockFull, opts), /does not verify/);
-  await assert.rejects(checkPatchedBoot(bootPayload(patchedRamdisk), stockFull, opts), /not signed/);
-  await assert.rejects(checkPatchedBoot(concat([patchedSigned, Uint8Array.of(0)]), stockFull, opts), /after its boot signature/);
+  await assert.rejects(checkPatchedBoot(tampered, stockFull, opts), /Boot signature verification failed/);
+  await assert.rejects(checkPatchedBoot(bootPayload(patchedRamdisk), stockFull, opts), /Boot image is unsigned/);
+  await assert.rejects(checkPatchedBoot(concat([patchedSigned, Uint8Array.of(0)]), stockFull, opts), /after the boot signature/);
   await assert.rejects(checkPatchedBoot(signed(bootPayload(stockRamdisk)), stockFull, opts), /stock ramdisk/);
   const otherHeader = bootPayload(patchedRamdisk);
   otherHeader.set(text('console=ttyMSM0'), 64);
-  await assert.rejects(checkPatchedBoot(signed(otherHeader), stockFull, opts), /header does not match/);
+  await assert.rejects(checkPatchedBoot(signed(otherHeader), stockFull, opts), /boot header doesn't match/);
   const forged = patchedSigned.slice();
   forged[forged.length - 10] ^= 0xff;
-  await assert.rejects(checkPatchedBoot(forged, stockFull, opts), /does not verify/);
+  await assert.rejects(checkPatchedBoot(forged, stockFull, opts), /Boot signature verification failed/);
 });
 
 const backups = `${homedir()}/Documents/wave-phone-backups/8516067e/`;
@@ -205,8 +205,8 @@ test('the writer refuses before writing when boot is not the backup, or the imag
   await assert.rejects(writer.writeBoot(patchedSigned, { current: stockFull, certSha256: testCert }),
     error => error instanceof WriteCheckError && !error.written && /Nothing was written/.test(error.message));
   assert.equal(writer.touched, false);
-  await assert.rejects(writer.writeBoot(patchedSigned, { certSha256: testCert }), /only over the stock image/);
-  await assert.rejects(writer.writeBoot(bootPayload(patchedRamdisk), { current: other, certSha256: testCert }), /not signed/);
+  await assert.rejects(writer.writeBoot(patchedSigned, { certSha256: testCert }), /only be written over the stock image/);
+  await assert.rejects(writer.writeBoot(bootPayload(patchedRamdisk), { current: other, certSha256: testCert }), /Boot image is unsigned/);
   assert.ok(device.sent.every(xml => !xml.includes('<program')));
   await writer.reset();
 });
@@ -317,7 +317,7 @@ test('patching stops on a bad signature verdict or an image that is not a patch 
   unrelatedPayload.set(text('console=ttyMSM0'), 64);
   const unrelated = signed(unrelatedPayload);
   const phone = fakePhone({ signedImage: unrelated });
-  await assert.rejects(patchOnPhone(phone, { stock: stockFull, apk: magiskApk, certSha256: testCert }), /header does not match/);
+  await assert.rejects(patchOnPhone(phone, { stock: stockFull, apk: magiskApk, certSha256: testCert }), /boot header doesn't match/);
   assert.equal(phone.commands.at(-1), `rm -rf ${workDir}`, 'the work folder is removed after a failure too');
 });
 

@@ -42,7 +42,7 @@ class Stream {
     return packet;
   }
   async #bufferWrite(payload) {
-    if (this.buffer.length + payload.length > maxOutput + maxData) throw new Error('ADB output exceeds the receive buffer limit.');
+    if (this.buffer.length + payload.length > maxOutput + maxData) throw new Error('ADB output exceeds the buffer limit.');
     const combined = new Uint8Array(this.buffer.length + payload.length);
     combined.set(this.buffer);
     combined.set(payload, this.buffer.length);
@@ -54,7 +54,7 @@ class Stream {
       while (true) {
         const packet = await this.receive();
         if (packet.command === 'OKAY') break;
-        if (packet.command !== 'WRTE') throw new Error('ADB stream closed before acknowledging data.');
+        if (packet.command !== 'WRTE') throw new Error('ADB stream closed before data was acknowledged.');
         await this.#bufferWrite(packet.payload);
       }
     }
@@ -75,7 +75,7 @@ class Stream {
     const bytes = new Uint8Array(size);
     for (let at = 0; at < size;) {
       const part = await this.next();
-      if (!part) throw new Error('ADB stream closed prematurely.');
+      if (!part) throw new Error('ADB stream closed too early.');
       const count = Math.min(part.length, size - at);
       bytes.set(part.subarray(0, count), at);
       this.buffer = part.subarray(count);
@@ -84,7 +84,7 @@ class Stream {
     return bytes;
   }
   async drain() {
-    if (await this.next() !== null) throw new Error('ADB service returned unexpected trailing data.');
+    if (await this.next() !== null) throw new Error('ADB service returned unexpected extra data.');
   }
 }
 
@@ -124,7 +124,7 @@ export class Adb {
           adb.#checksum = packet.arg0 < version;
           adb.payloadLimit = Math.min(packet.arg1, maxData);
           const banner = decode(packet.payload).replace(/\0$/, '');
-          if (!banner.startsWith('device::')) throw new Error('Expected Android in normal device mode.');
+          if (!banner.startsWith('device::')) throw new Error('Device should be in normal Android mode.');
           const features = /(?:^|[;:])features=([^;]*)/.exec(banner)?.[1];
           adb.features = new Set(features?.split(','));
           adb.#connected = true;
@@ -143,7 +143,7 @@ export class Adb {
           offered = true;
           onAuthorization?.();
           await adb.write('AUTH', AUTH_RSAPUBLICKEY, 0, credential.publicKey);
-        } else throw new Error('The phone did not authorize USB debugging.');
+        } else throw new Error('USB debugging is not authorized on the phone.');
       }
     } catch (error) {
       await adb.close();
@@ -207,7 +207,7 @@ export class Adb {
     }
   }
   async shell(command, limit = maxOutput, timeoutMs) {
-    if (!this.features.has('shell_v2')) throw new Error('Phone does not report shell_v2; cannot check the exit status.');
+    if (!this.features.has('shell_v2')) throw new Error('Phone does not report shell_v2; cannot check exit status.');
     if (!command || text.encode(command).length > 2048 || command.includes('\0')) throw new Error('Invalid ADB shell command.');
     return this.runService(`shell,v2,raw:${command}`, async stream => {
       let code, total = 0;

@@ -60,7 +60,7 @@ export function adbCredential(jwk) {
   return {
     publicKey: encoder.encode(`${btoa(String.fromCharCode(...structure))} wave-browser@webusb\0`),
     sign(token) {
-      if (token.length !== 20) throw new Error('Invalid ADB AUTH token size.');
+      if (token.length !== 20) throw new Error('Invalid ADB auth token size.');
       const padded = new Uint8Array(width).fill(255);
       padded[0] = 0;
       padded[1] = 1;
@@ -71,7 +71,7 @@ export function adbCredential(jwk) {
       const r = 2n + integer(crypto.getRandomValues(new Uint8Array(width))) % (n - 2n);
       const blinded = m * power(r, e, n) % n;
       const signed = power(blinded, d, n) * inverse(r, n) % n;
-      if (power(signed, e, n) !== m) throw new Error('ADB AUTH signing failed.');
+      if (power(signed, e, n) !== m) throw new Error('ADB auth signing failed.');
       const signature = new Uint8Array(width);
       littleEndian(signed, signature);
       return signature.reverse();

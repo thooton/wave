@@ -39,13 +39,13 @@ export class FirehoseChannel {
       const end = this.#xml.indexOf('</data>');
       if (end < 0) {
         this.#xml += this.#decoder.decode(await this.#link.read(4096, timeoutMs), { stream: true }).replaceAll('\0', '');
-        if (this.#xml.length > 16384) throw new Error('Oversized Firehose XML response.');
+        if (this.#xml.length > 16384) throw new Error('Firehose XML response is too large.');
         continue;
       }
       const message = this.#xml.slice(0, end + 7).trim();
       this.#xml = this.#xml.slice(end + 7);
       const root = /^(?:<\?xml\s+[^<>]+\?>\s*)?<data>([\s\S]*)<\/data>$/.exec(message);
-      if (!root) throw new Error('Malformed Firehose XML document.');
+      if (!root) throw new Error('Malformed Firehose XML.');
       let content = root[1].trim();
       let response;
       while (content) {
@@ -59,7 +59,7 @@ export class FirehoseChannel {
         content = content.slice(element[0].length).trimStart();
       }
       if (configureLog) {
-        if (response || !logs.some(line => line.startsWith('logbuf@'))) throw new Error('Expected the MSM8909 post-configure log.');
+        if (response || !logs.some(line => line.startsWith('logbuf@'))) throw new Error('Expected MSM8909 post-configure log.');
         return { logs };
       }
       if (response) {
@@ -69,13 +69,13 @@ export class FirehoseChannel {
         return { response, logs };
       }
     }
-    throw new Error('No bounded Firehose response was received.');
+    throw new Error('No bounded Firehose response received.');
   }
 
   get idle() { return !this.#xml.trim(); }
 
   async exclusive(action) {
-    if (this.#busy) throw new Error('A Firehose operation is already running.');
+    if (this.#busy) throw new Error('Firehose operation already running.');
     this.#busy = true;
     try { return await action(); }
     catch (error) { await this.#link.close(); throw error; }
@@ -101,7 +101,7 @@ export class FirehoseChannel {
     this.header = readGptHeader(await this.readSectors(1, 1));
     await this.#link.write(xml('<getstorageinfo physical_partition_number="0"/>'));
     const { logs } = await this.response();
-    if (!logs.includes('SECTOR_SIZE_IN_BYTES=512')) throw new Error('The target did not report 512-byte sectors.');
+    if (!logs.includes('SECTOR_SIZE_IN_BYTES=512')) throw new Error('Target did not report 512-byte sectors.');
   }
 
   async readSectors(start, count, onProgress) {
@@ -143,12 +143,12 @@ export class FirehoseBootReader {
   }
 
   async readGpt() {
-    if (!this.#configured) throw new Error('Firehose eMMC has not been configured.');
+    if (!this.#configured) throw new Error('Firehose eMMC not configured.');
     return this.#channel.exclusive(() => this.#channel.layout());
   }
 
   async readBoot(onProgress) {
-    if (!this.#configured) throw new Error('Firehose eMMC has not been configured.');
+    if (!this.#configured) throw new Error('Firehose eMMC not configured.');
     return this.#channel.exclusive(async () => {
       // The only storage reads exposed by this tool are the GPT and boot.
       const { boot: { start, sectors } } = await this.#channel.layout();
@@ -159,7 +159,7 @@ export class FirehoseBootReader {
   }
 
   async reset() {
-    if (!this.#configured) throw new Error('Firehose eMMC has not been configured.');
+    if (!this.#configured) throw new Error('Firehose eMMC not configured.');
     await this.#channel.reset();
   }
 }
