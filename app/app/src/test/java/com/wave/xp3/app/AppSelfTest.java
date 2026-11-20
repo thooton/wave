@@ -350,11 +350,8 @@ public final class AppSelfTest {
         check.same("not without an error", null, Pages.sourcesEmpty(snapshot(null, Collections.singletonList(never), none, none)));
         check.same("not when something was read", null, Pages.sourcesEmpty(
             snapshot("x", Collections.singletonList(src("f", false, null, false, 9, 2)), none, none)));
-        check.same("bar: refreshing shows the spinner", Pages.BarState.SPINNING, Pages.sourcesBar(refreshing));
-        check.same("bar: the error's Try Again is the refresh", Pages.BarState.NO_REFRESH, Pages.sourcesBar(loading));
-        check.same("bar: otherwise Refresh", Pages.BarState.REFRESH, Pages.sourcesBar(snapshot(null, Collections.singletonList(never), none, none)));
-        check.same("bar: an error with something read still refreshes", Pages.BarState.REFRESH,
-            Pages.sourcesBar(snapshot("x", Collections.singletonList(src("f", false, null, false, 9, 2)), none, none)));
+        check.ok("bar: show the spinner while a source refreshes", Pages.anyRefreshing(refreshing));
+        check.ok("bar: no spinner when no source is refreshing", !Pages.anyRefreshing(loading));
 
         check.same("row: refreshing wins over an error", "MUTED:Refreshing…", Pages.sourceRow(src("a", true, "Bad.", false, 0, 0)).toString());
         check.same("row: an error wins over a newer format", "RED:Bad.", Pages.sourceRow(src("a", false, "Bad.", true, 0, 0)).toString());
@@ -491,10 +488,29 @@ public final class AppSelfTest {
         check.same("line: an update shows the change", "MUTED:1.0 → 2.0", Pages.confirmLine(item(b, null, WaveData.Action.UPDATE), false).toString());
         check.same("line: an install shows the version", "MUTED:2.0", Pages.confirmLine(item(a, null, WaveData.Action.GET), false).toString());
         check.same("line: an update with no installed version", "MUTED:2.0", Pages.confirmLine(item(new Edit(b) {{ installed = null; }}.build(), null, WaveData.Action.UPDATE), false).toString());
-        check.same("summary: size", "4.1 MB to download", Pages.confirmSummary(new PlanView(Collections.emptyList(), 4_107_233, false, null)));
-        check.same("summary: size and reboot", "4.1 MB to download, then a reboot", Pages.confirmSummary(new PlanView(Collections.emptyList(), 4_107_233, true, null)));
-        check.same("summary: reboot only", "Needs a reboot", Pages.confirmSummary(new PlanView(Collections.emptyList(), 0, true, null)));
-        check.same("summary: nothing", null, Pages.confirmSummary(new PlanView(Collections.emptyList(), 0, false, null)));
+        PlanView one = new PlanView(Arrays.asList(item(a, null, WaveData.Action.GET)), 4_107_233, false, null);
+        check.same("sheet: one install's title", "Install " + a.name + "?", Pages.confirmTitle(one));
+        check.same("sheet: its version under the title", "Version 2.0", Pages.confirmSub(one));
+        check.same("sheet: its facts are the download", "[TEXT:[4.1 MB] to download]", Pages.confirmFacts(one).toString());
+        check.ok("sheet: an install goes ahead in blue", !Pages.confirmDestroys(one));
+        PlanView pulled = new PlanView(Arrays.asList(item(a, null, WaveData.Action.GET), item(b, "Needed by " + a.name, WaveData.Action.GET),
+            item(c, "Replaced by " + a.name, WaveData.Action.REMOVE)), 0, true, null);
+        check.same("sheet: what comes along and goes is named, the reboot said", "[TEXT:Also installs [" + b.name + "], TEXT:Replaces [" + c.name + "], ORANGE:Needs a reboot to finish[]]",
+            Pages.confirmFacts(pulled).toString());
+        check.same("sheet: replacing is still an install", "Install", Pages.confirmVerb(pulled));
+        PlanView all = new PlanView(Arrays.asList(item(b, null, WaveData.Action.UPDATE), item(b, null, WaveData.Action.UPDATE),
+            item(a, "Needed by " + b.name, WaveData.Action.GET)), 0, false, null);
+        check.same("sheet: several updates", "Update 2 Packages?", Pages.confirmTitle(all));
+        check.same("sheet: no single version", null, Pages.confirmSub(all));
+        check.same("sheet: each listed, and what comes along says why", "[TEXT:[" + b.name + "] 1.0 → 2.0, TEXT:[" + b.name + "] 1.0 → 2.0, TEXT:Also installs [" + a.name + "], needed by " + b.name + "]",
+            Pages.confirmFacts(all).toString());
+        PlanView remove = new PlanView(Arrays.asList(item(c, null, WaveData.Action.REMOVE)), 0, true, null);
+        check.same("sheet: a removal", "Remove " + c.name + "?", Pages.confirmTitle(remove));
+        check.same("sheet: what is installed", "Version 1.0", Pages.confirmSub(remove));
+        check.ok("sheet: only removing is red and starts on Cancel", Pages.confirmDestroys(remove));
+        check.same("words: as shown", "Get", Pages.shownWord("GET"));
+        check.same("words: each word", "Turned Off", Pages.shownWord("TURNED OFF"));
+        check.same("words: Reboot Now is left alone", "Reboot Now", Pages.shownWord("Reboot Now"));
         PlanView mixed = new PlanView(Arrays.asList(item(a, null, WaveData.Action.GET), item(c, null, WaveData.Action.REMOVE)), 0, false, null);
         check.same("plan splits installs from removals", 1, mixed.install.size());
         check.same("and removals", 1, mixed.remove.size());

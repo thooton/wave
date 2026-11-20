@@ -193,7 +193,7 @@ final class Rows {
         private final ImageView icon;
         private final TextView name;
         private final TextView sub;
-        private final TextView capsule;
+        private final Kit.Link capsule;
         private final View chevron;
         private final TextView notes;
 
@@ -235,7 +235,7 @@ final class Rows {
             name.setText(p.name);
             sub.setText(line);
             String word = capsuleWord(app, p);
-            capsule.setText(word != null ? word : "");
+            capsule.setWord(word != null ? word : "");
             capsule.setVisibility(word != null ? VISIBLE : GONE);
             chevron.setVisibility(word != null ? GONE : VISIBLE);
             boolean hasNotes = Pages.hasNotes(p);
@@ -269,7 +269,7 @@ final class Rows {
         private final ImageView icon;
         private final TextView name;
         private final TextView sub;
-        private final TextView capsule;
+        private final Kit.Link capsule;
         private final View chevron;
 
         InstalledRow(WaveActivity app) {
@@ -299,7 +299,7 @@ final class Rows {
             sub.setText(line);
             sub.setTextColor(color);
             String word = Pages.installedCapsule(p, app::canOpen);
-            capsule.setText(word != null ? word : "");
+            capsule.setWord(word != null ? word : "");
             capsule.setVisibility(word != null ? VISIBLE : GONE);
             chevron.setVisibility(word != null ? GONE : VISIBLE);
             setHairline(!last);
@@ -356,7 +356,7 @@ final class Rows {
         return row;
     }
 
-    /** The Reboot row of Wave and Installed: a focus stop whose capsule is REBOOT. */
+    /** The Reboot row of Wave and Installed: a focus stop whose action is Reboot. */
     static Kit.Row reboot(WaveActivity app, String what) {
         Kit.Row row = new Kit.Row(app);
         row.setPadding(Kit.dp(app, 10), Kit.dp(app, 8), Kit.dp(app, 10), Kit.dp(app, 8));

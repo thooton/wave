@@ -122,7 +122,7 @@ final class AddSourceScreen extends Screen {
     }
 
     private void setNote(String error, boolean red) {
-        note.setText(error != null ? error : "The https:// address of a Git source");
+        note.setText(error != null ? error : "");
         note.setTextColor(red ? Look.RED : Look.MUTED);
         paintField();
     }

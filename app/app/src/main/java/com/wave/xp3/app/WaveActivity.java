@@ -61,6 +61,8 @@ public final class WaveActivity extends Activity {
     private String lastActionError;
     private final List<String> turnedOffShown = new ArrayList<>();
     private boolean dialogOpen;
+    /** The Confirm sheet while it is up. */
+    private ConfirmSheet confirming;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -122,6 +124,7 @@ public final class WaveActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (confirming != null) confirming.dismiss();
         content.removeCallbacks(applyChange);
         data.unlisten(onChanged);
         data.close();
@@ -183,9 +186,7 @@ public final class WaveActivity extends Activity {
     }
 
     private void dressBar(Screen screen) {
-        // Redressing takes the links and the search field off the bar and puts
-        // them back; whichever had the focus gets it back, so news arriving
-        // while the user types or sits on Add doesn't move them.
+        // Redressing reattaches the search field. Restore its focus if the user was typing.
         View focus = getCurrentFocus();
         boolean inBar = focus != null && isInside(focus, bar);
         bar.clear();
@@ -198,7 +199,7 @@ public final class WaveActivity extends Activity {
         }
     }
 
-    /** Redraws the bar of the screen showing (its links changed). */
+    /** Redraws the bar of the screen showing. */
     void redressBar() {
         if (showing != null) dressBar(showing);
     }
@@ -235,11 +236,10 @@ public final class WaveActivity extends Activity {
         show();
     }
 
-    /** Swaps the top overlay screen for `screen` (Confirm becomes Installing). */
-    void replaceOverlay(Screen screen) {
-        if (!overlay.isEmpty()) overlay.remove(overlay.size() - 1);
-        overlay.add(screen);
-        show();
+    /** The Confirm sheet's action was pressed: the plan starts and its screen opens. */
+    void confirmed(WaveData.PlanView plan) {
+        data.confirm(plan);
+        if (find(QueueScreen.class) == null) push(new QueueScreen(this));
     }
 
     void openTab(int which) {
@@ -272,7 +272,7 @@ public final class WaveActivity extends Activity {
         tabBar.setBadge(snapshot.updates.size());
 
         // A queue already working (Wave reopened while it runs) gets its screen back.
-        if (snapshot.queue != null && !snapshot.queue.finished && find(QueueScreen.class) == null && find(ConfirmScreen.class) == null) {
+        if (snapshot.queue != null && !snapshot.queue.finished && find(QueueScreen.class) == null && confirming == null) {
             overlay.add(new QueueScreen(this));
             show();
             return;
@@ -376,7 +376,7 @@ public final class WaveActivity extends Activity {
 
     /** Works out what doing `action` to `ids` takes, then shows the confirm (or why it can't). */
     void plan(List<String> ids, final WaveData.Action action) {
-        if (find(ConfirmScreen.class) != null) return;
+        if (confirming != null) return;
         data.plan(ids, action, new WaveData.Result<WaveData.PlanView>() {
             @Override
             public void ok(WaveData.PlanView plan) {
@@ -384,8 +384,12 @@ public final class WaveActivity extends Activity {
                     alert(action == WaveData.Action.REMOVE ? "Can't Remove" : "Can't Install", plan.refusal);
                     return;
                 }
-                if (find(ConfirmScreen.class) != null || find(QueueScreen.class) != null) return;
-                push(new ConfirmScreen(WaveActivity.this, plan));
+                if (confirming != null || find(QueueScreen.class) != null) return;
+                final ConfirmSheet sheet = new ConfirmSheet(WaveActivity.this, plan);
+                confirming = sheet;
+                sheet.show(() -> {
+                    if (confirming == sheet) confirming = null;
+                });
             }
 
             @Override
@@ -449,20 +453,9 @@ public final class WaveActivity extends Activity {
         Screen screen = top();
         if (screen.onKey(event)) return true;
         int key = event.getKeyCode();
-        // Up from the top row goes to the bar's link (Add, Update All), the right one first.
-        if (key == KeyEvent.KEYCODE_DPAD_UP && bar.getVisibility() == View.VISIBLE) {
-            View focus = getCurrentFocus();
-            TextView link = bar.upTarget();
-            if (link != null && focus != null && focus.getParent() != bar && screen.atTop(focus)) {
-                if (event.getAction() == KeyEvent.ACTION_DOWN) link.requestFocus();
-                return true;
-            }
-        }
         if ((key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT)
             && !screen.modal() && !screen.bare() && overlay.isEmpty()) {
-            View focus = getCurrentFocus();
-            boolean onBarLink = focus != null && focus.getParent() == bar;
-            if (!onBarLink && !screen.ownsLeftRight(focus)) {
+            if (!screen.ownsLeftRight(getCurrentFocus())) {
                 if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
                     openTab(key == KeyEvent.KEYCODE_DPAD_LEFT ? (tab + 3) % 4 : (tab + 1) % 4);
                 }

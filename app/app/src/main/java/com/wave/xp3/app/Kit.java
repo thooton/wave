@@ -145,33 +145,105 @@ final class Kit {
     }
 
     /**
-     * The App Store's capsule (GET, UPDATE, OPEN): blue on grey, filled blue
-     * with white text while its row is focused, which is how the screen says
-     * OK presses it. `alwaysPressed` draws it filled regardless (a details
-     * page, where it is the one thing OK does); `off` greys it.
+     * Wave's action, drawn as a word rather than a button: black at rest; while
+     * it is selected (focused, or its row is), bold and underlined, in blue to
+     * go ahead or in red to back out or destroy (Cancel, Later, Remove). The
+     * width is the bold word's, so selecting it moves nothing.
      */
-    static TextView capsule(Context c, String word, boolean alwaysPressed, boolean off) {
-        TextView cap = Look.text(c, word, 11.5f, Look.BLUE, Look.BOLD);
-        cap.setGravity(Gravity.CENTER);
-        cap.setSingleLine(true);
-        cap.setMinWidth(dp(c, 56));
-        cap.setPadding(dp(c, 10), 0, dp(c, 10), 0);
-        float r = dp(c, 11);
-        if (off) {
-            cap.setBackground(Look.rounded(Look.PILL, r));
-            cap.setTextColor(Look.OFF_TEXT);
-        } else if (alwaysPressed) {
-            cap.setBackground(Look.rounded(Look.BLUE, r));
-            cap.setTextColor(0xFFFFFFFF);
-        } else {
-            StateListDrawable bg = new StateListDrawable();
-            bg.addState(FOCUSED, Look.rounded(Look.BLUE, r));
-            bg.addState(new int[0], Look.rounded(Look.PILL, r));
-            cap.setBackground(bg);
-            cap.setTextColor(new ColorStateList(new int[][]{FOCUSED, new int[0]}, new int[]{0xFFFFFFFF, Look.BLUE}));
-            cap.setDuplicateParentStateEnabled(true);
+    static final class Link extends TextView {
+        private final boolean negative;
+        private final Paint underline = new Paint();
+        private final Paint boldPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private boolean always, off, on, ready;
+
+        Link(Context c, String word, float sp, boolean negative) {
+            super(c);
+            this.negative = negative;
+            setText(word);
+            setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, sp);
+            setIncludeFontPadding(false);
+            setSingleLine(true);
+            setGravity(Gravity.CENTER);
+            // Room under the baseline for the underline, and as much above so the word stays centred.
+            setPadding(0, dp(c, 7), 0, dp(c, 7));
+            if (android.os.Build.VERSION.SDK_INT >= 26) setDefaultFocusHighlightEnabled(false);
+            ready = true;
+            paint();
         }
-        cap.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(c, 22)));
+
+        /** Drawn selected whatever the focus (a details page, where it is the one thing OK does). */
+        Link always() {
+            always = true;
+            paint();
+            return this;
+        }
+
+        /** Greyed: this phone can't take it, and OK does nothing. */
+        Link off() {
+            off = true;
+            paint();
+            return this;
+        }
+
+        /** Shows a capsule's word ("UPDATE") as the screen spells it ("Update"). */
+        void setWord(String word) {
+            setText(Pages.shownWord(word));
+        }
+
+        @Override
+        protected void drawableStateChanged() {
+            super.drawableStateChanged();
+            if (ready) paint();
+        }
+
+        private void paint() {
+            boolean focused = false;
+            for (int s : getDrawableState()) if (s == android.R.attr.state_focused) focused = true;
+            boolean now = !off && (always || focused);
+            setTextColor(off ? Look.OFF_TEXT : now ? (negative ? Look.RED : Look.BLUE) : Look.TEXT);
+            android.graphics.Typeface face = now ? Look.BOLD : Look.MEDIUM;
+            if (getTypeface() != face) setTypeface(face);
+            if (now != on) {
+                on = now;
+                invalidate();
+            }
+        }
+
+        @Override
+        protected void onMeasure(int widthSpec, int heightSpec) {
+            super.onMeasure(widthSpec, heightSpec);
+            if (MeasureSpec.getMode(widthSpec) == MeasureSpec.EXACTLY) return;
+            boldPaint.set(getPaint());
+            boldPaint.setTypeface(Look.BOLD);
+            int bold = (int) Math.ceil(boldPaint.measureText(getText().toString())) + getCompoundPaddingLeft() + getCompoundPaddingRight();
+            if (MeasureSpec.getMode(widthSpec) == MeasureSpec.AT_MOST) bold = Math.min(bold, MeasureSpec.getSize(widthSpec));
+            if (bold > getMeasuredWidth()) setMeasuredDimension(bold, getMeasuredHeight());
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            if (!on || getLayout() == null || getText().length() == 0) return;
+            float left = getCompoundPaddingLeft() + getLayout().getLineLeft(0);
+            float right = getCompoundPaddingLeft() + getLayout().getLineRight(0);
+            float top = getBaseline() + dp(getContext(), 3);
+            underline.setColor(getCurrentTextColor());
+            canvas.drawRect(left, top, right, top + dp(getContext(), 3), underline);
+        }
+    }
+
+    /**
+     * A package's action in a row or on its details page (GET, UPDATE, OPEN,
+     * REBOOT): selected while its row is focused, which is how the screen says
+     * OK presses it. `always` draws it selected regardless (a details page);
+     * `off` greys it.
+     */
+    static Link capsule(Context c, String word, boolean always, boolean off) {
+        Link cap = new Link(c, Pages.shownWord(word), 13, false);
+        if (off) cap.off();
+        else if (always) cap.always();
+        else cap.setDuplicateParentStateEnabled(true);
+        cap.setLayoutParams(wrap());
         return cap;
     }
 
@@ -203,22 +275,14 @@ final class Kit {
     }
 
     /**
-     * A wide button (the foot's, a message screen's): blue on grey, filled
-     * while focused; `red` for a destructive one.
+     * A focus stop of its own (the foot's, a message screen's, the sheet's):
+     * a {@link Link} at 15sp; `negative` for one that backs out or destroys,
+     * red while selected.
      */
-    static TextView button(Context c, String text, boolean red) {
-        TextView b = Look.text(c, text, 14, red ? Look.RED : Look.BLUE, Look.MEDIUM);
-        b.setGravity(Gravity.CENTER);
-        b.setSingleLine(true);
+    static Link button(Context c, String text, boolean negative) {
+        Link b = new Link(c, text, 15, negative);
         b.setFocusable(true);
         b.setClickable(true);
-        b.setPadding(dp(c, 14), 0, dp(c, 14), 0);
-        float r = dp(c, 9);
-        StateListDrawable bg = new StateListDrawable();
-        bg.addState(FOCUSED, Look.rounded(red ? Look.RED : Look.BLUE, r));
-        bg.addState(new int[0], Look.rounded(Look.PILL, r));
-        b.setBackground(bg);
-        b.setTextColor(new ColorStateList(new int[][]{FOCUSED, new int[0]}, new int[]{0xFFFFFFFF, red ? Look.RED : Look.BLUE}));
         return b;
     }
 
@@ -257,13 +321,20 @@ final class Kit {
             summary.setVisibility(text == null ? GONE : VISIBLE);
         }
 
-        /** Replaces the buttons; returns them in order. */
+        /**
+         * Replaces the buttons; returns them in order. One is centred; two
+         * stand at either end, the way back on the left. A label starting
+         * "!" backs out or destroys (red while selected).
+         */
         TextView[] setButtons(String... labels) {
             buttons.removeAllViews();
             TextView[] out = new TextView[labels.length];
             for (int i = 0; i < labels.length; i++) {
                 boolean red = labels[i].startsWith("!");
                 out[i] = button(getContext(), red ? labels[i].substring(1) : labels[i], red);
+                if (labels.length > 1) {
+                    out[i].setGravity(Gravity.CENTER_VERTICAL | (i == 0 ? Gravity.START : i == labels.length - 1 ? Gravity.END : Gravity.CENTER_HORIZONTAL));
+                }
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
                 if (i > 0) lp.leftMargin = dp(getContext(), 8);
                 buttons.addView(out[i], lp);

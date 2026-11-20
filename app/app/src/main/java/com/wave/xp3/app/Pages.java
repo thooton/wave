@@ -121,14 +121,6 @@ final class Pages {
         return s.firstLoadError != null && nothingFetched(s) && !anyRefreshing(s) ? error(s.firstLoadError) : null;
     }
 
-    enum BarState { SPINNING, REFRESH, NO_REFRESH }
-
-    /** The Sources bar's left link: a spinner while refreshing; none when the page's Try Again is the refresh. */
-    static BarState sourcesBar(Snapshot s) {
-        if (anyRefreshing(s)) return BarState.SPINNING;
-        return s.firstLoadError != null && nothingFetched(s) ? BarState.NO_REFRESH : BarState.REFRESH;
-    }
-
     /** The line under a source on the Sources tab. */
     static Line sourceRow(Src src) {
         if (src.refreshing) return new Line("Refreshing…", Tone.MUTED);
@@ -329,12 +321,109 @@ final class Pages {
         return new Line(p.version, Tone.MUTED);
     }
 
-    /** The foot of the confirm: the download and whether a reboot follows; null for neither. */
-    static String confirmSummary(WaveData.PlanView plan) {
+    /**
+     * An action's word as the screen shows it: "GET" is "Get", "TURNED OFF"
+     * is "Turned Off". The words themselves (Actions, stateWord) stay in
+     * capitals, as the tests and menus know them.
+     */
+    static String shownWord(String word) {
+        if (word == null) return null;
+        StringBuilder b = new StringBuilder(word.length());
+        boolean start = true;
+        for (char ch : word.toCharArray()) {
+            b.append(start ? Character.toUpperCase(ch) : Character.toLowerCase(ch));
+            start = ch == ' ';
+        }
+        return b.toString();
+    }
+
+    /** What the user asked for in a plan: the items no other item pulled in. */
+    static List<WaveData.PlanItem> confirmAsked(WaveData.PlanView plan) {
+        List<WaveData.PlanItem> asked = new ArrayList<>();
+        for (WaveData.PlanItem item : plan.items) if (item.reason == null) asked.add(item);
+        return asked.isEmpty() ? plan.items : asked;
+    }
+
+    /** The sheet's main action: Install, Update, Reinstall or Remove. */
+    static String confirmVerb(WaveData.PlanView plan) {
+        List<WaveData.PlanItem> asked = confirmAsked(plan);
+        for (WaveData.PlanItem item : asked) if (item.action != WaveData.Action.REMOVE) {
+            List<WaveData.PlanItem> going = new ArrayList<>();
+            for (WaveData.PlanItem a : asked) if (a.action != WaveData.Action.REMOVE) going.add(a);
+            return confirmHeading(going, false);
+        }
+        return "Remove";
+    }
+
+    /** Whether the sheet's action only takes things away: then it is red and the focus starts on Cancel. */
+    static boolean confirmDestroys(WaveData.PlanView plan) {
+        return "Remove".equals(confirmVerb(plan));
+    }
+
+    /** "Install Canvas?", "Update 3 Packages?". */
+    static String confirmTitle(WaveData.PlanView plan) {
+        List<WaveData.PlanItem> asked = confirmAsked(plan);
+        String what = asked.size() == 1 ? asked.get(0).pkg.name : asked.size() + " Packages";
+        return confirmVerb(plan) + " " + what + "?";
+    }
+
+    /** The grey line under the title of a one-package sheet: the version, or the change of version. */
+    static String confirmSub(WaveData.PlanView plan) {
+        List<WaveData.PlanItem> asked = confirmAsked(plan);
+        if (asked.size() != 1) return null;
+        WaveData.PlanItem item = asked.get(0);
+        Pkg p = item.pkg;
+        if (item.action == WaveData.Action.REMOVE) {
+            return "Version " + (p.installedVersion != null ? p.installedVersion : p.version);
+        }
+        if (item.action == WaveData.Action.UPDATE && p.installedVersion != null) return p.installedVersion + " → " + p.version;
+        return "Version " + p.version;
+    }
+
+    /** One line of the sheet: plain text around a package name (or size) drawn heavier. */
+    static final class Fact {
+        final String before, name, after;
+        final Tone tone;
+
+        Fact(String before, String name, String after, Tone tone) {
+            this.before = before;
+            this.name = name;
+            this.after = after;
+            this.tone = tone;
+        }
+
+        @Override
+        public String toString() {
+            return tone + ":" + before + "[" + name + "]" + after;
+        }
+    }
+
+    /**
+     * What the sheet says between its title and its actions: each package
+     * asked for when there are several, what comes along or goes and why,
+     * the download, and whether a reboot follows.
+     */
+    static List<Fact> confirmFacts(WaveData.PlanView plan) {
+        List<Fact> facts = new ArrayList<>();
+        List<WaveData.PlanItem> asked = confirmAsked(plan);
+        boolean one = asked.size() == 1;
+        if (!one) {
+            for (WaveData.PlanItem item : asked) {
+                boolean removing = item.action == WaveData.Action.REMOVE;
+                facts.add(new Fact("", item.pkg.name, " " + confirmLine(item, removing).text, Tone.TEXT));
+            }
+        }
+        for (WaveData.PlanItem item : plan.items) {
+            if (asked.contains(item)) continue;
+            boolean removing = item.action == WaveData.Action.REMOVE;
+            String why = item.reason == null ? "" : ", " + Character.toLowerCase(item.reason.charAt(0)) + item.reason.substring(1);
+            if (removing) facts.add(one ? new Fact("Replaces ", item.pkg.name, "", Tone.TEXT) : new Fact("Removes ", item.pkg.name, why, Tone.TEXT));
+            else facts.add(new Fact("Also installs ", item.pkg.name, one ? "" : why, Tone.TEXT));
+        }
         String size = Format.size(plan.downloadBytes);
-        String summary = size != null ? size + " to download" : null;
-        if (plan.needsReboot) summary = summary != null ? summary + ", then a reboot" : "Needs a reboot";
-        return summary;
+        if (size != null) facts.add(new Fact("", size, " to download", Tone.TEXT));
+        if (plan.needsReboot) facts.add(new Fact("Needs a reboot to finish", "", "", Tone.ORANGE));
+        return facts;
     }
 
     enum Right { NONE, TICK, SPINNER }

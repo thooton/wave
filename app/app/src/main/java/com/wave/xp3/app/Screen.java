@@ -41,7 +41,7 @@ abstract class Screen {
     /** Shows `snapshot`; called after build and on every change while showing. */
     void update(WaveData.Snapshot snapshot) {}
 
-    /** Puts what this screen has on the bar beyond title and Back (links, field, spinner). */
+    /** Puts what this screen has on the bar beyond title and Back (field or spinner). */
     void bar(Bar bar) {}
 
     /** Modal screens hide the tab bar and keep Left/Right. */
@@ -78,11 +78,6 @@ abstract class Screen {
     /** The focus stop to start on; with a list, null means its first row. */
     View firstFocus() {
         return feed != null ? null : firstFocusable(view);
-    }
-
-    /** Whether `focus` is the page's first stop, from which Up goes to the bar. */
-    boolean atTop(View focus) {
-        return feed != null ? feed.atTop(focus) : focus == firstFocusable(view);
     }
 
     /** Puts the focus back on the stop with {@link #focusKey}, or the first; false when the page has none. */

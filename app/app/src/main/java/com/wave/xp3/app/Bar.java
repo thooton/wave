@@ -13,9 +13,8 @@ import android.widget.TextView;
 /**
  * The bar under the status bar, as the Updater's: near-white, a grey hairline
  * under it, the title centred. On the left, Back's target named in blue with
- * a chevron (never a focus stop: Back does it), or a link, or the spinner of
- * a refresh in progress; on the right, a link. A link (Refresh, Add, Update
- * All) is blue text, and fills blue with white text while the d-pad is on it.
+ * a chevron (never a focus stop: Back does it), or the spinner of a refresh
+ * in progress. In Search, the field takes the title's place.
  *
  * The title is centred on the screen and as wide as the sides leave it, as
  * iOS lays out a navigation bar. A Back name over 9 characters reads "Back".
@@ -25,8 +24,6 @@ final class Bar extends FrameLayout {
     private final float d;
     private final TextView title;
     private final TextView back;
-    private final TextView left;
-    private final TextView right;
     private final Ring spinner;
     private final Paint rule = new Paint();
     private View field;
@@ -53,36 +50,11 @@ final class Bar extends FrameLayout {
         bl.leftMargin = Math.round(4 * d);
         addView(back, bl);
 
-        left = link(context);
-        LayoutParams ll = new LayoutParams(LayoutParams.WRAP_CONTENT, Math.round(20 * d), Gravity.LEFT | Gravity.CENTER_VERTICAL);
-        ll.leftMargin = Math.round(4 * d);
-        addView(left, ll);
-
-        right = link(context);
-        LayoutParams rl = new LayoutParams(LayoutParams.WRAP_CONTENT, Math.round(20 * d), Gravity.RIGHT | Gravity.CENTER_VERTICAL);
-        rl.rightMargin = Math.round(4 * d);
-        addView(right, rl);
-
         spinner = Ring.spinner(context);
         LayoutParams sl = new LayoutParams(Math.round(14 * d), Math.round(14 * d), Gravity.LEFT | Gravity.CENTER_VERTICAL);
         sl.leftMargin = Math.round(10 * d);
         addView(spinner, sl);
         clear();
-    }
-
-    private TextView link(Context context) {
-        TextView view = Look.text(context, "", 13, Look.BLUE, Look.REGULAR);
-        view.setSingleLine(true);
-        view.setGravity(Gravity.CENTER);
-        view.setPadding(Math.round(6 * d), 0, Math.round(6 * d), 0);
-        // Filled blue with white text while the d-pad is on it.
-        android.graphics.drawable.StateListDrawable bg = new android.graphics.drawable.StateListDrawable();
-        bg.addState(Kit.FOCUSED, Look.rounded(Look.BLUE, 9 * d));
-        bg.addState(new int[0], new android.graphics.drawable.ColorDrawable(0));
-        view.setBackground(bg);
-        view.setClickable(true);
-        view.setFocusable(false);
-        return view;
     }
 
     @Override
@@ -98,9 +70,7 @@ final class Bar extends FrameLayout {
         int side = Math.round(10 * d);
         int gap = Math.round(6 * d);
         if (back.getVisibility() == VISIBLE) side = Math.max(side, back.getRight() + gap);
-        if (left.getVisibility() == VISIBLE) side = Math.max(side, left.getRight() + gap);
         if (spinner.getVisibility() == VISIBLE) side = Math.max(side, spinner.getRight() + gap);
-        if (right.getVisibility() == VISIBLE) side = Math.max(side, width - right.getLeft() + gap);
         int barH = Math.round(Look.BAR_HEIGHT * d);
         int titleW = Math.max(0, width - 2 * side);
         title.measure(MeasureSpec.makeMeasureSpec(titleW, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(barH, MeasureSpec.EXACTLY));
@@ -138,12 +108,6 @@ final class Bar extends FrameLayout {
     void clear() {
         title.setText("");
         back.setVisibility(GONE);
-        left.setVisibility(GONE);
-        right.setVisibility(GONE);
-        left.setFocusable(false);
-        right.setFocusable(false);
-        left.setOnClickListener(null);
-        right.setOnClickListener(null);
         spinner.setVisibility(GONE);
         if (field != null) {
             removeView(field);
@@ -165,40 +129,8 @@ final class Bar extends FrameLayout {
         back.setVisibility(VISIBLE);
     }
 
-    /** Puts a link on the left (0) or right (1); null removes it. A disabled one is grey and no focus stop. */
-    TextView setLink(int side, String text, boolean enabled) {
-        TextView view = side == 0 ? left : right;
-        if (text == null) {
-            view.setVisibility(GONE);
-            view.setFocusable(false);
-            return view;
-        }
-        view.setText(text);
-        view.setVisibility(VISIBLE);
-        view.setFocusable(enabled);
-        view.setTextColor(enabled
-            ? new android.content.res.ColorStateList(new int[][]{Kit.FOCUSED, new int[0]}, new int[]{0xFFFFFFFF, Look.BLUE})
-            : android.content.res.ColorStateList.valueOf(0xFFC4C4C9));
-        return view;
-    }
-
-    /** The link a d-pad Up from the top row lands on: the right one, else the left; null for none. */
-    TextView upTarget() {
-        if (right.getVisibility() == VISIBLE && right.isFocusable()) return right;
-        if (left.getVisibility() == VISIBLE && left.isFocusable()) return left;
-        return null;
-    }
-
-    TextView link(int side) {
-        return side == 0 ? left : right;
-    }
-
     void setSpinning(boolean on) {
         spinner.setVisibility(on ? VISIBLE : GONE);
-        if (on) {
-            left.setVisibility(GONE);
-            left.setFocusable(false);
-        }
     }
 
     /** Puts `view` (the search field) in the title's place. */

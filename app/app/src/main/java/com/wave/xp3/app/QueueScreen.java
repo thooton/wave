@@ -128,8 +128,8 @@ final class QueueScreen extends Screen {
     private void showFoot(boolean done, boolean reboot) {
         foot.setVisibility(View.VISIBLE);
         if (reboot) {
-            foot.setSummary("Changes start after a reboot");
-            buttons = foot.setButtons("Later", "Reboot Now");
+            foot.setSummary("Reboot required");
+            buttons = foot.setButtons("!Later", "Reboot Now");
             buttons[0].setOnClickListener(v -> leave());
             buttons[1].setOnClickListener(v -> app.data.reboot());
             buttons[1].requestFocus();

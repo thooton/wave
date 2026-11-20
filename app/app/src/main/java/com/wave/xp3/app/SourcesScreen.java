@@ -12,7 +12,7 @@ import com.wave.xp3.data.WaveData.Src;
 
 /**
  * The Sources tab: All Sources, then each source with its icon, name and
- * address; Refresh and Add on the bar (Up from the top row reaches them).
+ * address. Refresh Sources and Add a Source are in the menu.
  * A refreshing source says so; one that won't refresh says why in red. With
  * nothing fetched and no network, the Updater's message screen instead.
  */
@@ -40,11 +40,7 @@ final class SourcesScreen extends Screen {
 
     @Override
     void bar(Bar bar) {
-        // With nothing fetched and a failure, the page's Try Again is the refresh.
-        Pages.BarState state = Pages.sourcesBar(app.snapshot);
-        if (state == Pages.BarState.SPINNING) bar.setSpinning(true);
-        else if (state == Pages.BarState.REFRESH) bar.setLink(0, "Refresh", true).setOnClickListener(v -> app.data.refreshAll());
-        bar.setLink(1, "Add", true).setOnClickListener(v -> app.push(new AddSourceScreen(app)));
+        bar.setSpinning(refreshing());
     }
 
     static boolean nothingFetched(WaveData.Snapshot s) {

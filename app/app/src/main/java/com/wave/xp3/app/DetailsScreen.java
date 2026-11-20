@@ -20,8 +20,8 @@ import java.util.Collections;
  * capsule; lines for what to know (a mod needs a reboot, what it replaces,
  * why it can't be installed); the description; What's New; Information.
  *
- * The capsule is the page's one focus stop, so it is drawn pressed and OK
- * presses it wherever the page is scrolled; Up/Down scroll the page. Remove
+ * The action (Get, Update, Open) is the page's one focus stop, so it is drawn
+ * selected and OK presses it wherever the page is scrolled; Up/Down scroll the page. Remove
  * and Reinstall are in the menu only.
  */
 final class DetailsScreen extends Screen {
@@ -105,16 +105,17 @@ final class DetailsScreen extends Screen {
         if (word != null) {
             capLine.addView(Kit.capsule(app, word, !greyed, greyed));
         } else if (p.state != State.NONE) {
-            TextView done = Look.text(app, stateWord(p), 11.5f, Look.MUTED, Look.MEDIUM);
+            TextView done = Look.text(app, Pages.shownWord(stateWord(p)), 13, Look.MUTED, Look.MEDIUM);
+            done.setPadding(0, Kit.dp(app, 7), 0, Kit.dp(app, 7));
             capLine.addView(done);
         }
-        TextView after = Kit.line(app, afterText(p, d), 11.5f, Look.MUTED);
+        TextView after = Kit.line(app, afterText(p, d), 12, Look.MUTED);
         LinearLayout.LayoutParams al = Kit.wrap();
-        al.leftMargin = Kit.dp(app, word != null ? 6 : 0);
+        al.leftMargin = Kit.dp(app, word != null ? 10 : 0);
         if (word == null && p.state != State.NONE) al.leftMargin = Kit.dp(app, 6);
         capLine.addView(after, al);
         LinearLayout.LayoutParams cl = Kit.wrap();
-        cl.topMargin = Kit.dp(app, 7);
+        cl.topMargin = Kit.dp(app, 1);
         texts.addView(capLine, cl);
         LinearLayout.LayoutParams tl = Kit.weight();
         tl.leftMargin = Kit.dp(app, 10);

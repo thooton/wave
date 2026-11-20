@@ -9,9 +9,10 @@ import com.wave.xp3.data.WaveData.Pkg;
 import java.util.List;
 
 /**
- * Installed: the Updater's screen. Updates first (with what's new) and Update
- * All on the bar, then everything else under Up to Date. A Reboot row heads it
- * while a change waits for one. OK presses the row's capsule (UPDATE, OPEN);
+ * Installed: updates first (with what's new), then everything else under Up to
+ * Date. Update All is in the menu when multiple updates are available.
+ * A Reboot row heads the list while a change waits for one. OK presses the
+ * row's capsule (UPDATE, OPEN);
  * a row without one (a mod, Wave itself) opens its details.
  */
 final class InstalledScreen extends Screen {
@@ -30,11 +31,6 @@ final class InstalledScreen extends Screen {
     View build() {
         feed = new Feed(app);
         return feed.root;
-    }
-
-    @Override
-    void bar(Bar bar) {
-        if (!app.snapshot.updates.isEmpty()) bar.setLink(1, "Update All", true).setOnClickListener(v -> updateAll());
     }
 
     private void updateAll() {
