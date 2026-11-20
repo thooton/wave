@@ -263,3 +263,64 @@ picker route is reachable with the d-pad on every app (a stock phone's user can 
 import it without touching Android/data). What it does not prove: a real backend (the fake hosts
 do not resolve, so Mail and Canvas show offline messages afterwards), setup through "Type it in..." or a command
 center dialog, or any other phone; and a different picker (a phone whose Files app is not the stock one) is untested.
+
+## Soak (`soak.py`): hours of use, watched for leaks
+
+Not part of `suite.py` and never run by it. It installs a temporary debug Wave (no root, no fixture), walks it for
+hours and records its memory, then removes it. It changes no setting on the phone.
+
+**Battery.** It refuses to start under 50% (`--battery-start`), reads `dumpsys battery` before every cycle (level
+and temperature go into `samples.csv`) and stops, cleaning up, under 30% (`--battery-stop`). The screen is woken
+for each cycle's keys and turned off after it, and stays off while sampling. This is not optional caution: the
+first full run kept the screen on with `stay_on_while_plugged_in` and the CPU busy, and after about 15 minutes the
+phone fell off USB entirely and did not come back until someone was there to see to it. A drop off adb that comes
+back within 3 minutes (a USB blip; Wave keeps running on the phone through it) is ridden out, listed in the report
+and counted in `samples.csv`'s `adb_drops`; a longer one, or a sixth, stops the run and cleans up.
+
+    tools/qa/phone-run.sh --who "agentN Wave soak (~3 h)" --wait 1800 -- \
+        python3 tools/qa/soak.py [--commit REV | --apk APK] [--walks 200] [--churn 150] [--flips 300] [--every 20]
+
+The APK is `rooted/apk.py`'s debug build (built for `--commit`, `HEAD` by default; uncommitted changes are not in it):
+its built-in source is `https://localhost:4483/mods.git` through `adb reverse`, served by `soak.py` itself from a
+Git repository it writes under `--work` (68 packages in three sections). Three phases, keys sent with `sendevent` on
+the keypad's own input device:
+
+- **walk**: Home's featured package and back; Sources, the source, a section, a package, back out; Installed;
+  Search with a typed query, a result's details, back; Home.
+- **churn**: the same walk while the source changes: each cycle asks the source's menu for Refresh, and the server
+  answers 3 s late with a new commit (five versions, three icons, one package in and one out). Every tenth cycle
+  instead starts a 1.5 MB download that the server sends at about 160 KB/s and cuts half way (Wave resumes it with
+  a Range request); Back puts Wave in the background part way, it is brought back, and the download fails its
+  SHA-256 by design, so nothing is ever installed.
+- **flips**: Home and relaunch; every fifth cycle Back from Home instead, which finishes the Activity, so the next
+  launch builds a new one in the same process.
+
+Every `--every` cycles it forces two garbage collections (SIGUSR1 through `run-as`) and records `dumpsys meminfo`
+(PSS, USS as private dirty plus clean, Java and native heap size and allocated, graphics, Views, ViewRootImpl,
+Activities, AppContexts, binders), the thread count, RSS and open descriptors. The XP3 has no `procrank`, so meminfo's
+TOTAL stands in for it. At the end of each phase it takes a heap dump (`am dumpheap`) and `hprof.py` writes
+`heap-PHASE.txt`: what holds each `WaveActivity` (the shortest chain of strong references from a GC root, with the
+thread when the root is a stack) and instance counts of Wave's classes. With exactly one `WaveActivity` in a dump,
+no closed screen is being kept. Output: `.oak/tmp/wave-qa/soak-<UTC>/` with `samples.csv`, `report.md` (per phase:
+first, after warm-up, last, max and the least-squares slope per 100 cycles over the phase's second half),
+`summary.json`, the heap dumps and the server's request log. `python3 tools/qa/hprof.py DUMP --why CLASS` reads any
+dump the same way. `test_soak.py` checks the meminfo parsing, the slope, the source's churn and the heap dump reader
+on the host.
+
+A walk cycle takes about 23 s, a churn cycle about 30 s and a flip about 6 s, so the defaults take about 3 h. A flat
+line is the result to look for: a slope that stays positive over a phase's second half, or more than one
+`WaveActivity` in a dump, is a leak to chase. What it does not cover: rooted actions, a real install, the screens of
+Add a Source and the queue's Confirm beyond the one download, low-memory kills (the phone never ran short), and
+anything that only grows over days.
+
+Results so far (Wave 0.7.27 and 0.7.28 debug builds, XP3800, 2026-11-20). The first probes found a real leak:
+after two Activity rebuilds, heap dumps held 2 `WaveActivity` (2,339 Wave objects, 241 Views, PSS 31.6 MB, native
+8.2 MB), kept by the self-update check's thread and the icon worker's stack. Fixed in 0.7.28; the same probe then
+ends with 1 (1,184 objects, 81 Views, PSS 27.9 MB, native 4.3 MB). The full run on 0.7.28 was stopped by request
+after about 95 of 200 walk cycles (samples to cycle 80, no churn or flips phase, no adb drop, battery at 100%):
+Views 153, Activities 1, threads 27, descriptors 64 and the Java heap (2.2 MB allocated) were flat from cycle 20 on.
+PSS rose from 25.6 to 27.8 MB and native allocations from 5.2 to 6.3 MB over cycles 20 to 80. That native growth
+is freed when the Activity is rebuilt (6.9 to 4.3 MB in the probe's flips), which fits the icon caches (Android 8
+keeps bitmap pixels in native memory) filling toward their 6 MB cap; the run didn't last long enough to show the
+plateau, so it is unproven. `.oak/tmp/wave-qa/soak-probe1`, `soak-probe2`, `soak-full2`. Still to do: the full
+three phases.
