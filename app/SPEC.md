@@ -27,9 +27,10 @@ and gaps are not focus stops.
 ## Screens
 
 - **Wave** (title Home): welcome, then root status. The orange **Root access
-  not granted** row opens root information; the green **Root access granted**
-  status is not actionable. Reboot to Finish appears when pending, followed
-  by Device and Links. Add a Source lives in Sources, not Home.
+  not granted** row opens a screen with **Wave requires root access** and a
+  **Grant access** button. The green **Root access granted** status is not
+  actionable. Reboot to Finish appears when pending, followed by Device and
+  Links. Add a Source lives in Sources, not Home.
 - **Sources**: no title-bar actions; a spinner appears while refreshing.
   All Sources comes first, followed by each source's icon, name, address and
   refresh status. If nothing was fetched and a refresh failed, show **Cannot

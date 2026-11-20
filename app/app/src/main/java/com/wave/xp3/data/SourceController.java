@@ -82,7 +82,7 @@ public final class SourceController implements WaveData {
         EngineService.listen(engineListener);
         Engine active = EngineService.current();
         if (active != null && !active.finished()) engineChanged(active);
-        reading.begin(NEW_INDEX); // The first read is in flight from here; a resume or Check Again meanwhile joins it.
+        reading.begin(NEW_INDEX); // The first read is in flight from here; a resume or root request meanwhile joins it.
         worker.execute(() -> {
             try {
                 store = new SourceStore(this.context.getFilesDir());
@@ -203,7 +203,7 @@ public final class SourceController implements WaveData {
         final boolean haveRoot = granted;
         final String rootText = label;
         post(() -> {
-            // While the user's Check Again waits behind this read, the screen keeps saying it is checking.
+            // While the user's root request waits behind this read, the screen keeps saying it is checking.
             if (!(tracked && reading.waiting(EXPLICIT))) {
                 root = haveRoot ? Root.OK : Root.NONE;
                 rootLabel = rootText;
