@@ -38,6 +38,7 @@ public final class SourcesSelfTest {
         check.run("Store failures in plain words", () -> plainFailures(check));
         check.run("What a source's page lists as not read", () -> notRead(check));
         check.run("An index read again after one source changed", () -> reread(check));
+        check.run("A private source's token stays out of every failure", () -> tokenInFailures(check));
     }
 
     private static byte[] edited(byte[] json, String from, String to) {
@@ -183,6 +184,49 @@ public final class SourcesSelfTest {
         } catch (Exception e) {
             check.ok(name + ": not a SourceFailure: " + e, false);
         }
+    }
+
+    /**
+     * What a person sees, a log would print or a bug report would carry when an address with a sign-in fails:
+     * the message, the detail and the whole chain of causes, for addresses that are refused as they are and
+     * for one that is well formed but never answers (the real client, a name that can't resolve).
+     */
+    private static void tokenInFailures(Check check) throws Exception {
+        Path root = Files.createTempDirectory("wave-token-test");
+        try {
+            SourceStore store = new SourceStore(root.toFile());
+            String[] addresses = {
+                "http://user:SECRETTOKEN@example.org/source",
+                "https://user:SECRET TOKEN@example.org/source",
+                "https://user:SECRETTOKEN@example.org/source?x=1",
+                "https://user:SECRETTOKEN@example.org/source#frag",
+                "https://user:SECRETTOKEN@[bad/source",
+                "ftp://user:SECRETTOKEN@example.org/source",
+                "https://user:SECRETTOKEN@" + new String(new char[5000]).replace('\0', 'a') + ".example.org/source",
+                "https://user:SECRETTOKEN@wave-no-such-host.invalid/source",
+            };
+            for (String address : addresses) {
+                String shown = address.length() > 60 ? address.substring(0, 60) + "..." : address;
+                for (int use = 0; use < 2; use++) {
+                    try {
+                        if (use == 0) store.preview(address);
+                        else store.refresh(store.add(address).id);  // add() keeps the address; the fetch comes after
+                        check.ok("refused: " + shown + " " + use, false);
+                    } catch (Exception e) {
+                        StringBuilder all = new StringBuilder();
+                        for (Throwable x = e; x != null; x = x.getCause() == x ? null : x.getCause()) {
+                            all.append(x).append('\n').append(x.getMessage()).append('\n');
+                            if (x instanceof com.wave.xp3.core.git.SourceFailure) all.append(((com.wave.xp3.core.git.SourceFailure) x).detail()).append('\n');
+                        }
+                        check.ok("no token in the failure of " + shown + " (" + (use == 0 ? "preview" : "add") + "): " + e,
+                            !all.toString().contains("SECRETTOKEN") && !all.toString().contains("SECRET TOKEN"));
+                    }
+                }
+            }
+            for (SourceStore.Source s : store.sources()) {
+                check.ok("nothing was kept: " + s.url, !s.url.contains("SECRET") && !s.name.contains("SECRET"));
+            }
+        } finally { erase(root); }
     }
 
     /** Words a person holding the phone shouldn't meet in an error. */

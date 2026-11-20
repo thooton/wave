@@ -49,6 +49,7 @@ final class InstallTests {
         check.run("Install: engine end to end", () -> engine(check));
         check.run("Install: engine failures", () -> failures(check));
         check.run("Install: engine without root", () -> noRoot(check));
+        check.run("Install: ids that can't go in a script fail the step", () -> badIds(check));
     }
 
     // ------------------------------------------------------------------
@@ -834,6 +835,25 @@ final class InstallTests {
         engine.run();
         shell.close();
         return engine;
+    }
+
+    /** A module id too long for a shell word fails its step instead of ending the engine's thread. */
+    private static void badIds(Check check) throws Exception {
+        try (Sandbox box = new Sandbox()) {
+            StringBuilder id = new StringBuilder("m");
+            for (int i = 0; i < 80; i++) id.append('x');
+            Plan plan = Plan.make(ask(Plan.Op.REMOVE, id.toString()), offer(),
+                phone(new Plan.Installed(id.toString(), Plan.Kind.MODULE, "1", false)), null, "com.wave.xp3");
+            FakePlatform platform = new FakePlatform(new File(box.root, "cache/downloads"));
+            ProcessShell shell = new ProcessShell(box.su(), box.env());
+            Engine e = new Engine(plan, shell, platform, Receipts.load(new File(box.root, "r.json")), null, "src",
+                "com.wave.xp3");
+            e.run();
+            shell.close();
+            check.ok("finished", e.finished());
+            check.ok("the step failed: " + e.items(), !e.succeeded() && e.items().get(0).phase == Engine.Phase.FAILED);
+            check.ok("nothing was run", !box.calls().contains("rm -rf"));
+        }
     }
 
     /** Apps through a stand-in for Installer, and no `su` at all. */

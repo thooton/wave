@@ -29,7 +29,11 @@ public final class Scripts {
     public static final String STATE = ADB + "/wave";
 
     private static final Pattern PACKAGE = Pattern.compile("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+");
-    private static final Pattern MODULE_ID = Pattern.compile("[A-Za-z0-9._-]{1,64}");
+    /**
+     * Starts with a letter or digit, as the source format's ids do, so an id is never an option to
+     * `grep` or `rm` (`-f`), a hidden folder (`.core`) or `.`/`..`.
+     */
+    private static final Pattern MODULE_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
 
     /** `text` as one single-quoted shell word. */
     public static String quote(String text) {
@@ -42,7 +46,7 @@ public final class Scripts {
     }
 
     public static boolean isModuleId(String id) {
-        return id != null && MODULE_ID.matcher(id).matches() && !id.equals(".") && !id.equals("..");
+        return id != null && MODULE_ID.matcher(id).matches();
     }
 
     static String pkg(String name) {
@@ -163,6 +167,8 @@ public final class Scripts {
             + "mkdir -p " + STATE + "\n"
             + "chmod 700 " + STATE + "\n"
             + "rm -f " + result + "\n"
+            // Removed first: /data/local/tmp is the shell's, and a link left at this name would be followed by root's cp.
+            + "rm -f " + copy + "\n"
             + "cp " + quote(path) + " " + copy + "\n"
             + "chmod 644 " + copy + "\n"
             + "B=" + ADB + "/magisk/busybox\n"

@@ -71,6 +71,10 @@ final class RootTests {
         check.ok("module dots", !Scripts.isModuleId(".."));
         check.ok("module slash", !Scripts.isModuleId("a/b"));
         check.ok("module space", !Scripts.isModuleId("a b"));
+        check.ok("module option", !Scripts.isModuleId("-f") && !Scripts.isModuleId("-"));
+        check.ok("module hidden", !Scripts.isModuleId(".core") && !Scripts.isModuleId("_x"));
+        check.ok("module 64 long", Scripts.isModuleId("a" + new String(new char[63]).replace('\0', 'b'))
+            && !Scripts.isModuleId("a" + new String(new char[64]).replace('\0', 'b')));
         check.fails("uninstall refuses junk", () -> Scripts.uninstallApk("x; reboot"));
         check.fails("remove refuses junk", () -> Scripts.removeModule("../../system"));
         check.fails("install refuses no size", () -> Scripts.installApk("/x.apk", 0));

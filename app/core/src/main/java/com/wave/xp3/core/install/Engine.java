@@ -272,6 +272,9 @@ public final class Engine {
             return fail(item, "Stopped.");
         } catch (IOException e) {
             return fail(item, message(e));
+        } catch (IllegalArgumentException e) {
+            // An id or version the scripts won't put in a shell (see Scripts): the step fails, the app doesn't.
+            return fail(item, "Wave won't run " + item.step.name + ": its name or version isn't one it can use safely.");
         }
     }
 

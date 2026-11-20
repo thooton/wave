@@ -202,7 +202,9 @@ final class AddSourceScreen extends Screen {
         String whom = preview.maintainer != null ? preview.maintainer : "its maintainer";
         AlertDialog dialog = new AlertDialog.Builder(app)
             .setCustomTitle(head)
-            .setMessage("Its packages can change anything on this phone. Add it only if you trust " + whom + ".")
+            // The name and maintainer are the source's own words; the address is the one thing it can't choose.
+            .setMessage("Its packages can change anything on this phone. Add it only if you trust " + whom + ".\n\n"
+                + (preview.redactedUrl == null ? "" : preview.redactedUrl.replaceFirst("^https://", "")))
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Add Source", (d, w) -> app.data.add(preview, new WaveData.Result<Void>() {
                 @Override
