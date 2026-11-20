@@ -225,3 +225,41 @@ The suite waits 13 minutes for a boot, then 12 more in the restore, and says
 
 After any manual recovery, run `suite.py --rooted` once more or check by hand: `su -c 'magisk --sqlite "SELECT uid FROM policies"'`
 shows only `uid=2000`, `ls /data/adb/modules` shows no `wave_test_*`, and `pm path com.wave.xp3` prints nothing.
+
+## Setup-file import (`setup/`): the six apps, on the phone, d-pad only
+
+Checks the setup transport end to end: the site's real setup page makes a file, the file reaches a phone, a person
+with only a d-pad imports it, and the app takes it. It installs side-by-side copies (`<package>.wavetest`) so the
+owner's installed apps and their data are never touched; it only reads their path, version and update time before
+and after, and fails if they differ. It needs the rooted phone only to look inside the copy's private storage
+(`su`, no prompt; the shell is already granted). It does not reboot or change Magisk.
+
+    python3 tools/qa/setup/build_copies.py APK_DIR          # sonim HEAD, .wavetest ids, ~8 min cold
+    python3 tools/qa/setup/generate.py FILE_DIR             # real page in headless Chromium, no phone
+    tools/qa/phone-run.sh --who "agentN setup import" --wait 3000 -- \
+        python3 tools/qa/setup/import_setup.py --apks APK_DIR --files FILE_DIR --out REPORT_DIR [--picker] [app ...]
+
+`build_copies.py` fails if a built APK is not `<package>.wavetest` (a hard-coded id breaks a copy). `generate.py`
+needs `chromium` and `python3-websocket-client`; the values are obviously fake and every file is compared with the
+payload the page should have produced; the page may request only its own static assets and blob downloads.
+`apps.py` is the one table of ids, activities and fake values, checked against `site/setup/descriptors.mjs` by
+`test_setup_import.py` (so a renamed app or a new required setting fails on the host).
+
+Per app, `import_setup.py` asserts: a fresh copy opens on "Set up <App>" and "Not set up yet." with no login;
+the d-pad reaches the import button (Down first in Authenticator and Flashcards, which start on "On this phone
+only"); "Import this setup?" shows a summary with secrets as "set"; Right reaches Import; the app opens, the file
+is deleted, `files/wave-setup.json` exists and is owner-only; after a force-stop and relaunch the app does not ask
+again; the menu's Setup... (Settings in Canvas) shows the setup and no secret value; no crash. Key paths: default
+`Enter, Right, Enter` (+ `Down` first for the two command-center apps); `--picker` puts the file in
+`/sdcard/Download` and goes Down, Enter (Choose a file...), Down, Enter (Downloads), Enter on the newest file, Right,
+Enter. The picker lists the owner's own files, so the script refuses to press OK unless the focus is on
+`wave-setup-*`.
+
+Result (Charge 1.1.3, Mail 1.5.2, Places 1.7.2, Canvas 1.8.3, Authenticator 1.2.2, Flashcards 1.14.3 on the XP3800,
+Android 8.1): all six pass from the app's own folder, and all six pass through "Choose a file..." too. The picker is
+the stock Android 8 Files app ("File Explorer"): its d-pad highlights Recent, Downloads and the device in a list, OK
+opens one, and a file row takes OK; the setup screen then shows the same "Import this setup?" dialog. So the
+picker route is reachable with the d-pad on every app (a stock phone's user can copy the file to Downloads and
+import it without touching Android/data). What it does not prove: a real backend (the fake hosts
+do not resolve, so Mail and Canvas show offline messages afterwards), setup through "Type it in..." or a command
+center dialog, or any other phone; and a different picker (a phone whose Files app is not the stock one) is untested.
