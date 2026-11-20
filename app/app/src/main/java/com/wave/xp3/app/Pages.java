@@ -175,7 +175,7 @@ final class Pages {
         return root == WaveData.Root.OK ? "Yes" : root == WaveData.Root.NONE ? "No" : "Checking…";
     }
 
-    /** The "This Phone" facts; the phone's own model and release stand in for what the snapshot lacks. */
+    /** The Device facts; the phone's own model and release stand in for what the snapshot lacks. */
     static List<String[]> phoneFacts(Snapshot s, String ownModel, String ownRelease) {
         WaveData.Facts f = s.facts;
         String model = f != null && f.model != null ? f.model : ownModel;

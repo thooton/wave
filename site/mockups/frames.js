@@ -98,7 +98,7 @@ function bar(b) {
   if (!b) return '';
   let s = '<div class="bar">';
   if (b.field !== undefined) {
-    s += `<div class="field${b.fieldOn ? ' on' : ''}">${G.search(b.fieldOn ? '#007AFF' : '#8E8E93')}${b.field || '<span class="ph">Names and descriptions</span>'}${b.fieldOn && !b.field ? '' : ''}</div>`;
+    s += `<div class="field${b.fieldOn ? ' on' : ''}">${G.search(b.fieldOn ? '#007AFF' : '#8E8E93')}${b.field || '<span class="ph">Search for packages</span>'}${b.fieldOn && !b.field ? '' : ''}</div>`;
     return s + '</div>';
   }
   // Back's target, named as on iOS; a name too long for its side becomes "Back".
@@ -199,10 +199,10 @@ function homePage(o = {}) {
     ? linkRow('Root access not granted', { icon: G.warn('#FF9500'), size: 14, f: true })
     : `<div class="row link"><div style="width:14px">${G.tick('#248A3D')}</div><div class="tx"><div class="nm">Root access granted</div></div></div>`;
   return welcome + rootStatus + (o.reboot ? rebootBanner(o.focus === 'reboot') : '') +
-    H('This Phone') +
+    H('Device') +
     `<div class="facts">` +
     fact('Model', 'XP3800') + fact('Android', '8.1, build 8A.0.5-11') + fact('Root', o.noRoot ? 'Not granted' : 'Magisk 24.0') + fact('Storage', '1.3 GB free', { last: true }) +
-    `</div>` + H('Community') +
+    `</div>` + H('Links') +
     `<div class="facts">` + fact('Code', 'github.com/thooton/wave', { blue: false }) + fact('Website', 'thooton.github.io/wave', { last: true }) + `</div><div class="gap"></div>`;
 }
 function sourcesPage(o = {}) {
@@ -234,16 +234,16 @@ function F(group, id, title, keys, html, note) { FRAMES.push({ group, id, title,
 
 // ---- Wave tab
 F('Wave tab', 'wave-home', 'Wave tab: root access granted',
-  K(TABS_LR, 'Up/Down scroll to the phone facts and community links.',
+  K(TABS_LR, 'Up/Down scroll to the Device and Links sections.',
     'Nothing.', BACK_TOP, 'Refresh Sources.'),
   screen({ tab: 0, badge: 2, bar: { title: 'Home' }, page: homePage() }),
   'The green check shows when Wave has root. Add a Source is on the Sources tab.');
 F('Wave tab', 'wave-home-no-root', 'Wave tab: root access not granted',
-  K(TABS_LR, 'Down scrolls to the phone facts and community links.',
+  K(TABS_LR, 'Down scrolls to the Device and Links sections.',
     'Opens the root instructions.', BACK_TOP, 'Refresh Sources.'),
   screen({ tab: 0, badge: 2, bar: { title: 'Home' }, page: homePage({ noRoot: true }) }),
   'The orange warning is the first focus stop.');
-F('Wave tab', 'wave-home-more', 'Wave tab, scrolled: This Phone and Community',
+F('Wave tab', 'wave-home-more', 'Wave tab, scrolled: Device and Links',
   K(TABS_LR, 'Up/Down scroll.', 'Nothing.', BACK_TOP, 'Refresh Sources.'),
   screen({ tab: 0, badge: 2, bar: { title: 'Home' }, page: homePage(), scroll: 76 }),
   'The facts and links are text, not focus stops: nothing to press there.');
@@ -424,7 +424,7 @@ F('Installed tab', 'installed-menu', 'Installed: Menu on a row',
 // ---- Search tab
 F('Search tab', 'search-empty', 'Search: empty',
   K(TABS_LR, 'Nothing (no results yet).', 'Nothing.', 'On an empty field: closes Wave, as on any tab\'s top.', 'Nothing.'),
-  screen({ tab: 3, badge: 2, mode: 'abc', bar: { field: '<span class="caret" style="margin:0 2px 0 0"></span><span class="ph">Names and descriptions</span>', fieldOn: true }, page: '' }),
+  screen({ tab: 3, badge: 2, mode: 'abc', bar: { field: '<span class="caret" style="margin:0 2px 0 0"></span><span class="ph">Search for packages</span>', fieldOn: true }, page: '' }),
   'The field takes the bar\'s place and has the keys as soon as the tab opens.');
 F('Search tab', 'search-typing', 'Search: typing',
   K(TABS_LR, 'Down: into the results.', 'Into the results (as Down).', 'Deletes a character.', 'Clear.'),

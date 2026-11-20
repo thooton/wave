@@ -22,7 +22,8 @@ Use only the d-pad and keypad:
 
 1. Wave opens on Home. Move Right through Sources, Installed, and Search, then back.
 2. From Sources, open a source, a section, and a package's details. Back returns to the list with the same row focused.
-3. In Search, enter a package name and open a matching result. Repeat the launch with `--es fixture noroot` and check that OK on the Home root row opens Root information with a Check Again button.
+3. In Search, check that the empty field says "Search for packages". Switch to predictive T9, type a package name, and open a matching result.
+4. Repeat the launch with `--es fixture noroot` and check that OK on the Home root row opens Root information with a Check Again button.
 
 Record the build, serial, and any failure. The fixture doesn't install
 packages or test real root. For targeted install or watchdog verification,

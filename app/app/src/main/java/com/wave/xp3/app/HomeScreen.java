@@ -42,10 +42,10 @@ final class HomeScreen extends Screen {
         page.add(welcome());
         page.add(Rows.rootStatus(app, s.root));
         if (!s.rebootPending.isEmpty()) page.add(Rows.reboot(app, Rows.rebootText(s.rebootPending)));
-        page.add(Kit.heading(app, "This Phone", false));
+        page.add(Kit.heading(app, "Device", false));
         List<String[]> phone = Pages.phoneFacts(s, Build.MODEL, Build.VERSION.RELEASE);
         for (int i = 0; i < phone.size(); i++) page.add(Rows.fact(app, phone.get(i)[0], phone.get(i)[1], i == phone.size() - 1));
-        page.add(Kit.heading(app, "Community", false));
+        page.add(Kit.heading(app, "Links", false));
         page.add(Rows.fact(app, "Code", "github.com/thooton/wave", false));
         page.add(Rows.fact(app, "Website", "thooton.github.io/wave", true));
         page.add(Kit.gap(app, 10));

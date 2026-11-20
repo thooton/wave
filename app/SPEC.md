@@ -45,7 +45,8 @@ link (Add, Update All; else Refresh).
 - **Wave** (title Home): the welcome header, then root access status.
   **Root access not granted** has an orange warning icon and opens the
   root instructions; **Root access granted** has a green check and is not
-  an action. Then Reboot to Finish if pending, This Phone and Community.
+  an action. Then Reboot to Finish if pending, followed by the **Device** and
+  **Links** sections.
   Add a Source is available from Sources, not Home.
 - **Sources**: Refresh (or a spinner) and Add on the bar; All Sources, then
   each source (icon, name, address; "Refreshing…" with a spinner, or the
@@ -66,9 +67,10 @@ link (Add, Update All; else Refresh).
 - **Installed**: the Updater's rows (below); Updates with Update All on the
   bar, then Up to Date. A row with a capsule presses it on OK; a mod's row,
   Wave's own and a turned-off mod have none and open Details.
-- **Search**: the field in the bar's place has the keys when the tab opens;
-  results follow each key across every source; the cursor stays at the end;
-  Back deletes; Down enters the results, Up on the first returns.
+- **Search**: the field in the bar's place has the keys when the tab opens,
+  shows "Search for packages" when empty, and supports the Sonim's predictive
+  T9 input. Results update as the query changes across every source; the cursor
+  stays at the end; Back deletes; Down enters the results, Up on the first returns.
 - **Add a Source**: the address field starts as `https://github.com/`
   (cursor at the end; Left/Right move it here, Back deletes), Down to
   **Add**. Add fetches first ("Fetching" with a spinner; Back abandons it),

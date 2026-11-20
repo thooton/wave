@@ -51,10 +51,11 @@ final class SearchScreen extends Screen {
         field.setTextSize(13.5f);
         field.setTextColor(Look.TEXT);
         field.setHintTextColor(Look.MUTED);
-        field.setHint("Names and descriptions");
+        field.setHint("Search for packages");
         field.setSingleLine(true);
         field.setIncludeFontPadding(false);
-        field.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        // NO_SUGGESTIONS disables predictive T9 on the XP3.
+        field.setInputType(InputType.TYPE_CLASS_TEXT);
         field.setImeOptions(EditorInfo.IME_ACTION_SEARCH | EditorInfo.IME_FLAG_NO_EXTRACT_UI);
         field.setContentDescription("Search");
         fieldBox.addView(field, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
