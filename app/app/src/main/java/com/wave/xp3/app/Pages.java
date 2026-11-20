@@ -229,13 +229,12 @@ final class Pages {
         if (p.state == State.UPDATE && Actions.unfit(p)) {
             notes.add(new Note(Icon.INFO, Tone.MUTED, "Version " + p.version + " can't be installed here", Tone.TEXT));
         }
-        if (p.isModule) notes.add(new Note(Icon.REBOOT, Tone.BLUE, "System mod, needs a reboot", Tone.TEXT));
+        if (p.isModule) notes.add(new Note(Icon.REBOOT, Tone.BLUE, "Requires a reboot", Tone.TEXT));
         if (p.state == State.OFF) {
             notes.add(new Note(Icon.WARN, Tone.ORANGE, "Turned off: the phone didn't finish starting with it", Tone.RED));
         }
         if (p.state == State.PENDING_INSTALL) notes.add(new Note(Icon.REBOOT, Tone.BLUE, "Starts after a reboot", Tone.TEXT));
         if (p.state == State.PENDING_REMOVAL) notes.add(new Note(Icon.REBOOT, Tone.BLUE, "Removed after a reboot", Tone.TEXT));
-        for (String r : d.replaces) notes.add(new Note(Icon.INFO, Tone.MUTED, "Replaces " + r, Tone.TEXT));
         if (d.firmwareNote) notes.add(new Note(Icon.INFO, Tone.MUTED, "Not tested on this phone's firmware", Tone.TEXT));
         return notes;
     }
@@ -293,8 +292,6 @@ final class Pages {
         if (!empty(p.sourceName)) facts.add(new String[]{"Source", p.sourceName});
         if (!empty(p.sectionName)) facts.add(new String[]{"Section", p.sectionName});
         if (!empty(d.author)) facts.add(new String[]{"Author", d.author});
-        if (!d.depends.isEmpty()) facts.add(new String[]{"Needs", String.join(", ", d.depends)});
-        if (!d.conflicts.isEmpty()) facts.add(new String[]{"Conflicts", String.join(", ", d.conflicts)});
         facts.add(new String[]{"Id", p.id});
         return facts;
     }

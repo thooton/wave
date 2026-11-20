@@ -40,9 +40,10 @@ and gaps are not focus stops.
   counts and Featured. Browse rows open Details. A grey tick marks installed
   packages, a blue arrow marks updates, and incompatible packages are dimmed.
 - **Details**: icon, name, author and the selected Get, Update or Open action.
-  Show compatibility, reboot and replacement notes, then the description and
-  Information. An update puts What's New before the description. Up/Down
-  scroll; OK presses the action; Reinstall and Remove are menu items.
+  Show compatibility and reboot notes, then the description and Information.
+  Leave package relationships out of Details; Confirm shows actual changes.
+  An update puts What's New before the description. Up/Down scroll; OK presses
+  the action; Reinstall and Remove are menu items.
 - **Installed**: Updates, then Up to Date. The tab badge counts updates.
   **Update All** is menu-only and appears for multiple updates. OK presses a
   row's action; mod rows, Wave's own row and turned-off mods open Details.

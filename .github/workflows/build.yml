@@ -138,7 +138,7 @@ jobs:
         with:
           source-repository: thooton/wave_repository
           source-token: ${{ secrets.WAVE_REPOSITORY_TOKEN }}
-          section: applications
+          section: tools
           folder: wave
           meta: app/wave/package.json
           icon: app/wave/icon.png

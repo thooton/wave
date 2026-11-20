@@ -17,7 +17,7 @@ import java.util.Collections;
 
 /**
  * A package's details: the header with its icon, name, author and the
- * capsule; lines for what to know (a mod needs a reboot, what it replaces,
+ * capsule; lines for what to know (a mod needs a reboot,
  * why it can't be installed); the description; What's New; Information.
  *
  * The action (Get, Update, Open) is the page's one focus stop, so it is drawn

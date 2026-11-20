@@ -88,7 +88,7 @@ final class SourceScreen extends Screen {
         feed.add(keyed(all, "all"));
         for (int i = 0; i < sections.size(); i++) {
             final Section section = sections.get(i);
-            Kit.Row row = Rows.link(app, section.name, null, 0, null, 0, String.valueOf(section.count), false);
+            Kit.Row row = Rows.link(app, section.name, null, 0, new SourcesScreen.FolderIcon(app), 24, String.valueOf(section.count), false);
             if (i == sections.size() - 1 && !notRead) row.last();
             row.setOnClickListener(v -> app.push(new SectionScreen(app, sourceId, section.folder, section.name)));
             feed.add(keyed(row, "section:" + section.folder));

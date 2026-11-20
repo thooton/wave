@@ -414,13 +414,13 @@ public final class AppSelfTest {
             Pages.notes(unfit(update), detail(unfit(update)), false).toString());
         check.same("update that needs a newer Wave", "[INFO:Update Wave to install this, INFO:Version 2.0 can't be installed here]",
             Pages.notes(needsNewerWave(update), detail(needsNewerWave(update)), true).toString());
-        check.same("a mod needs a reboot", "[REBOOT:System mod, needs a reboot]", Pages.notes(module(none), detail(module(none)), false).toString());
-        check.same("a mod turned off", "[REBOOT:System mod, needs a reboot, WARN:Turned off: the phone didn't finish starting with it]",
+        check.same("a mod needs a reboot", "[REBOOT:Requires a reboot]", Pages.notes(module(none), detail(module(none)), false).toString());
+        check.same("a mod turned off", "[REBOOT:Requires a reboot, WARN:Turned off: the phone didn't finish starting with it]",
             Pages.notes(module(pkg("a", State.OFF)), detail(module(pkg("a", State.OFF))), false).toString());
         check.same("waiting to install", "[REBOOT:Starts after a reboot]", Pages.notes(pkg("a", State.PENDING_INSTALL), detail(pkg("a", State.PENDING_INSTALL)), false).toString());
         check.same("waiting to be removed", "[REBOOT:Removed after a reboot]", Pages.notes(pkg("a", State.PENDING_REMOVAL), detail(pkg("a", State.PENDING_REMOVAL)), false).toString());
         Detail rich = detail(none, "Long.", "Me", 0, Collections.emptyList(), Collections.emptyList(), Arrays.asList("Old Messages", "Older"), true);
-        check.same("replaces and the firmware note, last", "[INFO:Replaces Old Messages, INFO:Replaces Older, INFO:Not tested on this phone's firmware]",
+        check.same("replacement metadata is hidden but the firmware note remains", "[INFO:Not tested on this phone's firmware]",
             Pages.notes(none, rich, false).toString());
 
         check.same("byline: the author", "An Author", Pages.byline(none, detail(none)));
@@ -451,7 +451,7 @@ public final class AppSelfTest {
         check.same("facts of a package", "Version=2.0;Size=48 KB;Source=Source;Section=Section;Author=An Author;Id=a", facts(Pages.facts(none, detail(none))));
         check.same("facts of an update show the change", "Version=1.0 → 2.0;Size=48 KB;Source=Source;Section=Section;Author=An Author;Id=a", facts(Pages.facts(update, detail(update))));
         Detail linked = detail(none, "d", "", 1_500_000, Arrays.asList("Core ≥ 1.0", "Other"), Arrays.asList("Rival"), Collections.emptyList(), false);
-        check.same("facts with needs and conflicts", "Version=2.0;Size=1.5 MB;Source=Source;Section=Section;Needs=Core ≥ 1.0, Other;Conflicts=Rival;Id=a", facts(Pages.facts(none, linked)));
+        check.same("facts omit dependencies and conflicts", "Version=2.0;Size=1.5 MB;Source=Source;Section=Section;Id=a", facts(Pages.facts(none, linked)));
         check.same("facts of a kept package: no source, section or author", "Version=2.0;Id=a",
             facts(Pages.facts(kept, detail(kept, "", "", 0, Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false))));
         check.same("a kept package with null names", "Version=2.0;Id=a", facts(Pages.facts(new Edit(kept) {{ sourceName = null; section = null; }}.build(),
