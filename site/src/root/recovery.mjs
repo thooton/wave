@@ -1,7 +1,7 @@
 // The recovery page: one pane at a time for Rescue (turn off Magisk modules)
 // and Stock boot (write the saved stock image back). Those scripts own the
 // device work; this one only switches panes.
-import './stock.mjs?v=bundled-firehose';
+import './stock.mjs?v=device-copy';
 import './rescue.mjs';
 import { $, isWebUsb } from './common.mjs';
 

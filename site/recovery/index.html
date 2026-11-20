@@ -10,7 +10,7 @@
   <link rel="icon" href="../assets/wave-icon.svg">
   <link rel="stylesheet" href="../assets/style.css">
   <link rel="license" href="../assets/fonts/cascadia-code-OFL.txt">
-  <script type="module" src="../src/root/recovery.mjs?v=bundled-firehose"></script>
+  <script type="module" src="../src/root/recovery.mjs?v=device-copy"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -29,14 +29,14 @@
       <div class="content">
         <section id="step-intro" aria-labelledby="intro-title">
           <img class="logo" src="../assets/wave-icon.svg" width="48" height="48" alt="">
-          <h1 id="intro-title" tabindex="-1">Recover your phone</h1>
+          <h1 id="intro-title" tabindex="-1">Recover your device</h1>
           <p class="muted">If an installed package broke the device, it’s recommended to turn off modules to prevent them from starting.</p>
-          <p class="muted">If you want to unroot the phone, or the phone won’t start, it’s recommended to write the stock backup back to the device.</p>
+          <p class="muted">If you want to unroot the device, or the device won’t start, it’s recommended to write the stock backup back to the device.</p>
         </section>
 
         <section id="step-modules" aria-labelledby="modules-title" hidden>
           <h2 id="modules-title" tabindex="-1">Turn off modules</h2>
-          <p>If your phone is rooted and can still boot into Android, enable USB debugging and connect it to your computer. Approve the connection on your phone, and if prompted by Magisk, grant Shell root access. Note that this process will disable modules for the next restart, but it will not remove them.</p>
+          <p>If your device is rooted and can still boot into Android, enable USB debugging and connect it to your computer. Approve the connection on your device, and if prompted by Magisk, grant Shell root access. Note that this process will disable modules for the next restart, but it will not remove them.</p>
           <div id="rescue-modules" hidden>
             <fieldset><legend>Enabled modules</legend><div id="module-list"></div></fieldset>
             <div class="row"><button type="button" id="select-all">Select all</button><button type="button" id="disable" disabled>Disable selected</button></div>
@@ -51,7 +51,7 @@
 
         <section id="step-backup" aria-labelledby="backup-title" hidden>
           <h2 id="backup-title" tabindex="-1">Choose your backup</h2>
-          <p>Use only this phone's stock boot image saved during rooting. Flashing it removes root, but not Magisk, Wave, or their data.</p>
+          <p>Use only this device's stock boot image saved during rooting. Flashing it removes root, but not Magisk, Wave, or their data.</p>
           <div class="field">
             <label for="image">Stock boot image (32 MiB)</label>
             <input id="image" type="file">
@@ -69,7 +69,7 @@
         </section>
 
         <section id="step-edl" aria-labelledby="edl-title" hidden>
-          <h2 id="edl-title" tabindex="-1">Put the phone in EDL</h2>
+          <h2 id="edl-title" tabindex="-1">Put the device in EDL</h2>
           <p><strong>If Android starts,</strong> connect it with USB debugging enabled. The page verifies the serial and build against the manifest, then restarts it into EDL.</p>
           <p><strong>If it doesn’t,</strong> start EDL cold:</p>
           <ol class="instructions">
@@ -79,18 +79,18 @@
           </ol>
           <p class="status" id="edl-status" role="status"></p>
           <details class="help">
-            <summary>The phone isn’t in the list</summary>
+            <summary>Can’t find device?</summary>
             <p>Use <code>05c6:9008</code> only. If you see <code>05c6:900e</code> (crash dump), remove the battery and start again.</p>
             <p><strong>Windows:</strong> In Zadig, go to Options › List All Devices, select <code>05C6 9008</code>, replace the driver with WinUSB, and reload this page.</p>
             <p><strong>Linux:</strong> Allow the device with a udev rule (<code>SUBSYSTEM=="usb", ATTR{idVendor}=="05c6", ATTR{idProduct}=="9008", TAG+="uaccess"</code>). If it still cannot be claimed, <code>qcserial</code> may be holding it: <code>sudo modprobe -r qcserial</code>.</p>
-            <p>Close other phone tools and <code>adb</code>; only one program can use the phone at a time.</p>
+            <p>Close other device tools and <code>adb</code>; only one program can use the device at a time.</p>
           </details>
         </section>
 
         <section id="step-write" aria-labelledby="write-title" hidden>
           <h2 id="write-title" tabindex="-1">Write stock boot</h2>
           <p>The page saves a copy of the current boot partition contents, writes your backup, reads all 32 MiB back to compare, and then restarts Android.</p>
-          <label class="toggle"><input id="same-phone" type="checkbox"> This backup is from this phone, and no other Qualcomm device is connected.</label>
+          <label class="toggle"><input id="same-phone" type="checkbox"> This backup is from this device, and no other Qualcomm device is connected.</label>
           <p class="status" id="write-status" role="status"></p>
           <label for="progress" id="progress-label" class="visually-hidden" hidden>Progress</label>
           <progress id="progress" value="0" max="100" hidden></progress>
@@ -116,7 +116,7 @@
             <button type="button" class="primary" data-go="edl">Continue</button>
           </div>
           <div data-actions="edl" hidden>
-            <button type="button" id="to-edl">Check phone and reboot to EDL</button>
+            <button type="button" id="to-edl">Check device and reboot to EDL</button>
             <button type="button" class="primary" data-go="write">Continue</button>
           </div>
           <div data-actions="write" hidden>

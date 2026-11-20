@@ -143,7 +143,7 @@ export class Adb {
           offered = true;
           onAuthorization?.();
           await adb.write('AUTH', AUTH_RSAPUBLICKEY, 0, credential.publicKey);
-        } else throw new Error('USB debugging is not authorized on the phone.');
+        } else throw new Error('USB debugging is not authorized on the device.');
       }
     } catch (error) {
       await adb.close();
@@ -195,7 +195,7 @@ export class Adb {
       const local = ++this.#nextId;
       await this.write('OPEN', local, 0, text.encode(service + '\0'));
       const packet = await this.read();
-      if (packet.command !== 'OKAY' || packet.arg1 !== local || !packet.arg0) throw new Error(`Phone refused ADB service ${service.split(':')[0]}.`);
+      if (packet.command !== 'OKAY' || packet.arg1 !== local || !packet.arg0) throw new Error(`Device refused ADB service ${service.split(':')[0]}.`);
       announceOpen?.();
       return await use(new Stream(this, local, packet.arg0));
     } catch (error) {
@@ -207,7 +207,7 @@ export class Adb {
     }
   }
   async shell(command, limit = maxOutput, timeoutMs) {
-    if (!this.features.has('shell_v2')) throw new Error('Phone does not report shell_v2; cannot check exit status.');
+    if (!this.features.has('shell_v2')) throw new Error('Device does not report shell_v2; cannot check exit status.');
     if (!command || text.encode(command).length > 2048 || command.includes('\0')) throw new Error('Invalid ADB shell command.');
     return this.runService(`shell,v2,raw:${command}`, async stream => {
       let code, total = 0;

@@ -6,7 +6,11 @@ export function pickDevice(filters) {
     throw new Error('WebUSB requires a secure context and a supported browser. See the USB guide.');
   }
   // Invoke directly inside the button click; waiting here can consume user activation.
-  return navigator.usb.requestDevice({ filters });
+  return navigator.usb.requestDevice({ filters }).catch(error => {
+    // Closing the chooser without picking anything isn't a failure; callers stay quiet.
+    if (error?.name === 'NotFoundError') throw Object.assign(new Error('USB chooser closed.'), { name: 'ChooserClosed' });
+    throw error;
+  });
 }
 
 export async function claimBulk(device, { filter, timeoutMs = 15000, blockSize = 16384 }) {

@@ -13,7 +13,10 @@
         <link rel="icon" href="assets/wave-icon.svg" />
         <link rel="stylesheet" href="assets/style.css" />
         <link rel="license" href="assets/fonts/cascadia-code-OFL.txt" />
-        <script type="module" src="src/root/rooting.mjs?v=bundled-firehose"></script>
+        <script
+            type="module"
+            src="src/root/rooting.mjs?v=device-copy"
+        ></script>
     </head>
     <body>
         <a class="skip" href="#main">Skip to content</a>
@@ -43,7 +46,7 @@
                             aria-controls="step-check"
                             disabled
                         >
-                            Connect phone
+                            Connect device
                         </button>
                     </li>
                     <li>
@@ -142,21 +145,21 @@
                         hidden
                     >
                         <h2 id="check-title" tabindex="-1">
-                            Connect your phone
+                            Connect your device
                         </h2>
                         <ol class="instructions">
                             <li>
-                                First, please charge the device to at least 40%.
-                                Next, in “<strong>About phone</strong>”, please
+                                In “<strong>About phone</strong>”, please
                                 navigate to <strong>Build number</strong>, and
                                 press it 7 times. Then, navigate to the
                                 developer options, and enable
                                 <strong>USB debugging</strong>.
                             </li>
                             <li>
-                                Please connect the device to the computer, and
-                                close any ADB processes (if you don’t know what
-                                that is, you can ignore this.)
+                                Please connect the device to the computer. If
+                                <code>adb</code> is installed, run <code>adb kill-server</code> so
+                                that WebUSB can access the device. (If you don't
+                                know what <code>adb</code> is, you can ignore this.)
                             </li>
                             <li>
                                 Please approve USB debugging on the connected
@@ -175,7 +178,7 @@
                             <strong>Qualcomm … 9008</strong> in the USB chooser.
                         </p>
                         <details class="help">
-                            <summary>The phone isn’t in the list</summary>
+                            <summary>Can’t find device?</summary>
                             <p>
                                 Use <code>05c6:9008</code> only. If you see
                                 <code>05c6:900e</code> (crash dump), remove the
@@ -198,8 +201,8 @@
                                 <code>sudo modprobe -r qcserial</code>.
                             </p>
                             <p>
-                                Close other phone tools and <code>adb</code>;
-                                only one program can use the phone at a time.
+                                Close other device tools and <code>adb</code>;
+                                only one program can use the device at a time.
                             </p>
                         </details>
                     </section>
@@ -229,8 +232,8 @@
                     >
                         <h2 id="patch-title" tabindex="-1">Patch boot</h2>
                         <p>
-                            Wait for Android to start, then reconnect. Allow USB
-                            debugging if prompted.
+                            Please wait for Android to start, then reconnect. If
+                            prompted, allow USB debugging.
                         </p>
                     </section>
                     <section
@@ -243,7 +246,7 @@
                         </h2>
                         <p>
                             Select <strong>Qualcomm … 9008</strong> again. Keep
-                            the phone connected until the write is verified.
+                            the device connected until the write is verified.
                         </p>
                     </section>
                     <section
@@ -253,8 +256,8 @@
                     >
                         <h2 id="finish-title" tabindex="-1">Verify root</h2>
                         <p>
-                            Wait for Android to start, then reconnect to verify
-                            root and open Magisk.
+                            Please wait for Android to start, then reconnect to
+                            verify root and open Magisk.
                         </p>
                     </section>
                     <section id="step-done" aria-labelledby="done-title" hidden>
@@ -268,7 +271,7 @@
                             Optional: grant USB root so
                             <a href="recovery/#step-modules">Recovery</a> can
                             disable a broken Magisk module later. Approve this
-                            in Magisk on the phone.
+                            in Magisk on the device.
                         </p>
                     </section>
                     <p class="status" id="installer-status" role="status"></p>

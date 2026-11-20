@@ -1,12 +1,12 @@
 // Write the phone's own stock boot image back over EDL and verify the whole partition.
-import { $, isWebUsb, problem, show } from './common.mjs';
+import { $, chooserClosed, isWebUsb, problem, show } from './common.mjs';
 import { hashPattern, manifestLimit, parseBackupManifest } from './backup-manifest.mjs';
 import { connectPhone, openEdl } from './device.mjs';
 import { isMagiskPatched } from './magisk.mjs';
 import { bootBytes, checkBootImage, sha256 } from '../protocols/boot-image.mjs';
 import { verifyBootSignature, xp3800BootCertSha256 } from '../protocols/boot-signature.mjs';
 import { FirehoseBootWriter } from '../protocols/firehose-write.mjs';
-import { fetchProgrammer, servedFiles } from './served.mjs?v=bundled-firehose';
+import { fetchProgrammer, servedFiles } from './served.mjs?v=device-copy';
 
 const progress = $('progress');
 let busy = false, checked, programmer, beforeUrl;
@@ -27,7 +27,7 @@ async function task(statusId, action) {
   busy = true;
   render();
   try { await action(message => show($(statusId), message)); }
-  catch (error) { show($(statusId), problem(error), true); }
+  catch (error) { show($(statusId), chooserClosed(error) ? '' : problem(error), !chooserClosed(error)); }
   finally { busy = false; setProgress(); render(); }
 }
 
@@ -63,12 +63,12 @@ $('check-files').addEventListener('click', () => task('files-status', async say 
   checked = { image, hash, manifest };
   $('backup-detail').textContent = `SHA-256: ${hash}\nStock signature verified.` + (manifest ? `\nSerial: ${manifest.serial}\nBuild: ${manifest.fingerprint}\nSaved: ${manifest.date}` : '');
   $('backup-detail').hidden = false;
-  say(manifest ? 'Stock-signed XP3800 boot image matching manifest.' : 'Stock-signed XP3800 boot image matching SHA-256. Ensure it came from this phone.');
+  say(manifest ? 'Stock-signed XP3800 boot image matching manifest.' : 'Stock-signed XP3800 boot image matching SHA-256. Ensure it came from this device.');
 }));
 
 $('to-edl').addEventListener('click', () => task('edl-status', async say => {
   const { serial, fingerprint } = checked.manifest;
-  const { adb } = await connectPhone(say, { expect: { serial, fingerprint }, minBattery: 25 });
+  const { adb } = await connectPhone(say, { expect: { serial, fingerprint } });
   try {
     $('same-phone').checked = true;
     say('Serial and build match the manifest. Restarting into EDL; then write in step 3.');
@@ -84,7 +84,7 @@ $('write').addEventListener('click', () => task('write-status', async say => {
   try {
     await writer.configure();
     await writer.readGpt();
-    const phases = { check: [0, 'Reading boot partition.'], write: [1, 'Writing stock image. Keep phone connected.'], verify: [2, 'Reading the whole partition back.'] };
+    const phases = { check: [0, 'Reading boot partition.'], write: [1, 'Writing stock image. Keep device connected.'], verify: [2, 'Reading the whole partition back.'] };
     let last;
     result = await writer.writeBoot(image, {
       onProgress(phase, done, total) {

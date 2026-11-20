@@ -55,7 +55,7 @@ async function run(adb, command, what, timeoutMs = 60000) {
   const result = await adb.shell(command, undefined, timeoutMs);
   if (result.code !== 0) {
     const detail = (result.stderr || result.stdout).trim().split('\n').slice(-3).join(' ');
-    throw new Error(`${what} failed on the phone (exit ${result.code})${detail ? `: ${detail}` : '.'}`);
+    throw new Error(`${what} failed on the device (exit ${result.code})${detail ? `: ${detail}` : '.'}`);
   }
   return result.stdout;
 }
@@ -64,7 +64,7 @@ async function run(adb, command, what, timeoutMs = 60000) {
 async function freeKiB(adb, path) {
   const line = (await run(adb, `df -k ${quoteShell(path)} | tail -n 1`, 'Checking free space')).trim().split(/\s+/);
   const free = Number(line[3]);
-  if (!Number.isInteger(free)) throw new Error('Could not read the phone\'s free space.');
+  if (!Number.isInteger(free)) throw new Error('Could not read the device\'s free space.');
   return free;
 }
 
@@ -75,16 +75,16 @@ export async function patchOnPhone(adb, { stock, apk, log = () => {}, certSha256
   if (stock.length !== bootBytes) throw new Error('Only patch a full 32 MiB stock backup.');
   const files = await magiskFiles(apk);
   const apkSha = await sha256(apk);
-  const props = (await run(adb, 'getprop ro.build.system_root_image; getprop ro.crypto.state', 'Reading phone properties')).split('\n');
-  if (props[0].trim() === 'true') throw new Error('This phone uses system-as-root, which XP3800 does not support. Stopping.');
+  const props = (await run(adb, 'getprop ro.build.system_root_image; getprop ro.crypto.state', 'Reading device properties')).split('\n');
+  if (props[0].trim() === 'true') throw new Error('This device uses system-as-root, which XP3800 does not support. Stopping.');
   // As the Magisk app decides: keep forced encryption on an encrypted phone.
   const keepEncrypt = props[1]?.trim() === 'encrypted';
-  if (await freeKiB(adb, '/data/local/tmp') < 160 * 1024) throw new Error('The phone needs 160 MB of free internal storage to patch.');
+  if (await freeKiB(adb, '/data/local/tmp') < 160 * 1024) throw new Error('The device needs 160 MB of free internal storage to patch.');
   await run(adb, `rm -rf ${workDir} && mkdir -p ${workDir}/art/dalvik-cache`, 'Creating work folder');
   try {
-    log('Copying Magisk 24.0 ARM tools to the phone.');
+    log('Copying Magisk 24.0 ARM tools to the device.');
     for (const [name, bytes] of files) await push(adb, `${workDir}/${name}`, bytes);
-    log('Copying stock boot image and Magisk app to phone.');
+    log('Copying stock boot image and Magisk app to device.');
     await push(adb, `${workDir}/boot.img`, stock);
     await push(adb, `${workDir}/magisk.apk`, apk);
     const sums = await run(adb, `cd ${workDir} && sha256sum boot.img magisk.apk`, 'Checking copies');
