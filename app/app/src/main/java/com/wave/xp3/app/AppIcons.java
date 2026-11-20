@@ -18,6 +18,7 @@ import android.util.LruCache;
 import android.widget.ImageView;
 
 import java.io.File;
+import java.lang.ref.WeakReference;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -141,6 +142,10 @@ final class AppIcons {
             view.setImageDrawable(hold);
         }
         if (!hasArt) return;
+        // The worker and its queue hold the view weakly: a stack frame of the
+        // worker kept the last view it drew for, and with it a closed
+        // Activity and its whole tree (tools/qa/soak.py's heap dumps).
+        final WeakReference<ImageView> target = new WeakReference<>(view);
         worker.execute(() -> {
             Bitmap art = load(ref, px);
             final boolean real = art != null;
@@ -148,7 +153,8 @@ final class AppIcons {
             main.post(() -> {
                 if (real) cache.put(key, done);
                 else tiles.put(tileKey, done);
-                if (key.equals(view.getTag())) show(view, done);
+                ImageView v = target.get();
+                if (v != null && key.equals(v.getTag())) show(v, done);
             });
         });
     }

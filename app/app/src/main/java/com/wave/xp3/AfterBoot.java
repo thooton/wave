@@ -14,6 +14,7 @@ import com.wave.xp3.core.root.Shell;
 import com.wave.xp3.core.root.Watchdog;
 
 import java.io.IOException;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -41,13 +42,36 @@ public final class AfterBoot {
      * How Wave's own update through root went, said once when Wave opens
      * again (Scripts.selfUpdate leaves pm's answer behind). Only where root
      * has worked before, so it never brings up a prompt; on a worker.
+     *
+     * The worker holds the application, not the Activity: its Thread, and
+     * so its Runnable, stayed reachable after it had ended (a VM-internal
+     * root in tools/qa/soak.py's heap dumps), and with it a closed Activity
+     * and all its views.
+     * The Activity is looked up again on the main thread when there is
+     * something to say; if it has closed by then, a failure is still said, as
+     * a toast.
      */
     public static void selfUpdate(Activity activity) {
-        final AfterBoot after = new AfterBoot(activity);
+        final android.content.Context app = activity.getApplicationContext();
+        final WeakReference<Activity> shown = new WeakReference<>(activity);
         new Thread(() -> {
             try {
                 // The preference is read here, off the main thread.
-                if (RootShell.known(activity)) after.selfUpdateResult();
+                if (!RootShell.known(app)) return;
+                String said = RootShell.run(app, Scripts.selfUpdateResult(), Engine.QUICK_MS).output.trim();
+                if (said.isEmpty()) return;
+                final PmResult pm = PmResult.parse(said, 0);
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    Activity now = shown.get();
+                    if (now == null || now.isDestroyed() || now.isFinishing()) {
+                        Toast.makeText(app, pm.ok ? "Wave was updated" : "Wave wasn't updated: " + pm.message,
+                            Toast.LENGTH_LONG).show();
+                    } else if (pm.ok) {
+                        new AfterBoot(now).toast("Wave was updated");
+                    } else {
+                        new AfterBoot(now).alert("Wave wasn't updated", pm.message);
+                    }
+                });
             } catch (IOException e) {
                 // No root now, or it didn't answer: nothing to say.
             }
