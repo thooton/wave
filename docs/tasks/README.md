@@ -32,7 +32,7 @@ rules.
 | 07 | [The app's screens](07-app-screens.md) | W | 00, 05, 06 | [x] |
 | 08 | [The boot watchdog](08-boot-watchdog.md) | W | 06 | [x] |
 | 09 | [The jailbreak page](09-site-jailbreak.md) | W | | [ ] |
-| 10 | [Landing page and setup-code generator](10-site-pages.md) | W | 14 for the generator | [ ] |
+| 10 | [Landing page and setup-code generator](10-site-pages.md) | W | 14 for the generator | local |
 | 11 | [Import the mods into wave_packages](11-mods-import.md) | P | 01 | [x] |
 | 12 | [Rename Argon to Wave in the mods](12-mods-rename.md) | P | 11 | [x] |
 | 13 | [Releases and publishing from wave_packages CI](13-packages-ci.md) | P | 01, 02 | [x] |
