@@ -269,14 +269,14 @@ F('Sources tab', 'add-source', 'Add a Source: typing the address',
     'Paste, Clear.'),
   screen({ tab: 1, badge: 2, mode: 'abc', bar: { back: 'Sources', title: 'Add a Source' }, page:
     `<div class="lab">Address</div><div class="urlf">https://github.com/mkline/xp3-ga<span class="t9">m</span><span class="caret"></span></div>` +
-    `<div class="fieldnote">The https:// address of a Git source</div>` +
+    `<div class="fieldnote">&nbsp;</div>` +
     `<div style="height:16px"></div><div class="btn">Add</div>` }),
   'Starts as https://github.com/ with the cursor at the end. Keys 2 to 9 type by multi-tap (the m underlined is still taking taps), 1 types . / - _, # switches abc / 123, * opens the phone\'s symbols.');
 F('Sources tab', 'add-source-button', 'Add a Source: on Add',
   K('Nothing.', 'Up: back into the address.', 'Fetches the source, then asks to trust it.', 'Back to Sources.', 'Paste, Clear.'),
   screen({ tab: 1, badge: 2, bar: { back: 'Sources', title: 'Add a Source' }, page:
     `<div class="lab">Address</div><div class="urlf rest">https://github.com/mkline/xp3-games</div>` +
-    `<div class="fieldnote">The https:// address of a Git source</div>` +
+    `<div class="fieldnote">&nbsp;</div>` +
     `<div style="height:16px"></div><div class="btn press">Add</div>` }));
 F('Sources tab', 'add-source-fetching', 'Add a Source: fetching it',
   K('Nothing.', 'Nothing.', 'Nothing.', 'Stops the fetch, back to the address.', 'Nothing.'),
