@@ -71,7 +71,7 @@ they stay on P's legacy channel ([decisions](decisions.md), open item 4).
 
 ## 5. Things only a person at the phone can do
 
-The phone is rooted and on Wave 0.7.21; see [ROOT-TESTING.md](../app/ROOT-TESTING.md)
+The phone is rooted (Magisk 24.0). The rooted QA suite removes Wave when it ends, so build and install the current Wave (0.7.25) first; see [ROOT-TESTING.md](../app/ROOT-TESTING.md)
 (its "Still open" list and sections 06 and 08). Use `tools/qa/phone-lock.sh`.
 
 - **Volume Down safe mode.** Hold the side Volume Down key from power-on

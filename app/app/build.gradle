@@ -24,6 +24,14 @@ android {
 // out of what these tests touch (see Format, Actions and Pages).
 android.testOptions.unitTests.returnDefaultValues = true
 
+// The tests use the debug fixtures (src/debug), so only the debug variant has unit tests;
+// without this `./gradlew check` fails compiling the release ones.
+androidComponents {
+    beforeVariants(selector().withBuildType("release")) { builder ->
+        builder.enableUnitTest = false
+    }
+}
+
 dependencies {
     testImplementation testFixtures(project(":common:core"))
     implementation project(":app:core")
@@ -39,4 +47,5 @@ afterEvaluate {
         classpath = files({ unit.get().classpath })
         mainClass = "com.wave.xp3.app.AppSelfTest"
     }
+    tasks.named("check") { dependsOn "selfTest" }
 }
