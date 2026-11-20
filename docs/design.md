@@ -248,6 +248,21 @@ tested on a desktop JVM. Operations:
 | Read module state | list `/data/adb/modules` and `modules_update` with each `module.prop` and its `disable`/`remove`/`update` flags |
 | Reboot | `svc power reboot` |
 
+A script Wave gives up on doesn't go on without it. Ending the `su` client
+doesn't end the root subshell running the script (on Magisk 24 a timed-out
+script and its children were still running long after), so a `pm install`
+or module copy reported as failed could still have finished. Each script's
+subshell sends its own pid first (`Frame`); after a timeout, an interrupt or
+the shell closing, `ProcessShell` opens a fresh `su` and `Scripts.stop`
+stops (SIGSTOP) and then kills that subshell and everything under it, found
+by parent pid, before the failure is reported. Checked on the rooted phone
+with a script that ignores HUP, TERM and PIPE and has a child in the
+background and one in the foreground: all gone 2.3 s after the 3 s timeout.
+One limit stays: once `pm` has handed an install to Android's installer
+service, killing `pm` doesn't call it back, so an install whose commit had
+already begun can still land; Wave reads installed versions from Android,
+not from its receipts, so it isn't misled about what is installed.
+
 Root is the user's to grant: Wave asks for it (opens `su`) only when the
 user does something that needs it, and Magisk's own prompt or Superuser
 screen decides; nothing grants Wave root silently. (An earlier draft had the

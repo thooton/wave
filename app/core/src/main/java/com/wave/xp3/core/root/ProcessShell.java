@@ -17,6 +17,12 @@ import java.util.concurrent.TimeUnit;
  * checked with `id`, and reopened after a timeout or if it dies. Scripts run
  * one at a time ({@link Frame} finds where each one ends).
  *
+ * A script Wave gives up on (too long, interrupted, or its shell died) is
+ * stopped, not left behind: ending the `su` client doesn't end the root
+ * subshell running it, so a fresh shell kills that subshell and everything
+ * under it ({@link Scripts#stop}) before the failure is reported. Otherwise a
+ * `pm install` or a module copy reported as failed could still finish.
+ *
  * Plain Java (ProcessBuilder), so the same class runs on the phone and on a
  * desktop JVM against a fake.
  */
@@ -35,6 +41,8 @@ public final class ProcessShell implements Shell {
     private Process process;
     private OutputStream stdin;
     private LinkedBlockingQueue<String> lines;
+    /** How long stopping an abandoned script may take, its own shell's opening included. */
+    static final long STOP_TIMEOUT_MS = 15000;
 
     public ProcessShell(List<String> command, Map<String, String> environment) {
         this.command = new ArrayList<>(command);
@@ -51,10 +59,12 @@ public final class ProcessShell implements Shell {
     @Override
     public synchronized Result run(String script, long timeoutMs) throws IOException {
         open();
+        int[] pid = new int[1];
         try {
-            return send(script, timeoutMs);
+            return send(script, timeoutMs, pid);
         } catch (IOException e) {
             close();
+            if (pid[0] > 0) stop(pid[0]);
             throw e;
         }
     }
@@ -88,7 +98,7 @@ public final class ProcessShell implements Shell {
         pump.start();
         Result id;
         try {
-            id = send(Scripts.whoami(), OPEN_TIMEOUT_MS);
+            id = send(Scripts.whoami(), OPEN_TIMEOUT_MS, new int[1]);
         } catch (IOException e) {
             close();
             throw new NoRoot("Root was refused. Open Magisk, Superuser, and allow Wave.");
@@ -99,7 +109,22 @@ public final class ProcessShell implements Shell {
         }
     }
 
-    private Result send(String script, long timeoutMs) throws IOException {
+    /**
+     * Ends the abandoned script's subshell `pid` and its tree through a fresh
+     * shell, which stays open for the next script. Best effort: if root is
+     * gone by now, there is no way to.
+     */
+    private void stop(int pid) {
+        try {
+            open();
+            send(Scripts.stop(pid), STOP_TIMEOUT_MS, new int[1]);
+        } catch (IOException e) {
+            close();
+        }
+    }
+
+    /** Sends `script` and waits for its end; `pid[0]` gets its subshell's pid as soon as it is known. */
+    private Result send(String script, long timeoutMs, int[] pid) throws IOException {
         String nonce = nonce();
         lines.clear();
         try {
@@ -123,6 +148,11 @@ public final class ProcessShell implements Shell {
             }
             if (line == null) continue;
             if (line == EOF) throw new IOException("The root shell closed.");
+            Integer started = Frame.pid(line, nonce);
+            if (started != null) {
+                pid[0] = started;
+                continue;
+            }
             Integer exit = Frame.end(line, nonce);
             if (exit != null) return new Result(exit, Frame.output(out));
             if (size < MAX_OUTPUT) {

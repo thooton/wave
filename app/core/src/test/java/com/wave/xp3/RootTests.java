@@ -43,7 +43,14 @@ final class RootTests {
 
     private static void frame(Check check) {
         String w = Frame.wrap("echo hi", "abcdefgh12");
-        check.ok("subshell", w.startsWith("(\necho hi\n) </dev/null 2>&1\n"));
+        check.ok("subshell, its pid first", w.startsWith("(\necho \":wave-pid:abcdefgh12:$(exec sh -c 'echo $PPID')\"\n"
+            + "echo hi\n) </dev/null 2>&1\n"));
+        check.same("pid", 4242, Frame.pid(":wave-pid:abcdefgh12:4242", "abcdefgh12"));
+        check.same("pid of another nonce", null, Frame.pid(":wave-pid:zzzzzzzz:4242", "abcdefgh12"));
+        check.same("no pid", null, Frame.pid(":wave-pid:abcdefgh12:", "abcdefgh12"));
+        check.same("not a pid", null, Frame.pid(":wave-pid:abcdefgh12:1; rm", "abcdefgh12"));
+        check.same("never init", null, Frame.pid(":wave-pid:abcdefgh12:1", "abcdefgh12"));
+        check.fails("stop: never init", () -> Scripts.stop(1));
         check.ok("marker", w.endsWith(":wave-end:abcdefgh12:$?\"\n"));
         check.fails("bad nonce", () -> Frame.wrap("x", "a;b"));
         check.same("end", 3, Frame.end(":wave-end:abcdefgh12:3", "abcdefgh12"));
@@ -199,17 +206,23 @@ final class RootTests {
             check.same("state doesn't leak", "", shell.run("X=1; cd /", 5000).output
                 + shell.run("echo $X", 5000).output);
             check.same("stdin is closed", "", shell.run("cat", 5000).output);
-            // A timed-out script keeps running (the shell can't stop its subshell),
-            // so this one is told to stop afterwards, and ends by itself if the
-            // sandbox goes first.
-            File pid = new File(box.root, "loop.pid");
-            check.fails("timeout", "too long", () -> shell.run("sh -c 'echo $$ > \"$FAKE/loop.pid\"; "
-                + "until [ -e \"$FAKE/stop\" ] || [ ! -d \"$FAKE\" ]; do /bin/sleep 0.05; done'", 500));
+            // A script that outlives its timeout and ignores every signal but
+            // KILL, with a child in the background and one in the foreground,
+            // each in its own session (the Sandbox's sh): all three are gone
+            // once run() has failed. Each ends by itself if the sandbox goes.
+            String hang = "trap '' HUP INT TERM PIPE; echo $(exec sh -c 'echo $PPID') > \"$FAKE/script.pid\"\n"
+                + "sh -c 'trap \"\" HUP INT TERM PIPE; echo $$ > \"$FAKE/bg.pid\"; "
+                + "while [ -d \"$FAKE\" ]; do /bin/sleep 0.05; done' &\n"
+                + "sh -c 'trap \"\" HUP INT TERM PIPE; echo $$ > \"$FAKE/fg.pid\"; "
+                + "while [ -d \"$FAKE\" ]; do /bin/sleep 0.05; done'";
+            check.fails("timeout", "too long", () -> shell.run(hang, 1500));
+            for (String name : new String[] {"script", "bg", "fg"}) {
+                File f = new File(box.root, name + ".pid");
+                String p = f.isFile() ? new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).trim() : "";
+                check.ok("the timed-out " + name + " ran", p.matches("[0-9]+"));
+                check.ok("and is gone when run() fails: " + name, gone(p, 0));
+            }
             check.same("reopens after timeout", "back", shell.run("echo back", 5000).output);
-            box.flag("stop");
-            String loop = pid.isFile() ? new String(Files.readAllBytes(pid.toPath()), StandardCharsets.UTF_8).trim() : "";
-            check.ok("the timed-out script ran", loop.matches("[0-9]+"));
-            check.ok("and ends when told", gone(loop, 3000));
             check.fails("shell exiting", "closed", () -> shell.run("kill $$", 5000));
             check.same("reopens after exit", "again", shell.run("echo again", 5000).output);
             shell.close();

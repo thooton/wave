@@ -64,6 +64,41 @@ public final class Scripts {
         return "id";
     }
 
+    /**
+     * Ends process `pid` and everything under it, for a script Wave gave up
+     * on ({@link Frame}). The tree is found by parent pid in /proc and stopped
+     * (SIGSTOP) before it is killed, until a pass finds nothing new, so
+     * nothing can fork past it or be orphaned away from it while it is
+     * found. Prints what is left alive of it: nothing, when it worked.
+     */
+    public static String stop(int pid) {
+        if (pid < 2) throw new IllegalArgumentException("bad pid");
+        return "t=' " + pid + " '\n"
+            + "[ -d /proc/" + pid + " ] || exit 0\n"
+            + "while :; do\n"
+            + "  kill -STOP $t 2>/dev/null\n"
+            + "  more=\n"
+            + "  for f in /proc/[0-9]*/stat; do\n"
+            + "    read -r l 2>/dev/null < \"$f\" || continue\n"
+            + "    p=${l%% *}\n"
+            + "    set -- ${l##*\") \"}\n"
+            + "    case \"$t\" in *\" $2 \"*) case \"$t\" in *\" $p \"*) ;; *) t=\"$t$p \"; more=1 ;; esac ;; esac\n"
+            + "  done\n"
+            + "  [ -n \"$more\" ] || break\n"
+            + "done\n"
+            + "kill -KILL $t 2>/dev/null\n"
+            // Gone, or a zombie its parent hasn't collected yet, within 2 s.
+            + "for p in $t; do\n"
+            + "  n=0\n"
+            + "  while read -r l 2>/dev/null < /proc/$p/stat; do\n"
+            + "    set -- ${l##*\") \"}\n"
+            + "    [ \"$1\" != Z ] || break\n"
+            + "    n=$((n + 1)); [ $n -le 20 ] || { echo $p; break; }\n"
+            + "    sleep 0.1\n"
+            + "  done\n"
+            + "done";
+    }
+
     /** True when `id`'s answer is root's. */
     public static boolean isRoot(String idOutput) {
         if (idOutput == null) return false;
