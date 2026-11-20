@@ -1,6 +1,6 @@
 // Build assets listed by name with their SHA-256 in files/files.json.
-import { sha256 } from '../protocols/boot-image.mjs';
-import { checkProgrammer } from '../protocols/sahara.mjs';
+import { sha256 } from '../protocols/boot-image.mjs?v=redesign';
+import { checkProgrammer } from '../protocols/sahara.mjs?v=redesign';
 
 const NAME = /^[A-Za-z0-9._-]+\.(?:apk|mbn)$/;
 const HASH = /^[0-9a-f]{64}$/;

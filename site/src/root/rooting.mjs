@@ -1,9 +1,34 @@
-// The rooting flow (docs/root.md, "Root from the browser"). Each step proves
-// the one before it; the stage is kept in localStorage and the two images in
-// IndexedDB, so a reload resumes where the phone is.
-import { $, chooserClosed, isWebUsb, problem, show } from "./common.mjs";
-import { makeBackupManifest } from "./backup-manifest.mjs";
-import { connectPhone, differs, openEdl } from "./device.mjs";
+// The installer: Get ready, Back up, Root, Finish. Each step's checklist is
+// its body; every item runs in order and proves the one before it. Progress is
+// kept in localStorage and the two images in IndexedDB, so a reload resumes;
+// both go at the end or on Start over. Only firehose-write.mjs writes, and
+// only to boot, after the backup has been read twice, checked, saved to disk
+// and read back from disk.
+import {
+    $,
+    callout,
+    checklist,
+    chooserClosed,
+    clearCallout,
+    dropPending,
+    isWebUsb,
+    logger,
+    mark,
+    percent,
+    problem,
+    show,
+} from "./common.mjs?v=redesign";
+import { makeBackupManifest } from "./backup-manifest.mjs?v=redesign";
+import { backupName, makeBackupFile } from "./backup-file.mjs?v=redesign";
+import {
+    chooseEdl,
+    claimEdl,
+    connectPhone,
+    differs,
+    startProgrammer,
+    waitForAndroid,
+    waitForEdl,
+} from "./device.mjs?v=redesign";
 import {
     MAGISK,
     WAVE_PACKAGE,
@@ -12,57 +37,49 @@ import {
     installedVersion,
     isMagiskPatched,
     patchOnPhone,
-} from "./magisk.mjs";
-import { bootBytes, sha256 } from "../protocols/boot-image.mjs";
+} from "./magisk.mjs?v=redesign";
+import { sha256 } from "../protocols/boot-image.mjs?v=redesign";
 import {
-    checkPatchedBoot,
     verifyBootSignature,
     xp3800BootCertSha256,
-} from "../protocols/boot-signature.mjs";
-import { FirehoseBootReader } from "../protocols/firehose.mjs";
+} from "../protocols/boot-signature.mjs?v=redesign";
+import { FirehoseBootReader } from "../protocols/firehose.mjs?v=redesign";
 import {
     FirehoseBootWriter,
     WriteCheckError,
-} from "../protocols/firehose-write.mjs";
+} from "../protocols/firehose-write.mjs?v=redesign";
 import {
     fetchProgrammer,
     fetchServed,
     servedFiles,
-} from "./served.mjs?v=device-copy";
+} from "./served.mjs?v=redesign";
 
-const KEY = "wave-rooting-v1";
-const STAGES = ["check", "backup", "save", "patch", "flash", "finish", "done"];
-const VIEWS = ["intro", ...STAGES];
-const progress = $("progress"),
-    log = $("log"),
-    activity = $("activity"),
-    activityLog = $("activity-log");
-const steps = [...document.querySelectorAll("[data-step]")];
-const actions = [...document.querySelectorAll("[data-actions]")];
-let state = load(),
-    busy = false,
-    urls = [];
-let view = initialView(),
-    activityView;
+const KEY = "wave-rooting-v2";
+const PHASES = ["intro", "ready", "backup", "root", "finish"];
 const SERVED = new URL("files/", document.baseURI);
-let staged = {},
-    programmer;
+const log = logger($("log-box"), $("log"));
+let state = load(),
+    view = state.reached ?? "intro",
+    busy = false,
+    staged = {},
+    programmer,
+    active, // the checklist item running now
+    waiting; // token for an automatic EDL pick-up
 const fetched = {};
 
 function load() {
     try {
         const value = JSON.parse(localStorage.getItem(KEY));
-        if (value && STAGES.includes(value.stage)) return value;
+        if (value && PHASES.includes(value.reached)) return value;
     } catch {}
-    return { stage: "check" };
+    return {};
 }
 function save(changes) {
     state = { ...state, ...changes };
     localStorage.setItem(KEY, JSON.stringify(state));
-    render();
 }
 
-// IndexedDB keeps the stock backup and the patched image across a reload.
+// ---- IndexedDB: the stock backup and the patched image, until the end ----
 function db() {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open("wave-rooting", 1);
@@ -87,561 +104,646 @@ async function store(mode, use) {
     }
 }
 const putImage = (name, bytes) => store("readwrite", (s) => s.put(bytes, name));
-const clearImages = () => store("readwrite", (s) => s.clear());
 async function getImage(name, hash) {
     const bytes = await store("readonly", (s) => s.get(name));
-    if (!(bytes instanceof Uint8Array) || (await sha256(bytes)) !== hash) {
-        throw new Error(
-            name === "stock"
-                ? "Backup not found in this browser. Select your boot image again in Save backup."
-                : "Patched image not found in this browser. Run Patch boot again.",
-        );
-    }
+    if (!(bytes instanceof Uint8Array) || (await sha256(bytes)) !== hash)
+        throw new Error("Browser storage was cleared. Start over");
     return bytes;
 }
+const dropImages = () =>
+    new Promise((resolve) => {
+        const request = indexedDB.deleteDatabase("wave-rooting");
+        request.onsuccess = request.onerror = request.onblocked = resolve;
+    });
 
-function note(text) {
-    activityLog.hidden = false;
-    log.textContent += (log.textContent ? "\n" : "") + text;
+// ---- Checklists ----
+const READY = ["Sonim XP3800 on Android 8.1", "Verify not rooted", "Verify installer files"];
+const BACKUP = [
+    "Restart to EDL",
+    "Start Sonim service programmer",
+    "Read boot partition",
+    "Verify read data",
+    "Verify stock",
+    "Restart to Android",
+    "Save file",
+    "Verify file",
+];
+const rootSteps = () => [
+    "Wait for Android",
+    "Patch boot image (Magisk 24.0)",
+    "Sign patched boot image",
+    `Install Magisk 24.0, Wave ${staged.wave?.version ?? ""}`.trim(),
+    "Restart to EDL",
+    "Verify boot partition",
+    "Write patched boot image",
+    "Verify patched boot image",
+    "Restart to Android",
+    "Verify root",
+];
+let lists = {};
+function begin(item, detail = "") {
+    active = item;
+    mark(item, "active", detail);
 }
-function setProgress(fraction) {
-    $("progress-label").hidden = progress.hidden = fraction === undefined;
-    if (fraction !== undefined) progress.value = Math.floor(fraction * 100);
+function done(item, detail) {
+    mark(item, "done", detail);
+    if (active === item) active = undefined;
+}
+// Rebuild a step's list from the saved progress: the first `count` are done.
+function restore(name, labels, count) {
+    const items = checklist($(`${name}-list`), labels);
+    items.slice(0, count).forEach((item) => mark(item, "done"));
+    return (lists[name] = items);
 }
 
-function initialView() {
-    return state.stage === "check" && !state.serial ? "intro" : state.stage;
-}
-function selectView(next) {
-    view = next;
-    render();
-    $(`step-${view}`).querySelector("h1, h2").focus();
-}
-function canReview(step) {
-    if (busy || step === view) return false;
-    if (step === "intro") return state.stage === "check";
-    if (step === "check" && state.stage === "check" && view === "intro")
-        return false;
-    return (
-        step === state.stage ||
-        (step === "check" && state.stage === "backup") ||
-        (step === "patch" && state.stage === "flash") ||
-        (step === "finish" && state.stage === "done")
-    );
-}
-
+// ---- Rendering ----
+const reachedIndex = () => PHASES.indexOf(state.reached ?? "intro");
 function render() {
     const supported = isWebUsb();
-    const can = (stages) => !busy && supported && stages.includes(state.stage);
-    const installerReady = !!(programmer && staged.magisk && staged.wave);
-    const reached =
-        state.stage === "check"
-            ? VIEWS.indexOf(view)
-            : VIEWS.indexOf(state.stage);
+    const ready = !!(programmer && staged.magisk && staged.wave);
     $("where").hidden = supported;
-    $("start").disabled = !supported || busy || !installerReady;
-    $("start-over").hidden = initialView() === "intro";
-    $("back").hidden = state.stage !== "check" || view !== "check";
-    $("back").disabled = busy;
-    $("resume").hidden = state.stage === "check" || view === state.stage;
-    $("resume").disabled = busy;
-    for (const step of steps) {
-        const name = step.dataset.step;
-        const selected = name === view;
-        $(`step-${name}`).hidden = !selected;
-        if (selected) step.setAttribute("aria-current", "step");
-        else step.removeAttribute("aria-current");
-        step.toggleAttribute("data-past", VIEWS.indexOf(name) < reached);
-        step.disabled = !canReview(name);
-    }
-    for (const group of actions) group.hidden = group.dataset.actions !== view;
-    activity.hidden = activityView !== view;
-    activityLog.hidden = activity.hidden || !log.textContent;
-    $("check").disabled = !can(["check", "backup"]) || !installerReady;
-    $("backup").disabled = !can(["backup"]) || !programmer;
-    $("saved").disabled = !can(["save"]);
-    $("patch").disabled = !can(["patch", "flash"]) || !installerReady;
-    $("flash").disabled = !can(["flash"]) || !programmer;
-    $("finish").disabled = !can(["finish", "done"]);
-    $("grant").disabled = $("open-wave").disabled = !can(["done"]);
+    $("start").disabled = busy || !supported || !ready;
+    $("start-over").hidden = !state.reached;
     $("start-over").disabled = busy;
-    $("save-image").hidden = !$("save-image").hasAttribute("href");
-    $("save-manifest").hidden = !$("save-manifest").hasAttribute("href");
+    for (const button of document.querySelectorAll("[data-step]")) {
+        const name = button.dataset.step,
+            index = PHASES.indexOf(name),
+            current = name === view;
+        $(`step-${name}`).hidden = !current;
+        if (current) button.setAttribute("aria-current", "step");
+        else button.removeAttribute("aria-current");
+        const past =
+            index < reachedIndex() || (name === "finish" && !!state.finished);
+        button.toggleAttribute("data-done", past);
+        button.toggleAttribute("data-past", past);
+        button.disabled = busy || current || index > reachedIndex();
+    }
+    for (const group of document.querySelectorAll("[data-actions]"))
+        group.hidden = group.dataset.actions !== view;
+    for (const button of document.querySelectorAll(".forward button"))
+        if (button.id !== "start") button.disabled = busy;
+}
+function go(name) {
+    view = name;
+    if (PHASES.indexOf(name) > reachedIndex()) save({ reached: name });
+    render();
+    $(`step-${name}`).querySelector("h1, h2").focus();
+}
+for (const button of document.querySelectorAll("[data-step]"))
+    button.addEventListener("click", () => go(button.dataset.step));
+const visible = (id, on) => ($(id).hidden = !on);
+for (const help of document.querySelectorAll(".edl-help"))
+    help.replaceChildren($("edl-help").content.cloneNode(true));
+const edlHelp = (name, on) =>
+    ($(`step-${name}`).querySelector(".edl-help").hidden = !on);
+function say(name, text, ok = false) {
+    show($(`${name}-status`), text);
+    $(`${name}-status`).classList.toggle("ok", ok);
 }
 
-async function task(action) {
+// Runs one action of a step. Errors become one line in that step's box; the
+// item that was running is marked failed and the rest of its list is dropped.
+async function task(name, action) {
     if (busy) return;
     busy = true;
-    const previousStage = state.stage;
-    const previousFocus = document.activeElement;
-    let succeeded = false;
-    activityView = view;
-    show(activity, "");
-    log.textContent = "";
-    activityLog.open = false;
+    waiting = undefined;
+    clearCallout($(`${name}-problem`));
+    log.clear();
     render();
     try {
-        await action((message) => show(activity, message));
-        succeeded = true;
+        await action();
     } catch (error) {
-        if (chooserClosed(error)) show(activity, "");
-        else {
-            show(activity, problem(error), true);
-            note(`Stopped: ${problem(error)}`);
+        if (active) {
+            mark(active, chooserClosed(error) ? "waiting" : "failed");
+            if (!chooserClosed(error)) dropPending(active.parentElement);
         }
+        active = undefined;
+        if (!chooserClosed(error)) {
+            log.add(`${error.message}${error.detail ? `\n${error.detail}` : ""}`);
+            say(name, "");
+            if (!error.shown) callout($(`${name}-problem`), problem(error));
+            recover[name]?.(error);
+        } else if (name === "ready") visible("ready-list", false);
     } finally {
-        setProgress();
         busy = false;
-        if (
-            state.stage !== previousStage ||
-            (succeeded && view !== state.stage)
-        ) {
-            activityView = state.stage;
-            selectView(state.stage);
-        } else {
-            render();
-            if (
-                document.activeElement === document.body &&
-                !previousFocus.disabled
-            )
-                previousFocus.focus();
-        }
+        render();
     }
 }
 
-for (const step of steps)
-    step.addEventListener("click", () => selectView(step.dataset.step));
-$("start").addEventListener("click", () => selectView("check"));
-$("back").addEventListener("click", () => selectView("intro"));
-$("resume").addEventListener("click", () => selectView(state.stage));
+// After a failure: offer the step's button again, as "Try again". A device
+// that can't be claimed in EDL stays in EDL, so Choose device stays instead.
+const recover = {
+    backup(error) {
+        if (state.backup || error.code === "claim") return;
+        visible("backup-edl", false);
+        edlHelp("backup", false);
+        $("backup").textContent = "Try again";
+        visible("backup", true);
+    },
+    root(error) {
+        if (["broken", "done", "written"].includes(state.root) || error.code === "claim") return;
+        save({ root: undefined });
+        visible("root-edl", false);
+        edlHelp("root", false);
+        $("root").textContent = "Try again";
+        visible("root", true);
+    },
+};
 
-// Verify the bundled programmer before allowing a reboot into EDL.
+// ---- Installer files ----
 async function loadStaged() {
-    const status = $("installer-status");
-    show(status, "Checking installer files…");
     try {
         staged = await servedFiles(SERVED);
         programmer = await fetchProgrammer(SERVED, staged.programmer);
-        if (!staged.magisk || !staged.wave)
-            throw new Error(
-                "This site build is missing the Magisk or Wave APK.",
-            );
-        show(status, "");
+        if (!staged.magisk || !staged.wave) throw new Error("missing APK");
     } catch (error) {
-        show(
-            status,
-            `${problem(error)} Reload the page or contact the site maintainer.`,
-            true,
-        );
+        log.add(error.message);
+        show($("installer-status"), "Installer files damaged. Try reloading", true);
     } finally {
         render();
     }
 }
 async function apkFor(name) {
     if (!fetched[name]) {
-        const bytes = await fetchServed(SERVED, staged[name]);
-        if (name === "magisk") await checkMagiskApk(bytes);
-        else if (bytes.length < 22 || bytes[0] !== 0x50 || bytes[1] !== 0x4b)
-            throw new Error("The bundled Wave file is not an APK.");
+        let bytes;
+        try {
+            bytes = await fetchServed(SERVED, staged[name]);
+            if (name === "magisk") await checkMagiskApk(bytes);
+            else if (bytes[0] !== 0x50 || bytes[1] !== 0x4b)
+                throw new Error("Wave file is not an APK");
+        } catch (error) {
+            throw Object.assign(new Error("Installer files damaged. Try reloading"), {
+                detail: error.message,
+            });
+        }
         fetched[name] = bytes;
     }
     return fetched[name];
 }
 
-const connect = (say) =>
-    connectPhone(say, {
+// Status lines from connectPhone; the USB debugging prompt gets its own box.
+const sayFor = (name) => (message) => {
+    if (/Allow USB debugging/.test(message) && $(`${name}-prompt`))
+        visible(`${name}-prompt`, true);
+    else say(name, message);
+};
+const connect = (name) =>
+    connectPhone(sayFor(name), {
         expect: state.serial
             ? { serial: state.serial, fingerprint: state.fingerprint }
             : undefined,
-    });
+    }).finally(() => $(`${name}-prompt`) && visible(`${name}-prompt`, false));
 
-// ---- Steps ----
-$("check").addEventListener("click", () =>
-    task(async (say) => {
-        const { adb, serial, fingerprint } = await connect(say);
-        try {
-            const rooted = await adb.shell(
-                "command -v su; ls /sbin/magisk /sbin/su 2>/dev/null",
-            );
-            if (rooted.stdout.trim())
-                throw new Error(
-                    "This device already has su and is likely rooted. To return to stock, first flash the stock boot image (Recovery, linked in the steps).",
-                );
-            note(
-                `XP3800, serial ${serial}.\n${fingerprint}`,
-            );
-            await clearImages();
-            save({
-                stage: "backup",
-                serial,
-                fingerprint,
-                stockSha: undefined,
-                patchedSha: undefined,
-            });
-            say(
-                "Restarting into EDL. The screen will stay dark; then continue with Read boot.",
-            );
-            await adb.reboot("edl");
-        } finally {
-            await adb.close();
-        }
-    }),
-);
-
-$("backup").addEventListener("click", () =>
-    task(async (say) => {
-        const link = await openEdl(say, programmer);
-        const reader = new FirehoseBootReader(link);
-        let first;
-        try {
-            say("Checking partition table.");
-            await reader.configure();
-            const { boot, partitions } = await reader.readGpt();
-            note(
-                `XP3800 partition table: ${partitions.length} entries, boot partition at sector ${boot.start}.`,
-            );
-            say("Reading boot image (1 of 2).");
-            first = await reader.readBoot((done, total) =>
-                setProgress(done / total / 2),
-            );
-            say("Reading boot image again (2 of 2).");
-            const second = await reader.readBoot((done, total) =>
-                setProgress(0.5 + done / total / 2),
-            );
-            if (differs(first, second))
-                throw new Error(
-                    "The two reads of the boot partition returned different data. Nothing was saved; check the cable and try again.",
-                );
-        } catch (error) {
-            await reader.reset().catch(() => {});
-            throw error;
-        }
-        say("Restarting Android.");
-        let resetNote = "";
-        await reader.reset().catch(() => {
-            resetNote =
-                " Restart not acknowledged: if the screen stays dark, hold the power key.";
-        });
-        const signature = await verifyBootSignature(first);
-        if (signature.certSha256 !== xp3800BootCertSha256)
-            throw new Error(
-                "Boot image is not signed with the XP3800 stock certificate. Stopping.",
-            );
-        if (await isMagiskPatched(first))
-            throw new Error(
-                "Boot image is already patched by Magisk and is not stock. Stopping.",
-            );
-        const hash = await sha256(first);
-        await putImage("stock", first);
-        note(
-            `Stock boot image: ${first.length} bytes, SHA-256 ${hash}. Two reads match; stock signature verified.`,
-        );
-        save({ stage: "save", stockSha: hash, date: new Date().toISOString() });
-        await offerBackup(first);
-        say(`Backup read.${resetNote} Save it while Android starts.`);
-    }),
-);
-
-async function offerBackup(bytes) {
-    for (const url of urls) URL.revokeObjectURL(url);
-    const manifest = makeBackupManifest(
-        {
-            serial: state.serial,
-            fingerprint: state.fingerprint,
-            source: "android-usb",
-        },
-        state.stockSha,
-        new Date(state.date),
-    );
-    const name = `xp3800-${state.serial}-boot`;
-    const link = (id, blob, file) => {
-        const url = URL.createObjectURL(blob);
-        urls.push(url);
-        $(id).href = url;
-        $(id).download = file;
-    };
-    link(
-        "save-image",
-        new Blob([bytes], { type: "application/octet-stream" }),
-        `${name}.img`,
-    );
-    link(
-        "save-manifest",
-        new Blob([JSON.stringify(manifest, null, 2) + "\n"], {
-            type: "application/json",
-        }),
-        `${name}.json`,
-    );
-    render();
+// ---- Get ready ----
+function readyView() {
+    const passed = reachedIndex() > PHASES.indexOf("ready");
+    visible("ready-list", passed);
+    if (passed) restore("ready", READY, READY.length);
+    visible("connect", !passed);
+    visible("ready-next", passed);
+    say("ready", passed ? "Device successfully connected" : "", passed);
 }
-
-$("saved").addEventListener("change", () =>
-    task(async (say) => {
-        const file = $("saved").files[0];
-        if (!file) return;
-        if (file.size !== bootBytes)
-            throw new Error("This file is not the 32 MiB boot image.");
-        const bytes = new Uint8Array(await file.arrayBuffer());
-        if ((await sha256(bytes)) !== state.stockSha)
+$("start").addEventListener("click", () => go("ready"));
+$("connect").addEventListener("click", () => task("ready", checkDevice));
+// A device this site may already use, plugged in while Get ready is open.
+navigator.usb?.addEventListener("connect", (event) => {
+    if (
+        view === "ready" &&
+        !busy &&
+        !$("connect").hidden &&
+        event.device.vendorId === 0x1d9c
+    )
+        task("ready", checkDevice);
+});
+async function checkDevice() {
+    say("ready", "");
+    const [model, rooted, files] = (lists.ready = checklist($("ready-list"), READY));
+    visible("ready-list", true);
+    begin(model);
+    save({ serial: undefined, fingerprint: undefined });
+    const { adb, serial, fingerprint } = await connect("ready");
+    try {
+        done(model, `serial ${serial}`);
+        begin(rooted);
+        const su = await adb.shell("command -v su; ls /sbin/magisk /sbin/su 2>/dev/null");
+        if (su.stdout.trim())
             throw new Error(
-                "File does not match the backup. Save the image again and select the saved copy.",
+                "Device already rooted. To start from scratch, use Recovery to restore stock and then try again",
             );
-        // A reload may have lost the browser's copy; the checked file replaces it.
-        await putImage("stock", bytes);
-        save({ stage: "patch" });
-        say(
-            "The saved file matches the backup byte for byte. Keep it. Continue with Patch boot once Android has started.",
-        );
-    }),
-);
+        done(rooted);
+    } finally {
+        await adb.close();
+    }
+    begin(files);
+    await Promise.all([apkFor("magisk"), apkFor("wave")]);
+    done(files, `Magisk 24.0, Wave ${staged.wave.version ?? ""}`.trim());
+    await dropImages();
+    save({ serial, fingerprint, backup: undefined, root: undefined, finished: false });
+    log.add(`XP3800, serial ${serial}\n${fingerprint}`);
+    say("ready", "Device successfully connected", true);
+    visible("connect", false);
+    visible("ready-next", true);
+}
+$("ready-next").addEventListener("click", () => go("backup"));
 
-$("patch").addEventListener("click", () =>
-    task(async (say) => {
-        const stock = await getImage("stock", state.stockSha);
-        const [magisk, wave] = await Promise.all([
-            apkFor("magisk"),
-            apkFor("wave"),
-        ]);
-        const { adb } = await connect(say);
+// ---- Back up ----
+function backupView() {
+    const count = { read: 6, saved: 8 }[state.backup] ?? 0;
+    restore("backup", BACKUP, count);
+    visible("backup", !state.backup);
+    visible("backup-edl", false);
+    visible("save", state.backup === "read");
+    visible("backup-next", state.backup === "saved");
+    visible("backup-card", state.backup === "saved");
+    $("backup-file").textContent = state.savedName ?? "";
+    if (state.backup === "read") readyToSave();
+    else say("backup", "");
+    edlHelp("backup", false);
+}
+function readyToSave() {
+    $("backup-status").replaceChildren();
+    const tick = document.createElement("span");
+    tick.className = "status ok";
+    tick.textContent = "✓ ";
+    $("backup-status").append(tick, "Backup ready to save!");
+}
+// After asking for EDL: the user picks the device, or one this site may
+// already use shows up by itself.
+function awaitEdl(name, button, status, run) {
+    visible(button, true);
+    edlHelp(name, true);
+    say(name, status);
+    const token = (waiting = Symbol());
+    waitForEdl(10 * 60 * 1000).then((device) => {
+        if (device && waiting === token && !busy)
+            task(name, () => run(device));
+    });
+}
+$("backup").addEventListener("click", () =>
+    task("backup", async () => {
+        const items = (lists.backup = checklist($("backup-list"), BACKUP));
+        visible("backup-card", false);
+        begin(items[0]);
+        const { adb } = await connect("backup");
         try {
-            say("Patching on the connected device, please do not unplug!");
-            const patched = await patchOnPhone(adb, {
-                stock,
-                apk: magisk,
-                log: note,
-            });
-            say("Installing Magisk.");
-            await installApk(
-                adb,
-                magisk,
-                "/data/local/tmp/wave-magisk.apk",
-                "Magisk",
-            );
-            if (
-                (await installedVersion(adb, MAGISK.package)) !== MAGISK.version
-            )
-                throw new Error("Magisk version 24.0 did not install.");
-            say("Installing Wave.");
-            await installApk(adb, wave, "/data/local/tmp/wave-app.apk", "Wave");
-            const version = await installedVersion(adb, WAVE_PACKAGE);
-            if (!version)
-                throw new Error(
-                    `The bundled APK is not Wave (${WAVE_PACKAGE}).`,
-                );
-            note(`Installed Magisk ${MAGISK.version} and Wave ${version}.`);
-            await putImage("patched", patched);
-            save({
-                stage: "flash",
-                patchedSha: await sha256(patched),
-                patchedSize: patched.length,
-            });
-            say("Patched and verified. Restarting into EDL; then Write boot.");
             await adb.reboot("edl");
         } finally {
             await adb.close();
         }
+        mark(items[0], "waiting");
+        visible("backup", false);
+        awaitEdl(
+            "backup",
+            "backup-edl",
+            "Device rebooted to EDL, please select it in ‘Choose device’!",
+            readBackup,
+        );
     }),
 );
-
-$("flash").addEventListener("click", () =>
-    task(async (say) => {
-        const stock = await getImage("stock", state.stockSha),
-            patched = await getImage("patched", state.patchedSha);
-        await checkPatchedBoot(patched, stock);
-        const link = await openEdl(say, programmer);
-        const writer = new FirehoseBootWriter(link);
-        let result;
+$("backup-edl").addEventListener("click", () =>
+    task("backup", async () => {
+        active = lists.backup[0];
+        await readBackup(await chooseEdl());
+    }),
+);
+async function readBackup(device) {
+    const [edl, start, first, second, stock, restart] = lists.backup;
+    begin(edl);
+    say("backup", "");
+    const link = await claimEdl(device);
+    done(edl);
+    visible("backup-edl", false);
+    edlHelp("backup", false);
+    begin(start);
+    await startProgrammer(link, programmer);
+    const reader = new FirehoseBootReader(link);
+    let image, diskGuid;
+    try {
+        await reader.configure();
+        await reader.readGpt();
+        diskGuid = reader.diskGuid();
+        done(start);
+        begin(first);
+        image = await reader.readBoot(percent(first));
+        done(first, "");
+        begin(second);
+        const again = await reader.readBoot(percent(second));
+        if (differs(image, again))
+            throw new Error("Backup verification failed. Please try again");
+        done(second, "");
+    } catch (error) {
+        await reader.reset().catch(() => {});
+        throw error;
+    }
+    begin(stock);
+    const signature = await verifyBootSignature(image).catch(() => ({}));
+    if (signature.certSha256 !== xp3800BootCertSha256 || (await isMagiskPatched(image))) {
+        await reader.reset().catch(() => {});
+        throw new Error("Invalid boot partition (not stock)");
+    }
+    done(stock);
+    begin(restart);
+    await reader.reset().catch(() => log.add("Restart not acknowledged."));
+    done(restart);
+    const hash = await sha256(image);
+    await putImage("stock", image);
+    log.add(`Stock boot: ${image.length} bytes, SHA-256 ${hash}, disk ${diskGuid}`);
+    save({ backup: "read", stockSha: hash, diskGuid, date: new Date().toISOString() });
+    visible("backup-edl", false);
+    visible("save", true);
+    readyToSave();
+}
+$("save").addEventListener("click", () =>
+    task("backup", async () => {
+        const [, , , , , , write, verify] = lists.backup;
+        if (!window.showSaveFilePicker)
+            throw new Error(
+                "Unable to save file. Perhaps enable brave://flags/#file-system-access-api if exists?",
+            );
+        const image = await getImage("stock", state.stockSha);
+        const manifest = makeBackupManifest(
+            {
+                serial: state.serial,
+                fingerprint: state.fingerprint,
+                source: "android-usb",
+                diskGuid: state.diskGuid,
+            },
+            state.stockSha,
+            new Date(state.date),
+        );
+        const file = makeBackupFile(manifest, image);
+        let handle;
         try {
-            say("Checking partition table.");
-            await writer.configure();
-            await writer.readGpt();
-            const phases = {
-                check: [
-                    0,
-                    "Verifying that the current contents of the boot partition exactly match your backup.",
+            handle = await window.showSaveFilePicker({
+                suggestedName: backupName(manifest),
+                types: [
+                    {
+                        description: "Wave backup",
+                        accept: { "application/octet-stream": [".wavebackup"] },
+                    },
                 ],
-                write: [
-                    1,
-                    "Writing patched boot image. Keep the device connected.",
-                ],
-                verify: [2, "Reading the whole partition back."],
-            };
-            let last;
-            result = await writer.writeBoot(patched, {
-                current: stock,
-                onProgress(phase, done, total) {
-                    if (phase !== last) {
-                        say(phases[phase][1]);
-                        last = phase;
-                    }
-                    setProgress((phases[phase][0] + done / total) / 3);
-                },
             });
         } catch (error) {
-            if (error instanceof WriteCheckError && error.written) {
-                // The session is still open: put the stock image back now, verified.
-                note(`${error.message} Restoring stock backup.`);
-                say("Write verification failed. Restoring stock backup.");
-                try {
-                    await writer.writeBoot(stock, {
-                        onProgress: (phase, done, total) =>
-                            setProgress(done / total),
-                    });
-                    await writer.reset().catch(() => {});
-                    save({ stage: "patch" });
-                    throw new Error(
-                        "The patched write failed verification, so the stock image was written back and verified. Android is restarting; no changes were made to the boot image. Run Patch boot and Write boot again.",
-                    );
-                } catch (restoreError) {
-                    if (/written back and verified/.test(restoreError.message))
-                        throw restoreError;
-                    throw new Error(
-                        `The patched write failed verification, and restoring the stock image also failed (${restoreError.message}). Do not restart Android: remove the battery, perform a cold start into EDL, and write your saved backup on the Recovery page.`,
-                    );
-                }
-            }
-            if (!writer.touched) await writer.reset().catch(() => {});
-            else
-                throw new Error(
-                    `${error.message} The write may be incomplete. Remove the battery, cold boot into EDL, and write your backup on the Recovery page.`,
-                );
-            throw error;
-        }
-        note(
-            result.written
-                ? `Wrote ${state.patchedSize} bytes at boot; the whole partition reads back as expected.`
-                : "Boot partition already contained the patched image; nothing was written.",
-        );
-        save({ stage: "finish" });
-        say("Restarting Android.");
-        await writer
-            .reset()
-            .catch(() =>
-                note(
-                    "Restart not acknowledged. If the screen remains dark, hold the power button.",
+            if (error?.name === "AbortError") return;
+            throw Object.assign(
+                new Error(
+                    "Unable to save file. Perhaps enable brave://flags/#file-system-access-api if exists?",
                 ),
+                { detail: error?.message },
             );
-        say(
-            "Written and verified. The first rooted boot may take a little longer. Then, continue with Verify root.",
-        );
+        }
+        say("backup", "");
+        begin(write);
+        const writable = await handle.createWritable();
+        await writable.write(file);
+        await writable.close();
+        done(write);
+        begin(verify);
+        const saved = new Uint8Array(await (await handle.getFile()).arrayBuffer());
+        if ((await sha256(saved)) !== (await sha256(file)))
+            throw new Error("Saved file verification failed, try again");
+        done(verify);
+        save({ backup: "saved", savedName: handle.name });
+        $("backup-file").textContent = handle.name;
+        visible("backup-card", true);
+        visible("save", false);
+        visible("backup-next", true);
     }),
 );
+$("backup-next").addEventListener("click", () => go("root"));
 
-$("finish").addEventListener("click", () =>
-    task(async (say) => {
-        const { adb } = await connect(say);
+// ---- Root ----
+function rootView() {
+    const count = { patched: 4, written: 9, done: 10 }[state.root] ?? 0;
+    const items = restore("root", rootSteps(), count);
+    visible("root", state.root !== "patched" && state.root !== "done" && state.root !== "broken");
+    $("root").textContent = state.root === "written" ? "Try again" : "Root";
+    visible("root-edl", false);
+    visible("root-next", state.root === "done");
+    edlHelp("root", false);
+    say("root", state.root === "done" ? "Successfully rooted device" : "", state.root === "done");
+    if (state.root === "patched" && programmer) {
+        mark(items[4], "waiting");
+        awaitEdl("root", "root-edl", "Please select the device in ‘Choose device’", writeRoot);
+    }
+    if (state.root === "broken") brokenCallout();
+}
+function brokenCallout() {
+    callout(
+        $("root-problem"),
+        "Backup restoration failed. The boot partition may be incomplete. It is recommended to restore from Recovery",
+        { danger: true, actions: [["Open Recovery", () => (location.href = "recovery/")]] },
+    );
+}
+$("root").addEventListener("click", () =>
+    task("root", async () => {
+        if (state.root === "written") return verifyRoot();
+        const items = (lists.root = checklist($("root-list"), rootSteps()));
+        const [boot, patch, sign, install, edl] = items;
+        const stock = await getImage("stock", state.stockSha);
+        const [magisk, wave] = await Promise.all([apkFor("magisk"), apkFor("wave")]);
+        begin(boot);
+        if (!(await waitForAndroid(state.serial)))
+            throw new Error("Device did not reconnect. Unplug and reconnect device, try again");
+        const { adb } = await connect("root");
         try {
-            const su = await adb.shell("ls -l /sbin/su");
-            if (su.code !== 0 || !/->\s*\.?\/?magisk/.test(su.stdout)) {
-                throw new Error(
-                    "Magisk failed to start: /sbin/su is missing. If Android booted normally, the stock image may still be in the boot partition; run Patch boot and Write boot again.",
+            done(boot);
+            begin(patch);
+            let patched;
+            try {
+                patched = await patchOnPhone(adb, {
+                    stock,
+                    apk: magisk,
+                    log: log.add,
+                    onStage: () => {
+                        done(patch);
+                        begin(sign);
+                    },
+                });
+            } catch (error) {
+                if (/^(Insufficient storage|File copying failed|Unsupported device)/.test(error.message))
+                    throw error;
+                throw Object.assign(
+                    new Error("Boot image patching failed, try again. Details are in log"),
+                    { detail: error.message },
                 );
             }
-            note(
-                "Magisk is running from the patched boot image (/sbin/su → magisk).",
-            );
-            await adb.shell(
-                `monkey -p ${MAGISK.package} -c android.intent.category.LAUNCHER 1`,
-            );
-            save({ stage: "done" });
-            say(
-                "Root is working. Magisk is open on the device: if it displays “Requires Additional Setup”, select OK and let the device restart. Then, open Wave.",
-            );
+            done(sign);
+            begin(install);
+            await installApk(adb, magisk, "/data/local/tmp/wave-magisk.apk", "Magisk");
+            if ((await installedVersion(adb, MAGISK.package)) !== MAGISK.version)
+                throw new Error("Couldn't install Magisk. Version 24.0 did not install.");
+            await installApk(adb, wave, "/data/local/tmp/wave-app.apk", "Wave");
+            if (!(await installedVersion(adb, WAVE_PACKAGE)))
+                throw new Error(`Couldn't install Wave. The bundled APK is not ${WAVE_PACKAGE}.`);
+            done(install);
+            await putImage("patched", patched);
+            save({ root: "patched", patchedSha: await sha256(patched) });
+            begin(edl);
+            await adb.reboot("edl");
         } finally {
             await adb.close();
         }
+        mark(edl, "waiting");
+        visible("root", false);
+        awaitEdl("root", "root-edl", "Please select the device in ‘Choose device’", writeRoot);
     }),
 );
-
-$("grant").addEventListener("click", () =>
-    task(async (say) => {
-        const { adb } = await connect(say);
-        try {
-            say(
-                "Respond to the Magisk prompt on the device: Grant (select Forever to remember).",
-            );
-            const result = await adb.shell("su -c id", undefined, 40000);
-            if (result.code !== 0 || !result.stdout.includes("uid=0(root)")) {
-                throw new Error(
-                    "Magisk did not grant root to USB debugging. You can allow Shell later in Magisk's Superuser tab.",
-                );
-            }
-            const env = await adb.shell(
-                `su -c 'test -f /data/adb/magisk/util_functions.sh && test -x /data/adb/magisk/busybox'`,
-                undefined,
-                40000,
-            );
-            say(
-                env.code === 0
-                    ? "USB debugging has root access. Magisk setup is complete."
-                    : "USB debugging has root access, but Magisk setup is not complete. Open Magisk and select OK on “Requires Additional Setup”; this additional setup is required for mods in Wave.",
-            );
-        } finally {
-            await adb.close();
+$("root-edl").addEventListener("click", () =>
+    task("root", async () => {
+        active = lists.root[4];
+        await writeRoot(await chooseEdl());
+    }),
+);
+async function writeRoot(device) {
+    const items = lists.root;
+    const [edl, check, write, verify] = items.slice(4);
+    const stock = await getImage("stock", state.stockSha),
+        patched = await getImage("patched", state.patchedSha);
+    begin(edl);
+    say("root", "");
+    const link = await claimEdl(device);
+    visible("root-edl", false);
+    edlHelp("root", false);
+    await startProgrammer(link, programmer);
+    const writer = new FirehoseBootWriter(link);
+    const phases = { check, write, verify };
+    let last;
+    const onProgress = (map) => (phase, at, total) => {
+        const item = map[phase];
+        if (item !== last) {
+            if (last) done(last, "");
+            begin(item);
+            last = item;
         }
-    }),
-);
+        percent(item)(at, total);
+    };
+    try {
+        await writer.configure();
+        await writer.readGpt();
+        done(edl);
+        await writer.writeBoot(patched, { current: stock, onProgress: onProgress(phases) });
+        done(verify, "");
+    } catch (error) {
+        if (error instanceof WriteCheckError && error.written) {
+            log.add(error.message);
+            mark(verify, "failed");
+            dropPending(items[0].parentElement);
+            const back = addItem("Restore backup"),
+                again = addItem("Verify backup");
+            last = undefined;
+            try {
+                await writer.writeBoot(stock, {
+                    onProgress: onProgress({ check: back, write: back, verify: again }),
+                });
+                done(again, "");
+            } catch (restoreError) {
+                log.add(restoreError.message);
+                save({ root: "broken" });
+                brokenCallout();
+                throw Object.assign(restoreError, { shown: true });
+            }
+            await writer.reset().catch(() => {});
+            save({ root: undefined });
+            $("root").textContent = "Try again";
+            visible("root", true);
+            throw new Error("Verifying patched image failed. Please try again");
+        }
+        if (writer.touched) {
+            save({ root: "broken" });
+            brokenCallout();
+            throw Object.assign(error, { shown: true });
+        }
+        await writer.reset().catch(() => {});
+        save({ root: undefined });
+        $("root").textContent = "Try again";
+        visible("root", true);
+        if (error instanceof WriteCheckError)
+            throw new Error("Boot partition verification failed (changed since backup). Try again");
+        throw error;
+    }
+    save({ root: "written" });
+    begin(items[8]);
+    await writer.reset().catch(() => log.add("Restart not acknowledged."));
+    await verifyRoot();
+}
+function addItem(label) {
+    const [item] = checklist(document.createElement("ol"), [label]);
+    $("root-list").append(item);
+    return item;
+}
+async function verifyRoot() {
+    const items = lists.root ?? restore("root", rootSteps(), 9);
+    const [restart, check] = items.slice(8);
+    begin(restart);
+    if (!(await waitForAndroid(state.serial)))
+        throw new Error("Device did not reconnect. Unplug and reconnect device, try again");
+    const { adb } = await connect("root");
+    try {
+        done(restart);
+        begin(check);
+        const su = await adb.shell("ls -l /sbin/su");
+        if (su.code !== 0 || !/->\s*\.?\/?magisk/.test(su.stdout)) {
+            $("root").textContent = "Try again";
+            visible("root", true);
+            throw new Error("Root not detected. Restart device and try again");
+        }
+        done(check);
+    } finally {
+        await adb.close();
+    }
+    save({ root: "done" });
+    visible("root", false);
+    visible("root-next", true);
+    say("root", "Successfully rooted device", true);
+}
+$("root-next").addEventListener("click", () => go("finish"));
 
+// ---- Finish ----
+function finishView() {
+    const [open] = (lists.finish = checklist($("finish-list"), ["Open Wave"]));
+    if (state.finished) mark(open, "done");
+    say("finish", state.finished ? "Installation complete" : "", state.finished);
+}
 $("open-wave").addEventListener("click", () =>
-    task(async (say) => {
-        const { adb } = await connect(say);
+    task("finish", async () => {
+        const [open] = lists.finish;
+        begin(open);
+        const { adb } = await connect("finish");
         try {
             const result = await adb.shell(
                 `monkey -p ${WAVE_PACKAGE} -c android.intent.category.LAUNCHER 1`,
             );
             if (
                 result.code !== 0 ||
-                /No activities found|monkey aborted/i.test(
-                    result.stdout + result.stderr,
-                )
+                /No activities found|monkey aborted/i.test(result.stdout + result.stderr)
             )
                 throw new Error(
-                    "Could not open Wave. Open it from the device's launcher.",
+                    "Couldn't open Wave. Try setting it as the Push-to-Talk key in settings",
                 );
-            await clearImages();
-            say(
-                "Installation complete",
-            );
         } finally {
             await adb.close();
         }
+        done(open);
+        // The backup now lives only in the file the user saved.
+        await dropImages();
+        save({ finished: true, stockSha: undefined, patchedSha: undefined });
+        say("finish", "Installation complete", true);
     }),
 );
 
 $("start-over").addEventListener("click", async () => {
-    if (
-        !confirm("Really start over?")
-    )
-        return;
+    if (!confirm("Really start over?")) return;
     busy = true;
     render();
-    await clearImages().catch(() => {});
+    await dropImages();
     localStorage.removeItem(KEY);
-    for (const url of urls) URL.revokeObjectURL(url);
-    urls = [];
-    for (const id of ["save-image", "save-manifest"])
-        $(id).removeAttribute("href");
-    $("saved").value = "";
-    state = load();
-    activityView = undefined;
-    show(activity, "");
-    log.textContent = "";
-    busy = false;
-    selectView(initialView());
+    location.reload();
 });
 
-window.addEventListener("pagehide", () => {
-    for (const url of urls) URL.revokeObjectURL(url);
-});
-show($("where"), "Use Chrome or Edge on a secure page for WebUSB.", true);
+readyView();
+backupView();
+rootView();
+finishView();
 render();
-if (isWebUsb()) loadStaged();
-if (state.stage === "save")
-    getImage("stock", state.stockSha)
-        .then(offerBackup)
-        .catch((error) => {
-            if (state.stage !== "save") return;
-            activityView = "save";
-            show(activity, error.message, true);
-            render();
-        });
+if (isWebUsb()) loadStaged().then(() => busy || rootView());

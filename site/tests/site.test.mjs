@@ -8,6 +8,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fetchProgrammer, servedFiles } from '../src/root/served.mjs';
 import { makeBackupManifest, parseBackupManifest } from '../src/root/backup-manifest.mjs';
+import { backupName, makeBackupFile, readBackup } from '../src/root/backup-file.mjs';
+import { homedir } from 'node:os';
 
 const script = name => fileURLToPath(new URL('../scripts/' + name, import.meta.url));
 
@@ -25,7 +27,7 @@ test('the default build includes the pinned programmer and only the reviewed sit
     result = run('check_pages.py', site);
     assert.equal(result.status, 0, result.stderr);
     for (const path of ['index.html', 'recovery/index.html', 'src/protocols/firehose-write.mjs',
-      'src/root/magisk.mjs', 'src/root/stock.mjs', 'src/root/rescue.mjs', 'src/protocols/adb-sync.mjs']) assert.equal(existsSync(join(site, path)), true, path);
+      'src/root/magisk.mjs', 'src/root/backup-file.mjs', 'src/protocols/adb-sync.mjs']) assert.equal(existsSync(join(site, path)), true, path);
     for (const gone of ['src/protocols/tests', 'scripts', 'tests', 'mockups', 'AGENTS.md']) assert.equal(existsSync(join(site, gone)), false, gone);
     assert.match(readFileSync(join(site, 'index.html'), 'utf8'), /href="recovery\/"/);
     assert.match(readFileSync(join(site, 'recovery/index.html'), 'utf8'), /href="\.\.\/"/);
@@ -53,8 +55,8 @@ test('the default build includes the pinned programmer and only the reviewed sit
     const root = readFileSync(join(site, 'index.html'), 'utf8');
     const recovery = readFileSync(join(site, 'recovery/index.html'), 'utf8');
     const fileInputs = html => [...html.matchAll(/<input id="([^"]+)" type="file"/g)].map(match => match[1]);
-    assert.deepEqual(fileInputs(root), ['saved']);
-    assert.deepEqual(fileInputs(recovery), ['image', 'manifest']);
+    assert.deepEqual(fileInputs(root), []);
+    assert.deepEqual(fileInputs(recovery), ['backup-file']);
     const fake = join(temp, 'fake.apk');
     writeFileSync(fake, 'PK fake');
     assert.notEqual(run('build.py', '--magisk-apk', fake, join(temp, 'x')).status, 0);
@@ -93,5 +95,47 @@ test('boot manifest round-trips and rejects another partition, size or invalid i
   for (const changes of [{ partition: 'misc' }, { size: 123 }, { model: 'XP3832' }, { sha256: 'x'.repeat(64) },
     { serial: 'path/serial' }, { fingerprint: 'Sonim/XP3833/XP3833:8.1.0/test/22:user/release-keys' }, { date: '2026-02-30T12:00:00.000Z' }]) {
     assert.throws(() => parseBackupManifest(JSON.stringify({ ...value, ...changes })));
+  }
+});
+
+test('format 2 manifests carry the disk GUID; format 1 still parses', () => {
+  const identity = { serial: 'demo_123', fingerprint: 'Sonim/XP3832/XP3800:8.1.0/test/22:user/release-keys', source: 'android-usb' };
+  const guid = '0a1b2c3d-4e5f-6071-8293-a4b5c6d7e8f9';
+  const v2 = makeBackupManifest({ ...identity, diskGuid: guid }, 'a'.repeat(64), new Date('2026-11-19T01:00:00.000Z'));
+  assert.equal(v2.format, 2);
+  assert.equal(v2.diskGuid, guid);
+  assert.deepEqual(parseBackupManifest(JSON.stringify(v2)), v2);
+  assert.throws(() => parseBackupManifest(JSON.stringify({ ...v2, diskGuid: 'nope' })));
+  assert.throws(() => parseBackupManifest(JSON.stringify({ ...v2, diskGuid: undefined })));
+  assert.equal(makeBackupManifest(identity, 'a'.repeat(64)).format, 1);
+  assert.equal(backupName(v2), 'xp3800-demo_123-stock-boot.wavebackup');
+});
+
+test('anything but a Wave backup is rejected as a file problem', async () => {
+  for (const files of [[new File(['hello'], 'x.wavebackup')], [], [new File(['a'], 'a.img'), new File(['{}'], 'a.json')]]) {
+    await assert.rejects(readBackup(files), error => error.kind === 'file');
+  }
+});
+
+const backups = `${homedir()}/Documents/wave-phone-backups/8516067e/`;
+test('a .wavebackup round-trips the real stock image, and a patched image is refused', { skip: !existsSync(`${backups}boot-stock.img`) }, async () => {
+  const image = new Uint8Array(readFileSync(`${backups}boot-stock.img`));
+  const manifest = makeBackupManifest({ serial: '8516067e', fingerprint: 'Sonim/XP3832/XP3800:8.1.0/test/22:user/release-keys',
+    source: 'android-usb', diskGuid: '0a1b2c3d-4e5f-6071-8293-a4b5c6d7e8f9' }, hash(image));
+  const file = makeBackupFile(manifest, image);
+  assert.deepEqual(makeBackupFile(manifest, image), file, 'the same backup is the same bytes');
+  const read = await readBackup([new File([file], backupName(manifest))]);
+  assert.deepEqual(read.manifest, manifest);
+  assert.deepEqual(read.image, image);
+  // The old two-file backup still works.
+  const pair = await readBackup([new File([image], 'boot.img'), new File([JSON.stringify(manifest)], 'boot.json')]);
+  assert.deepEqual(pair.image, image);
+  const other = image.slice();
+  other[100] ^= 1;
+  await assert.rejects(readBackup([new File([makeBackupFile(manifest, other)], 'x.wavebackup')]), error => error.kind === 'file');
+  if (existsSync(`${backups}boot-magisk-partition.img`)) {
+    const patched = new Uint8Array(readFileSync(`${backups}boot-magisk-partition.img`));
+    const m = makeBackupManifest({ serial: '8516067e', fingerprint: manifest.fingerprint, source: 'android-usb' }, hash(patched));
+    await assert.rejects(readBackup([new File([makeBackupFile(m, patched)], 'x.wavebackup')]), error => error.kind === 'stock');
   }
 });

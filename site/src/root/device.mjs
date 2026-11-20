@@ -1,15 +1,15 @@
 // Connecting to the XP3800 for the rooting and stock-boot pages: Android over
 // adb (waiting for boot, checking it is the expected phone) and EDL with the
 // pinned programmer.
-import { validateIdentity } from "./backup-manifest.mjs";
-import { Adb } from "../protocols/adb.mjs";
-import { newAdbCredential } from "../protocols/adb-credential.mjs";
-import { startReadOnlyProgrammer } from "../protocols/sahara.mjs";
+import { validateIdentity } from "./backup-manifest.mjs?v=redesign";
+import { Adb } from "../protocols/adb.mjs?v=redesign";
+import { adbCredential, newAdbKey } from "../protocols/adb-credential.mjs?v=redesign";
+import { startReadOnlyProgrammer } from "../protocols/sahara.mjs?v=redesign";
 import {
     claimBulk,
     pickDevice,
     SONIM_ADB_FILTER,
-} from "../protocols/webusb.mjs";
+} from "../protocols/webusb.mjs?v=redesign";
 
 export const EDL = { vendorId: 0x05c6, productId: 0x9008 },
     DUMP = { vendorId: 0x05c6, productId: 0x900e };
@@ -17,12 +17,78 @@ export const differs = (a, b) =>
     a.length !== b.length || a.some((byte, i) => byte !== b[i]);
 let credential;
 
+// The adb key lives in this site's IndexedDB, so "Always allow" on the device
+// keeps working after a reload, and on the Recovery page too.
+function keyStore(mode, use) {
+    return new Promise((resolve, reject) => {
+        const open = indexedDB.open("wave-adb", 1);
+        open.onupgradeneeded = () => open.result.createObjectStore("keys");
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+            const tx = open.result.transaction("keys", mode),
+                request = use(tx.objectStore("keys"));
+            tx.oncomplete = () => {
+                open.result.close();
+                resolve(request.result);
+            };
+            tx.onerror = tx.onabort = () => {
+                open.result.close();
+                reject(tx.error);
+            };
+        };
+    });
+}
+async function loadCredential() {
+    let jwk = await keyStore("readonly", (s) => s.get("adb")).catch(() => {});
+    if (!jwk?.n || !jwk?.d) {
+        jwk = await newAdbKey();
+        await keyStore("readwrite", (s) => s.put(jwk, "adb")).catch(() => {});
+    }
+    return adbCredential(jwk);
+}
+
+const isAndroid = (d, serial) =>
+    d.vendorId === SONIM_ADB_FILTER.vendorId &&
+    (!serial || d.serialNumber === serial);
+const isEdl = (d) =>
+    d.vendorId === EDL.vendorId &&
+    [EDL.productId, DUMP.productId].includes(d.productId);
+
+// Resolves once a device matching `test` that this site may already use is
+// connected (after a restart), or with undefined after timeoutMs.
+export function waitForDevice(test, timeoutMs) {
+    return new Promise((resolve) => {
+        let done = false;
+        const finish = (device) => {
+            if (done) return;
+            done = true;
+            clearTimeout(timer);
+            clearInterval(poll);
+            navigator.usb.removeEventListener("connect", onConnect);
+            resolve(device);
+        };
+        const look = async () => {
+            const device = (await navigator.usb.getDevices()).find(test);
+            if (device) finish(device);
+        };
+        const onConnect = (event) => test(event.device) && finish(event.device);
+        navigator.usb.addEventListener("connect", onConnect);
+        const poll = setInterval(look, 1000);
+        const timer = setTimeout(() => finish(undefined), timeoutMs);
+        look();
+    });
+}
+export const waitForAndroid = (serial, timeoutMs = 240000) =>
+    waitForDevice((d) => isAndroid(d, serial), timeoutMs);
+export const waitForEdl = (timeoutMs) => waitForDevice(isEdl, timeoutMs);
+export async function knownAndroid(serial) {
+    return (await navigator.usb.getDevices()).find((d) => isAndroid(d, serial));
+}
+
 async function androidDevice(serial) {
     // A phone already chosen in this browser comes back after a restart.
-    const known = (await navigator.usb.getDevices()).filter(
-        (d) =>
-            d.vendorId === SONIM_ADB_FILTER.vendorId &&
-            (!serial || d.serialNumber === serial),
+    const known = (await navigator.usb.getDevices()).filter((d) =>
+        isAndroid(d, serial),
     );
     if (known.length === 1) return known[0];
     return pickDevice([SONIM_ADB_FILTER]);
@@ -55,7 +121,6 @@ export async function connectPhone(say, options = {}) {
 }
 
 async function connectOnce(say, { expect }) {
-    say("Select the Sonim device in the USB chooser.");
     const device = await androidDevice(expect?.serial);
     try {
         return await connectTo(device, say, { expect });
@@ -66,8 +131,7 @@ async function connectOnce(say, { expect }) {
 }
 
 async function connectTo(device, say, { expect }) {
-    // One key per page: after a restart Android asks again unless “Always allow” was set.
-    credential ??= await newAdbCredential();
+    credential ??= await loadCredential();
     const adb = await Adb.connect(
         await claimBulk(device, { filter: SONIM_ADB_FILTER }),
         {
@@ -82,7 +146,7 @@ async function connectTo(device, say, { expect }) {
             if (booted.stdout.trim() === "1") break;
             if (i >= 90)
                 throw new Error(
-                    "Android didn't finish starting. Wait for the home screen and try again.",
+                    "Device did not reconnect. Unplug and reconnect device, try again",
                 );
             if (i === 0) say("Waiting for Android to start.");
             await sleep(2000);
@@ -100,9 +164,9 @@ async function connectTo(device, say, { expect }) {
             }
         }
         const result = await adb.shell(
-            `getprop ro.product.model; getprop ro.build.version.sdk; getprop ro.product.cpu.abi; getprop ro.build.fingerprint`,
+            `getprop ro.product.model; getprop ro.build.version.sdk; getprop ro.product.cpu.abi; getprop ro.build.fingerprint; getprop ro.build.version.release`,
         );
-        const [model, sdk, abi, fingerprint] = result.stdout
+        const [model, sdk, abi, fingerprint, release] = result.stdout
             .trimEnd()
             .split("\n")
             .map((line) => line.trim());
@@ -114,7 +178,7 @@ async function connectTo(device, say, { expect }) {
             !fingerprint?.startsWith("Sonim/")
         ) {
             throw new Error(
-                "Device is not a Sonim XP3800 on Android 8.1 (32-bit ARM). Stopping.",
+                `Unsupported device (required Sonim XP3800 on Android 8.1, got ${model || "unknown"} on Android ${release || "unknown"})`,
             );
         }
         const serial = device.serialNumber ?? "";
@@ -123,8 +187,9 @@ async function connectTo(device, say, { expect }) {
             expect &&
             (serial !== expect.serial || fingerprint !== expect.fingerprint)
         ) {
-            throw new Error(
-                `Unexpected device (serial ${expect.serial}, build ${expect.fingerprint}).`,
+            throw Object.assign(
+                new Error("Invalid backup file (device verification failed)"),
+                { code: "other-device" },
             );
         }
         return { adb, serial, fingerprint };
@@ -154,32 +219,38 @@ async function edlDevice() {
     return pickDevice([EDL, DUMP]);
 }
 
-// programmer: bytes already checked with checkProgrammer. Returns a link with Firehose running.
-export async function openEdl(say, programmer) {
-    if (!programmer)
-        throw new Error("The bundled Sonim programmer is not ready.");
-    say("Select XP3800 in EDL (Qualcomm, 05c6:9008) in the USB chooser.");
-    const device = await edlDevice();
+export const chooseEdl = edlDevice;
+
+// device: an EDL device from chooseEdl or waitForEdl. Returns a claimed link.
+export async function claimEdl(device) {
     if (device.productId === DUMP.productId)
         throw new Error(
-            "05c6:900e is crash-dump mode, not EDL. Unplug, remove the battery, and cold start (hold both volume keys while reinserting the battery and plugging in USB).",
+            "Crash-dump mode detected (something went wrong!) Try unplugging, taking the battery out, putting it back in, and then trying again",
         );
-    let link;
     try {
-        link = await claimBulk(device, { filter: EDL, timeoutMs: 8000 });
-    } catch {
-        throw new Error(
-            "Could not claim the EDL interface. Close other service tools. On Linux, the qcserial kernel driver may be using it; see the USB guide.",
+        return await claimBulk(device, { filter: EDL, timeoutMs: 8000 });
+    } catch (error) {
+        throw Object.assign(
+            new Error(
+                "Device in EDL can't be accessed. See “Can’t find device?” below, then try again",
+            ),
+            { code: "claim", detail: error?.message },
         );
     }
-    say("Starting the Sonim service programmer.");
+}
+
+// programmer: bytes already checked with checkProgrammer. Leaves Firehose running on link.
+export async function startProgrammer(link, programmer) {
+    if (!programmer) throw new Error("Installer files damaged. Try reloading");
     try {
         await startReadOnlyProgrammer(link, programmer);
     } catch (error) {
         await link.close();
-        throw new Error(
-            `${error.message} If the device was already in EDL, unplug it, remove the battery, and restart EDL.`,
+        throw Object.assign(
+            new Error(
+                "Device not responding in EDL. Try unplugging, taking the battery out, putting it back in, and then trying again",
+            ),
+            { detail: error.message },
         );
     }
-    return link;
 }

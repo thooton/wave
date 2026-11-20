@@ -1,4 +1,4 @@
-import { bootBytes } from './boot-image.mjs';
+import { bootBytes } from './boot-image.mjs?v=redesign';
 
 export const sectorBytes = 512;
 const signature = (bytes, text) => [...text].every((c, i) => c.charCodeAt(0) === bytes[i]);
@@ -11,6 +11,14 @@ const crc = bytes => {
   }
   return (value ^ -1) >>> 0;
 };
+
+// The disk GUID, as text (first three fields little-endian). It identifies this
+// phone's eMMC to its own backup file and is never sent anywhere.
+function guid(b) {
+  const hex = [...b].map(x => x.toString(16).padStart(2, '0'));
+  const le = (from, to) => hex.slice(from, to).reverse().join('');
+  return `${le(0, 4)}-${le(4, 6)}-${le(6, 8)}-${hex.slice(8, 10).join('')}-${hex.slice(10).join('')}`;
+}
 
 export function readGptHeader(bytes) {
   if (bytes.length !== sectorBytes || !signature(bytes, 'EFI PART')) throw new Error('Primary GPT signature missing.');
@@ -28,7 +36,8 @@ export function readGptHeader(bytes) {
       || max <= min || max >= view.getBigUint64(32, true) || max > BigInt(Number.MAX_SAFE_INTEGER)) {
     throw new Error('Unsupported XP3800 GPT geometry.');
   }
-  return { entryLba: Number(entryLba), count, stride, sectors, min, max, tableCrc: view.getUint32(88, true) };
+  return { entryLba: Number(entryLba), count, stride, sectors, min, max, tableCrc: view.getUint32(88, true),
+    diskGuid: guid(bytes.subarray(56, 72)) };
 }
 
 export function parseXp3800Gpt(gpt, table) {

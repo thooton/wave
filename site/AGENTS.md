@@ -7,12 +7,19 @@ CDN, analytics, runtime API or server. Directory indexes and **relative URLs**
 work under the GitHub Pages `/wave/` prefix. Keep controls usable without a
 mouse.
 
-- `index.html`: the rooting page, at the site root (adb identity, EDL backup,
-  patch on the phone with Magisk 24.0 over adb, Magisk and Wave install, EDL
-  write and full readback, root check). `src/root/rooting.mjs`.
-- `recovery/index.html`: turn off Magisk modules over adb (`rescue.mjs`) and
-  write the saved stock boot image back over EDL (`stock.mjs`);
-  `recovery.mjs` only switches panes.
+- `index.html`: the installer, at the site root: Introduction, Get ready (adb
+  identity), Back up (EDL read twice, saved as one `.wavebackup` file and read
+  back), Root (patch on the phone with Magisk 24.0 over adb, Magisk and Wave
+  install, EDL write and full readback, root check), Finish (open Wave).
+  `src/root/rooting.mjs`. Each step's body is a checklist of what runs; a
+  problem is one line (`common.mjs` `problem` and the throw sites hold the
+  approved wording), with raw detail in the Log.
+- `recovery/index.html`: restore only. Choosing a backup starts it: check the
+  file, EDL over adb or by hand (guided), match the eMMC disk GUID, write the
+  stock image back and read it back. `src/root/recovery.mjs`.
+- `src/root/backup-file.mjs`: the `.wavebackup` format, a stored ZIP of
+  `manifest.json` (format 2, with the GPT disk GUID) and `boot.img`. Old
+  `.img` + `.json` pairs (format 1) still restore.
 - `assets/`: `style.css` (both pages), the Wave launcher icon
   (`wave-icon.svg`, from `app/app/src/main/res/drawable/ic_launcher.xml`) and
   the bundled Cascadia Code font.
@@ -24,19 +31,22 @@ mouse.
     requires the partition to equal that stock image first, and reads the whole
     partition back. `firehose.mjs` (the read-only reader and shared framing)
     never sends `program`, `erase` or `patch`; tests check both.
-  - Never write before the backup is read twice, checked, saved, and the saved
-    file chosen again and hash-matched. Never write an image that did not come
-    from patching that phone's own backup in the same flow.
+  - Never write before the backup is read twice, checked as stock, saved with
+    the File System Access API, and the saved file read back and hash-matched.
+    Never write an image that did not come from patching that phone's own
+    backup in the same flow.
   - No boot image or phone data is ever bundled. `build.py` always stages the
     pinned Sonim programmer from `assets/` into `files/`. CI supplies Magisk
     24.0 and Wave (`--magisk-apk` and `--wave-apk`). All three are served from
     the site with `files.json`, verified by `check_pages.py`; see `README.md`.
     The programmer and Magisk are pinned by SHA-256 in `build.py` and again in
     the pages. Users never choose installer prerequisites.
-  - Nothing grants Wave root (decision 16). The page may ask Magisk for the
-    adb shell's root, only on the user's click, and Magisk's prompt decides.
-  - The flow's stage is in `localStorage` and the two images in IndexedDB so a
-    reload resumes; both are cleared at the end or on Start over.
+  - Nothing grants Wave root (decision 16), and the site never asks Magisk for
+    root: Recovery needs only adb's `reboot edl`.
+  - The flow's stage is in `localStorage` (`wave-rooting-v2`) and the two
+    images in IndexedDB (`wave-rooting`) so a reload resumes; both are cleared
+    at the end or on Start over. The adb key is kept in IndexedDB `wave-adb`,
+    so "Always allow" lasts.
   Details and hardware evidence are in `docs/root.md`.
 - `mockups/`: the app screen designer's area, not part of the site.
 - `scripts/`, `tests/`: packaging and checks. CI stages only the files listed in

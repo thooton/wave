@@ -1,6 +1,6 @@
-import { exact } from './webusb.mjs';
-import { checkBootImage } from './boot-image.mjs';
-import { parseXp3800Gpt, readGptHeader, sectorBytes } from './gpt.mjs';
+import { exact } from './webusb.mjs?v=redesign';
+import { checkBootImage } from './boot-image.mjs?v=redesign';
+import { parseXp3800Gpt, readGptHeader, sectorBytes } from './gpt.mjs?v=redesign';
 
 const encoder = new TextEncoder();
 const xml = element => encoder.encode(`<?xml version="1.0" encoding="UTF-8" ?><data>${element}</data>`);
@@ -156,6 +156,12 @@ export class FirehoseBootReader {
       checkBootImage(image);
       return image;
     });
+  }
+
+  // The eMMC's GPT disk GUID; the backup file records it to recognise the phone in EDL.
+  diskGuid() {
+    if (!this.#configured) throw new Error('Firehose eMMC not configured.');
+    return this.#channel.header.diskGuid;
   }
 
   async reset() {

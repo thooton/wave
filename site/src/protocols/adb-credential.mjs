@@ -1,6 +1,7 @@
 // Android Debug Bridge AUTH signs an already hashed SHA-1 token. SubtleCrypto
 // hashes its input again; we instead construct the PKCS#1 v1.5 DigestInfo and
-// use a blinded RSA private operation. The generated key stays in memory only.
+// use a blinded RSA private operation. The page keeps the key in its own
+// IndexedDB, like adb's ~/.android/adbkey, so "Always allow" survives reloads.
 const encoder = new TextEncoder();
 const radix = 1n << 32n;
 const width = 256;
@@ -40,10 +41,16 @@ function power(base, exponent, modulus) {
   return out;
 }
 
-export async function newAdbCredential() {
+// A new private key as JWK (n, e, d), for adbCredential and for storing.
+export async function newAdbKey() {
   const key = await crypto.subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048,
     publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-1' }, true, ['sign', 'verify']);
-  return adbCredential(await crypto.subtle.exportKey('jwk', key.privateKey));
+  const { n, e, d } = await crypto.subtle.exportKey('jwk', key.privateKey);
+  return { n, e, d };
+}
+
+export async function newAdbCredential() {
+  return adbCredential(await newAdbKey());
 }
 
 // Separate constructor for interoperability tests (never import desktop keys on the page).

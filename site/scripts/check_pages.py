@@ -12,7 +12,7 @@ from build import PROGRAMMER_NAME, PROGRAMMER_SHA256
 
 BUNDLE_BUDGET = 300 * 1024  # Includes the Cascadia Code webfont; served files/ are not counted.
 LANDING_BUDGET = 64 * 1024
-IMPORT = re.compile(r'^\s*(?:import|export)\s+(?:[^;\'"\n]*?\bfrom\s+)?([\'"])([^\'"\n]+)\1', re.M)
+IMPORT = re.compile(r'^\s*(?:import|export)\s+(?:(?:\{[^}]*\}|[^;\'"\n{]*?)\s*\bfrom\s+)?([\'"])([^\'"\n]+)\1', re.M)
 CSS_URL = re.compile(r'''\burl\(\s*(['"]?)([^'"\s)]+)\1\s*\)''', re.I)
 
 

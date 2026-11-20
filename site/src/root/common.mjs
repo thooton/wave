@@ -1,12 +1,6 @@
-import { Adb } from "../protocols/adb.mjs";
-import {
-    claimBulk,
-    pickDevice,
-    SONIM_ADB_FILTER,
-} from "../protocols/webusb.mjs";
-
+// Shared by the installer and Recovery: element lookup, the step checklists,
+// one-line problems, and turning device errors into the words the pages use.
 export const $ = (id) => document.getElementById(id);
-export const moduleId = /^[A-Za-z][A-Za-z0-9._-]{0,63}$/;
 export const isWebUsb = () =>
     globalThis.isSecureContext && !!globalThis.navigator?.usb;
 
@@ -15,54 +9,93 @@ export function show(status, message, error = false) {
     status.toggleAttribute("data-error", error);
 }
 
-export async function connectAndroid(status) {
-    const device = await pickDevice([SONIM_ADB_FILTER]);
-    const adb = await Adb.connect(
-        await claimBulk(device, { filter: SONIM_ADB_FILTER }),
-        {
-            onAuthorization: () =>
-                show(
-                    status,
-                    "Please accept the USB debugging prompt on the device!",
-                ),
-        },
-    );
-    try {
-        const result = await adb.shell(
-            `getprop ro.product.model; getprop ro.build.version.sdk; getprop ro.product.cpu.abi; getprop ro.build.fingerprint; getprop sys.boot_completed`,
-        );
-        if (result.code !== 0)
-            throw new Error(
-                "Could not read Android compatibility information. Try waiting for Android to finish booting?",
-            );
-        const [model, sdk, abi, fingerprint, booted] =
-            result.stdout
-                .trimEnd()
-                .split("\n")
-                .map((line) => line.trim());
-        if (
-            model !== "XP3800" ||
-            sdk !== "27" ||
-            abi !== "armeabi-v7a" ||
-            !fingerprint?.startsWith("Sonim/") ||
-            booted !== "1"
-        )
-            throw new Error(
-                "Expected a fully booted Sonim XP3800 with Android 8.1 and 32-bit ARM.",
-            );
-        return { adb, fingerprint, serial: device.serialNumber ?? "" };
-    } catch (error) {
-        await adb.close();
-        throw error;
-    }
-}
-
 export const chooserClosed = (error) => error?.name === "ChooserClosed";
 
+// The sentence a person sees; the raw error goes to the log.
 export function problem(error) {
-    if (error?.name === "NotFoundError")
-        return "No device selected, or the device disconnected.";
-    if (["SecurityError", "NetworkError"].includes(error?.name))
-        return "The browser could not claim the USB interface. Close other USB tools and check the USB guide.";
-    return error?.message || "Device operation failed.";
+    const message = error?.message ?? "";
+    if (/USB debugging is not authorized/.test(message))
+        return "USB debugging denied. Try again";
+    if (
+        ["NetworkError", "NotFoundError", "AbortError"].includes(error?.name) ||
+        /^USB (transfer timed out|connection closed|input failed|output)|disconnected|transferIn|transferOut/i.test(
+            message,
+        )
+    )
+        return "Connection lost. Try again";
+    if (error?.name === "SecurityError")
+        return "Device can’t be accessed. See “Can’t find device?” below, then try again";
+    return message || "Something went wrong. Try again";
+}
+
+// ---- Checklists: the body of each step ----
+// <ol class="checklist"> of <li data-state="pending|active|waiting|done|failed">.
+export function checklist(list, labels) {
+    list.replaceChildren(
+        ...labels.map((label) => {
+            const item = document.createElement("li");
+            item.dataset.state = "pending";
+            const text = document.createElement("span"),
+                detail = document.createElement("span");
+            text.textContent = label;
+            detail.className = "detail";
+            item.append(text, detail);
+            return item;
+        }),
+    );
+    return [...list.children];
+}
+export function mark(item, state, detail) {
+    item.dataset.state = state;
+    if (detail !== undefined) item.querySelector(".detail").textContent = detail;
+}
+// After a failure, steps that will no longer run leave the list.
+export function dropPending(list) {
+    for (const item of [...list.children])
+        if (item.dataset.state === "pending") item.remove();
+}
+export const percent = (item) => (done, total) =>
+    mark(item, "active", `${Math.floor((done / total) * 100)}%`);
+
+// ---- Problems: one line, optionally with buttons ----
+export function callout(box, text, { danger = false, actions = [] } = {}) {
+    const inner = document.createElement("div");
+    inner.className = "callout" + (danger ? " danger" : "");
+    inner.setAttribute("role", "alert");
+    const line = document.createElement("p");
+    line.textContent = text;
+    inner.append(line);
+    if (actions.length) {
+        const row = document.createElement("div");
+        row.className = "row";
+        for (const [label, handler] of actions) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "primary";
+            button.textContent = label;
+            button.addEventListener("click", handler);
+            row.append(button);
+        }
+        inner.append(row);
+    }
+    box.replaceChildren(inner);
+    box.hidden = false;
+}
+export function clearCallout(box) {
+    box.replaceChildren();
+    box.hidden = true;
+}
+
+// ---- Log: raw detail behind "Details are in log" ----
+export function logger(details, pre) {
+    return {
+        add(text) {
+            pre.textContent += (pre.textContent ? "\n" : "") + text;
+            details.hidden = false;
+        },
+        clear() {
+            pre.textContent = "";
+            details.hidden = true;
+        },
+    };
 }

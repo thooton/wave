@@ -165,6 +165,9 @@ test('XP3800 capture: eMMC configure, CRC-checked GPT and raw read phases', asyn
   assert.deepEqual(gpt.boot, { start: 281696, sectors: 65536 });
   assert.deepEqual(gpt.partitions[4], { name: 'boot', ...gpt.boot });
   assert.equal(gpt.partitions.length, 36);
+  // The disk GUID is offered on its own, for the user's backup file, never in the layout.
+  assert.match(client.diskGuid(), /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+  assert.equal(JSON.stringify(gpt).includes(client.diskGuid()), false);
   assert.deepEqual(await client.readBoot(), data);
   await client.reset();
   assert.ok(closed);

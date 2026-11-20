@@ -3,10 +3,10 @@
 // the caller says it holds (the phone's own stock backup when rooting), the image
 // must be that backup patched and signed, or a full stock image, and the whole
 // partition is read back and compared byte for byte.
-import { bootBytes, checkBootImage } from './boot-image.mjs';
-import { checkPatchedBoot } from './boot-signature.mjs';
-import { FirehoseChannel } from './firehose.mjs';
-import { sectorBytes } from './gpt.mjs';
+import { bootBytes, checkBootImage } from './boot-image.mjs?v=redesign';
+import { checkPatchedBoot } from './boot-signature.mjs?v=redesign';
+import { FirehoseChannel } from './firehose.mjs?v=redesign';
+import { sectorBytes } from './gpt.mjs?v=redesign';
 
 const encoder = new TextEncoder();
 const differs = (a, b) => a.length !== b.length || a.some((byte, i) => byte !== b[i]);
@@ -35,6 +35,11 @@ export class FirehoseBootWriter {
   async readGpt() {
     this.#ready();
     return this.#channel.exclusive(() => this.#channel.layout());
+  }
+
+  diskGuid() {
+    this.#ready();
+    return this.#channel.header.diskGuid;
   }
 
   async readBoot(onProgress) {

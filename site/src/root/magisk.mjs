@@ -2,11 +2,11 @@
 // docs/root.md and ROOTING.md step 4b do by hand: Magisk's own ARM binaries and
 // boot_patch.sh run as the adb shell user, then the app's own SignBoot signs the
 // result through dalvikvm. Nothing here needs root or writes outside the work folder.
-import { quoteShell } from '../protocols/adb.mjs';
-import { pull, push } from '../protocols/adb-sync.mjs';
-import { bootBytes, sha256 } from '../protocols/boot-image.mjs';
-import { checkPatchedBoot, parseBootHeader } from '../protocols/boot-signature.mjs';
-import { zipDirectory, zipEntry } from '../protocols/zip.mjs';
+import { quoteShell } from '../protocols/adb.mjs?v=redesign';
+import { pull, push } from '../protocols/adb-sync.mjs?v=redesign';
+import { bootBytes, sha256 } from '../protocols/boot-image.mjs?v=redesign';
+import { checkPatchedBoot, parseBootHeader } from '../protocols/boot-signature.mjs?v=redesign';
+import { zipDirectory, zipEntry } from '../protocols/zip.mjs?v=redesign';
 
 export const MAGISK = Object.freeze({
   version: '24.0', versionCode: 24000, package: 'com.topjohnwu.magisk',
@@ -71,15 +71,16 @@ async function freeKiB(adb, path) {
 // stock: the phone's verified 32 MiB backup; apk: the Magisk APK, already
 // checked with checkMagiskApk. log(message) reports each step. certSha256 is
 // the stock signing certificate (tests use their own). Returns the signed image.
-export async function patchOnPhone(adb, { stock, apk, log = () => {}, certSha256 }) {
+export async function patchOnPhone(adb, { stock, apk, log = () => {}, onStage = () => {}, certSha256 }) {
   if (stock.length !== bootBytes) throw new Error('Only patch a full 32 MiB stock backup.');
   const files = await magiskFiles(apk);
   const apkSha = await sha256(apk);
   const props = (await run(adb, 'getprop ro.build.system_root_image; getprop ro.crypto.state', 'Reading device properties')).split('\n');
-  if (props[0].trim() === 'true') throw new Error('This device uses system-as-root, which XP3800 does not support. Stopping.');
+  if (props[0].trim() === 'true') throw new Error('Unsupported device (required Sonim XP3800 on Android 8.1, got a system-as-root build)');
   // As the Magisk app decides: keep forced encryption on an encrypted phone.
   const keepEncrypt = props[1]?.trim() === 'encrypted';
-  if (await freeKiB(adb, '/data/local/tmp') < 160 * 1024) throw new Error('The device needs 160 MB of free internal storage to patch.');
+  const free = await freeKiB(adb, '/data/local/tmp');
+  if (free < 160 * 1024) throw new Error(`Insufficient storage. Device has ${Math.floor(free / 1024)} MB free, but 160 MB is required for patching.`);
   await run(adb, `rm -rf ${workDir} && mkdir -p ${workDir}/art/dalvik-cache`, 'Creating work folder');
   try {
     log('Copying Magisk 24.0 ARM tools to the device.');
@@ -89,12 +90,13 @@ export async function patchOnPhone(adb, { stock, apk, log = () => {}, certSha256
     await push(adb, `${workDir}/magisk.apk`, apk);
     const sums = await run(adb, `cd ${workDir} && sha256sum boot.img magisk.apk`, 'Checking copies');
     if (!sums.includes(`${await sha256(stock)}  boot.img`) || !sums.includes(`${apkSha}  magisk.apk`)) {
-      throw new Error('Copied files do not match. Check the cable and try again.');
+      throw new Error('File copying failed, try again');
     }
     await run(adb, `cd ${workDir} && chmod 755 magiskboot magiskinit magisk32 busybox boot_patch.sh`, 'Preparing tools');
     log('Patching boot image with boot_patch.sh (about 1 minute).');
     const patchLog = await run(adb, `cd ${workDir} && KEEPVERITY=false KEEPFORCEENCRYPT=${keepEncrypt} RECOVERYMODE=false ASH_STANDALONE=1 ./busybox sh ./boot_patch.sh boot.img 2>&1 && test -s new-boot.img`, 'Patching', 300000);
     log(patchLog.trim().split('\n').filter(line => line.startsWith('- ')).join('\n') || 'Patched.');
+    onStage('sign');
     log('Signing patched image with Magisk SignBoot (about 1 minute).');
     await run(adb, `${signer} -sign < new-boot.img > signed.img`, 'Signing', 300000);
     const verdict = await run(adb, `${signer} -verify < signed.img 2>&1`, 'Verifying signature', 300000);
@@ -104,7 +106,7 @@ export async function patchOnPhone(adb, { stock, apk, log = () => {}, certSha256
     log('Copying signed image back to this computer.');
     const signed = await pull(adb, `${workDir}/signed.img`, bootBytes);
     const phoneSum = (await run(adb, `sha256sum ${workDir}/signed.img`, 'Verifying copy')).split(/\s+/)[0];
-    if (signed.length !== length || await sha256(signed) !== phoneSum) throw new Error('The signed image didn\'t copy back correctly.');
+    if (signed.length !== length || await sha256(signed) !== phoneSum) throw new Error('File copying failed, try again');
     await checkPatchedBoot(signed, stock, { certSha256 });
     if (await isMagiskPatched(signed) === false) throw new Error('No Magisk files found in the patched image\'s ramdisk.');
     log(`Signed Magisk image: ${signed.length} bytes. Signature verified with stock certificate.`);
@@ -119,7 +121,7 @@ export async function installApk(adb, apk, path, what, timeoutMs = 180000) {
   try {
     const result = await adb.shell(`pm install -r ${quoteShell(path)}`, undefined, timeoutMs);
     if (result.code !== 0 || !result.stdout.trim().endsWith('Success')) {
-      throw new Error(`Failed to install ${what}: ${(result.stderr || result.stdout).trim() || 'no reason given'}`);
+      throw new Error(`Couldn't install ${what}. ${(result.stderr || result.stdout).trim() || 'No reason given'}.`);
     }
   } finally {
     await adb.shell(`rm -f ${quoteShell(path)}`).catch(() => {});
