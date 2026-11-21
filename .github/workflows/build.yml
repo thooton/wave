@@ -3,6 +3,7 @@ name: Build
 on:
   push:
     branches-ignore: ['emulator/**']
+    tags: ['**']
   pull_request:
   workflow_dispatch:
     inputs:
