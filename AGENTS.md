@@ -13,6 +13,29 @@ Wave is a package manager for the Sonim XP3800 (Android 8.1, API 27,
 - `tools/wavesrc/`: source tooling. See [CLI usage](tools/wavesrc/README.md).
 - `services/book-recommender/`: Book Recs HTTP service, separate from Pages.
   See [API, tests and provisioning](services/book-recommender/README.md).
+- `tools/ship/`: the end-of-task check that every Wave worker runs, in every
+  Wave repository. See [its README](tools/ship/README.md).
+
+## Finish every task: commit, push, CI, publish
+
+Every Wave worker finishes completed work the same way, in every Wave
+repository, unless the task explicitly says to hold it or not to publish:
+
+1. Commit it and push it to `master`. Rebase on `origin/master`, rerun the
+   affected checks, run `oak git push origin HEAD:master`, and never force-push.
+2. Wait for master CI on your commit. Fix a failure, or report it.
+3. If the change is a publishable deliverable (an app or mod version, or the
+   Wave app), publish it through its release channel. Then confirm that its
+   catalog lists the new version. Pushing to `master` is not publication.
+4. Run `tools/ship/ship check` and put its output in your final
+   report. Report each `BLOCKED` line as an explicit blocker. For an
+   explicit hold, pass `--hold "<the task's words>"`; the work must still be
+   committed, pushed and green.
+
+Keep private packages out of this public repository and its reports.
+
+See [tools/ship](https://github.com/thooton/wave/blob/master/tools/ship/README.md)
+for each repository's channel and what the checker verifies.
 
 Sibling checkouts: `../wave_packages` for package development,
 `../wave_repository` for the default source, `../wave_private_packages` for

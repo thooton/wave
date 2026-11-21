@@ -26,8 +26,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Test QA tools
-        run: python3 -m unittest discover -s tools/qa
+      - name: Test QA and ship tools
+        run: |
+          python3 -m unittest discover -s tools/qa
+          python3 -m unittest discover -s tools/ship
 
       - uses: actions/setup-java@v4
         with:
@@ -150,3 +152,12 @@ jobs:
           binary: ${{ steps.release.outputs.binary }}
           url: ${{ steps.release.outputs.url }}
           changes-path: app
+
+      - name: Flag a release that is not yet in the catalog
+        if: steps.release.outputs.binary != '' && vars.WAVE_PUBLISH_ENABLED != 'true'
+        env:
+          BINARY: ${{ steps.release.outputs.binary }}
+        run: |
+          msg="Released ${BINARY##*/}, but CI did not publish it: WAVE_PUBLISH_ENABLED is off. Mirror it into thooton/wave_repository with tools/wavesrc/wavesrc publish, then run tools/ship/ship check."
+          echo "::warning title=Not published to the catalog::$msg"
+          echo "$msg" >> "$GITHUB_STEP_SUMMARY"
