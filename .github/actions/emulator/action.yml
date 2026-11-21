@@ -1,0 +1,39 @@
+name: XP3 emulator session
+description: Build one trusted app and serve a disposable API 27 emulator through a Git mailbox.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 21
+
+    - uses: android-actions/setup-android@v3
+      with:
+        packages: platforms;android-35 build-tools;35.0.1 platform-tools emulator system-images;android-27;default;x86_64
+
+    - uses: gradle/actions/setup-gradle@v4
+      with:
+        cache-read-only: true
+
+    - name: Build the selected debug APK
+      shell: bash
+      env:
+        EMULATOR_TOOL_DIR: ${{ github.action_path }}
+      run: python3 "$EMULATOR_TOOL_DIR/runner.py" build
+
+    - name: Enable emulator acceleration
+      shell: bash
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+        sudo udevadm settle
+        test -r /dev/kvm && test -w /dev/kvm
+
+    - name: Boot the XP3 emulator and serve its mailbox
+      shell: bash
+      env:
+        EMULATOR_TOOL_DIR: ${{ github.action_path }}
+        EMULATOR_GIT_TOKEN: ${{ github.token }}
+      run: python3 "$EMULATOR_TOOL_DIR/runner.py" serve
