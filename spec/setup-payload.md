@@ -1,7 +1,7 @@
 # Setup payloads
 
 How a Wave app that needs credentials (Canvas, Charge, Mail, Places,
-Authenticator, Flashcards) is set up without typing tokens on a T9 keypad.
+Authenticator, Flashcards, Book Recs) is set up without typing tokens on a T9 keypad.
 The site's generator (task 10) writes these payloads; the apps (in
 `wave_packages`, `common/core` `Config` and `common/ui` `Setup`) read them.
 This document is normative for both. `setup-payload.schema.json` beside it
@@ -26,7 +26,7 @@ or, for the same app through a Delta command center:
 | Field | Meaning |
 | :--- | :--- |
 | `wave` | Payload format version, the integer `1`. An app refuses a higher version ("This setup file is for a newer version of the app"). |
-| `app` | Which app it is for: the app's id, its directory name in `wave_packages` (`canvas`, `charge`, `mail`, `places`, `authenticator`, `flashcards`). An app refuses a payload for another app. |
+| `app` | Which app it is for: the app's id, its directory name in `wave_packages` (`canvas`, `charge`, `mail`, `places`, `authenticator`, `flashcards`, `bookrecs`). An app refuses a payload for another app. |
 | `settings` | The direct backend: an object of string values, named as the app's descriptor names them. Exactly one of `settings` and `delta`. |
 | `delta` | The Delta backend: `server` (https only, a host and optional path, no query) and `token` (visible ASCII, no spaces). Only for apps whose descriptor has `delta.supported: true`. |
 | `label` | Optional, at most 60 characters: what the setup screen shows the setup as ("sam@example.com", "ASU"). Not a secret. |
