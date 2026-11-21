@@ -232,7 +232,6 @@ const recover = {
     backup(error) {
         if (state.backup || error.code === "claim") return;
         visible("backup-edl", false);
-        edlHelp("backup", false);
         $("backup").textContent = "Try again";
         visible("backup", true);
     },
@@ -355,7 +354,6 @@ function backupView() {
     $("backup-file").textContent = state.savedName ?? "";
     if (state.backup === "read") readyToSave();
     else say("backup", "");
-    edlHelp("backup", false);
 }
 function readyToSave() {
     say("backup", "Backup ready to save!", true);
@@ -409,7 +407,6 @@ async function readBackup(device) {
     const link = await claimEdl(device);
     done(edl);
     visible("backup-edl", false);
-    edlHelp("backup", false);
     begin(start);
     await startProgrammer(link, programmer);
     const reader = new FirehoseBootReader(link);
