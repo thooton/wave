@@ -52,6 +52,30 @@ test('XP3800 capture: ADB handshake, shell_v2 status and sync push/pull', async 
   assert.equal(didClose, true);
 });
 
+test('reboot treats the phone dropping off USB after OKAY as success, however it surfaces', async () => {
+  const fake = (error, { open = true } = {}) => ({
+    closed: false,
+    async runService(service, use, { announceOpen }) {
+      assert.equal(service, 'reboot:edl');
+      if (open) announceOpen();
+      throw error;
+    },
+    async close() { this.closed = true; },
+  });
+  const named = name => Object.assign(new Error('USB gone'), { name });
+  // Linux: NetworkError or NotFoundError; Windows: AbortError, or a stray packet.
+  for (const error of [named('NetworkError'), named('NotFoundError'), named('AbortError'),
+    new Error('Unexpected ADB stream packet.')]) {
+    const adb = fake(error);
+    await Adb.prototype.reboot.call(adb, 'edl');
+    assert.equal(adb.closed, true, error.message);
+  }
+  // Refused before adbd accepted the service: still fails, and closes.
+  const refused = fake(new Error('Device refused ADB service reboot.'), { open: false });
+  await assert.rejects(Adb.prototype.reboot.call(refused, 'edl'), /refused/);
+  assert.equal(refused.closed, true);
+});
+
 test('the ADB AUTH signature encodes a raw SHA-1 digest, not its double hash', () => {
   const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
   const key = adbCredential(privateKey.export({ format: 'jwk' }));

@@ -5,6 +5,7 @@ import { validateIdentity } from "./backup-manifest.mjs?v=redesign5";
 import { Adb } from "../protocols/adb.mjs?v=redesign5";
 import { adbCredential, newAdbKey } from "../protocols/adb-credential.mjs?v=redesign5";
 import { startReadOnlyProgrammer } from "../protocols/sahara.mjs?v=redesign5";
+import { FirehoseBootReader } from "../protocols/firehose.mjs?v=redesign5";
 import {
     claimBulk,
     pickDevice,
@@ -47,12 +48,22 @@ async function loadCredential() {
     return adbCredential(jwk);
 }
 
-const isAndroid = (d, serial) =>
+export const isAndroid = (d, serial) =>
     d.vendorId === SONIM_ADB_FILTER.vendorId &&
     (!serial || d.serialNumber === serial);
-const isEdl = (d) =>
+export const isEdl = (d) =>
     d.vendorId === EDL.vendorId &&
     [EDL.productId, DUMP.productId].includes(d.productId);
+const isPhone = (serial) => (d) => isAndroid(d, serial) || isEdl(d);
+
+// The phone in whichever mode it is in (Android or EDL): the one connected
+// device this site may already use, else the chooser listing both modes.
+// Call it straight from a click: the chooser needs the user's gesture.
+export async function findPhone(serial) {
+    const known = (await navigator.usb.getDevices()).filter(isPhone(serial));
+    if (known.length === 1) return known[0];
+    return pickDevice([SONIM_ADB_FILTER, EDL, DUMP]);
+}
 
 // Resolves once a device matching `test` that this site may already use is
 // connected (after a restart), or with undefined after timeoutMs.
@@ -104,9 +115,18 @@ const transient = (error) =>
         /cancelled|timed out|disconnected|closed/i.test(error.message));
 
 // expect: { serial, fingerprint } the phone must have, if known.
-export async function connectPhone(say, options = {}) {
+// device: an Android device already chosen (from findPhone), for the first try.
+export async function connectPhone(say, { device, ...options } = {}) {
     for (let attempt = 0; ; attempt++) {
         try {
+            if (device && attempt === 0) {
+                try {
+                    return await connectTo(device, say, options);
+                } catch (error) {
+                    error.usbDevice = true;
+                    throw error;
+                }
+            }
             return await connectOnce(say, options);
         } catch (error) {
             if (attempt >= 4 || !transient(error)) throw error;
@@ -244,6 +264,26 @@ export async function claimEdl(device) {
                 { code: "claim", detail: error?.message },
             );
         }
+    }
+}
+
+// EDL -> Android: start the programmer and send its reset. Read-only: the
+// reader configures with SkipWrite and sends nothing but configure and reset.
+export async function restartFromEdl(device, programmer) {
+    const link = await claimEdl(device);
+    await startProgrammer(link, programmer);
+    try {
+        const reader = new FirehoseBootReader(link);
+        await reader.configure();
+        await reader.reset();
+    } catch (error) {
+        await link.close();
+        throw Object.assign(
+            new Error(
+                "Device not responding in EDL. Try unplugging, taking the battery out, putting it back in, and then trying again",
+            ),
+            { detail: error.message },
+        );
     }
 }
 

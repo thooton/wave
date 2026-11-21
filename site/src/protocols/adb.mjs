@@ -233,10 +233,13 @@ export class Adb {
     try {
       await this.runService(`reboot:${target}`, stream => stream.drain(), { announceOpen: () => { opened = true; } });
     } catch (error) {
-      // Once adbd has accepted reboot:, the phone drops off USB. Chromium on
-      // Linux reports that as NetworkError (a transfer error), not only
-      // NotFoundError, and either means the restart is under way.
-      if (!opened || !['NotFoundError', 'NetworkError'].includes(error.name)) throw error;
+      // Once adbd has accepted reboot:, the phone drops off USB, and how that
+      // surfaces varies: NetworkError or NotFoundError (Chromium on Linux),
+      // AbortError (Windows cancels the pending transfer), or a stray packet
+      // as adbd goes down ("Unexpected ADB stream packet", seen on Windows).
+      // The restart is under way either way; callers confirm it by waiting for
+      // the phone to come back in the new mode.
+      if (!opened) throw error;
     } finally {
       await this.close();
     }

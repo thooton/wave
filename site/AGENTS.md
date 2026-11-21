@@ -11,9 +11,14 @@ mouse.
   identity), Back up (EDL read twice, saved as one `.wavebackup` file and read
   back), Root (patch on the phone with Magisk 24.0 over adb, Magisk and Wave
   install, EDL write and full readback, root check), Finish (open Wave).
-  `src/root/rooting.mjs`. Each step's body is a checklist of what runs; a
-  problem is one line (`common.mjs` `problem` and the throw sites hold the
-  approved wording), with raw detail in the Log.
+  `src/root/rooting.mjs`. Each step has one button, whatever mode the phone
+  is in: it finds the phone in Android or EDL (a device the site may already
+  use, else one chooser listing both) and moves it to the mode the step needs
+  (adb `reboot edl`, or the programmer's reset back to Android). While waiting
+  for a mode the button reads Continue; after a failure, Try again. Each
+  step's body is a checklist of what runs; a problem is one line
+  (`common.mjs` `problem` and the throw sites hold the approved wording), with
+  raw detail in the Log.
 - `recovery/index.html`: restore only. Choosing a backup starts it: check the
   file, EDL over adb or by hand (guided), match the eMMC disk GUID, write the
   stock image back and read it back. `src/root/recovery.mjs`.

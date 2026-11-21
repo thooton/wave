@@ -20,13 +20,16 @@ import {
 import { makeBackupManifest } from "./backup-manifest.mjs?v=redesign5";
 import { backupName, makeBackupFile } from "./backup-file.mjs?v=redesign5";
 import {
-    chooseEdl,
     claimEdl,
     connectPhone,
     differs,
+    findPhone,
+    isAndroid,
+    isEdl,
+    restartFromEdl,
     startProgrammer,
     waitForAndroid,
-    waitForEdl,
+    waitForDevice,
 } from "./device.mjs?v=redesign5";
 import {
     MAGISK,
@@ -193,8 +196,10 @@ for (const button of document.querySelectorAll("[data-step]"))
 const visible = (id, on) => ($(id).hidden = !on);
 for (const help of document.querySelectorAll(".edl-help"))
     help.replaceChildren($("edl-help").content.cloneNode(true));
-const edlHelp = (name, on) =>
-    ($(`step-${name}`).querySelector(".edl-help").hidden = !on);
+const edlHelp = (name, on) => {
+    const help = $(`step-${name}`).querySelector(".edl-help");
+    if (help) help.hidden = !on;
+};
 function say(name, text, ok = false) {
     show($(`${name}-status`), text);
     $(`${name}-status`).classList.toggle("ok", ok);
@@ -226,24 +231,75 @@ async function task(name, action) {
     }
 }
 
-// After a failure: offer the step's button again, as "Try again". A device
-// that can't be claimed in EDL stays in EDL, so Choose device stays instead.
+// After a failure: offer the step's one button again, as "Try again". It finds
+// the phone in whichever mode it is now in, so a phone left in EDL is fine.
 const recover = {
-    backup(error) {
-        if (state.backup || error.code === "claim") return;
-        visible("backup-edl", false);
+    ready() {
+        $("connect").textContent = "Try again";
+    },
+    backup() {
+        if (state.backup) return;
         $("backup").textContent = "Try again";
         visible("backup", true);
     },
-    root(error) {
-        if (["broken", "done", "written"].includes(state.root) || error.code === "claim") return;
-        save({ root: undefined });
-        visible("root-edl", false);
-        edlHelp("root", false);
+    root() {
+        if (["broken", "done"].includes(state.root)) return;
         $("root").textContent = "Try again";
         visible("root", true);
     },
+    finish() {
+        $("open-wave").textContent = "Try again";
+    },
 };
+
+// ---- The phone, in whichever mode a step needs ----
+// Each step has one button. It finds the phone in Android or EDL (a connected
+// one this browser may already use, else the chooser listing both modes),
+// moves it to the mode the step needs (adb's reboot for EDL, the programmer's
+// reset for Android), then runs the step. After a restart the phone is picked
+// up by itself if this browser may already use it in the new mode. EDL has no
+// serial number, so the browser doesn't remember it: then the same button,
+// now "Continue", asks for it.
+const BUTTON = { ready: "connect", backup: "backup", root: "root", finish: "open-wave" };
+const inMode = (device, mode) =>
+    mode === "edl" ? isEdl(device) : isAndroid(device, state.serial);
+async function withPhone(name, mode, item, run, device) {
+    // Straight from the click, before any slow work: the chooser needs it.
+    device ??= await findPhone(state.serial);
+    if (inMode(device, mode)) return run(device);
+    begin(item);
+    if (isEdl(device)) {
+        say(name, "Restarting to Android");
+        await restartFromEdl(device, programmer);
+    } else {
+        const { adb } = await connect(name, device);
+        try {
+            await adb.reboot("edl");
+        } finally {
+            await adb.close();
+        }
+    }
+    awaitPhone(name, mode, item, run);
+}
+function awaitPhone(name, mode, item, run) {
+    const edl = mode === "edl";
+    mark(item, "waiting");
+    if (active === item) active = undefined;
+    if (edl) edlHelp(name, true);
+    say(
+        name,
+        edl
+            ? "Device restarted to EDL, please press ‘Continue’ and select it!"
+            : "Waiting for Android to start. If it isn’t found, press ‘Continue’",
+    );
+    $(BUTTON[name]).textContent = "Continue";
+    visible(BUTTON[name], true);
+    const token = (waiting = Symbol());
+    waitForDevice((d) => inMode(d, mode), (edl ? 10 : 5) * 60 * 1000).then((device) => {
+        if (device && waiting === token && !busy)
+            task(name, () => withPhone(name, mode, item, run, device));
+    });
+}
 
 // ---- Installer files ----
 async function loadStaged() {
@@ -282,8 +338,9 @@ const sayFor = (name) => (message) => {
         visible(`${name}-prompt`, true);
     else say(name, message);
 };
-const connect = (name) =>
+const connect = (name, device) =>
     connectPhone(sayFor(name), {
+        device,
         expect: state.serial
             ? { serial: state.serial, fingerprint: state.fingerprint }
             : undefined,
@@ -299,7 +356,14 @@ function readyView() {
     say("ready", passed ? "Device successfully connected" : "", passed);
 }
 $("start").addEventListener("click", () => go("ready"));
-$("connect").addEventListener("click", () => task("ready", checkDevice));
+// Any phone may be identified here, so forget the last one first.
+function identify(device) {
+    save({ serial: undefined, fingerprint: undefined });
+    const [model] = (lists.ready = checklist($("ready-list"), READY));
+    visible("ready-list", true);
+    return withPhone("ready", "android", model, checkDevice, device);
+}
+$("connect").addEventListener("click", () => task("ready", () => identify()));
 // A device this site may already use, plugged in while Get ready is open.
 navigator.usb?.addEventListener("connect", (event) => {
     if (
@@ -308,16 +372,16 @@ navigator.usb?.addEventListener("connect", (event) => {
         !$("connect").hidden &&
         event.device.vendorId === 0x1d9c
     )
-        task("ready", checkDevice);
+        task("ready", () => identify(event.device));
 });
-async function checkDevice() {
+async function checkDevice(device) {
     say("ready", "");
     log.clear();
     const [model, rooted, files] = (lists.ready = checklist($("ready-list"), READY));
     visible("ready-list", true);
     begin(model);
     save({ serial: undefined, fingerprint: undefined });
-    const { adb, serial, fingerprint } = await connect("ready");
+    const { adb, serial, fingerprint } = await connect("ready", device);
     try {
         done(model, `serial ${serial}`);
         begin(rooted);
@@ -347,7 +411,6 @@ function backupView() {
     const count = { read: 6, saved: 8 }[state.backup] ?? 0;
     restore("backup", BACKUP, count);
     visible("backup", !state.backup);
-    visible("backup-edl", false);
     visible("save", state.backup === "read");
     visible("backup-next", state.backup === "saved");
     visible("backup-card", state.backup === "saved");
@@ -359,43 +422,12 @@ function readyToSave() {
     say("backup", "Backup ready to save!", true);
     $("backup-status").classList.add("tick");
 }
-// After asking for EDL: the user picks the device, or one this site may
-// already use shows up by itself.
-function awaitEdl(name, button, status, run) {
-    visible(button, true);
-    edlHelp(name, true);
-    say(name, status);
-    const token = (waiting = Symbol());
-    waitForEdl(10 * 60 * 1000).then((device) => {
-        if (device && waiting === token && !busy)
-            task(name, () => run(device));
-    });
-}
+// The one button: Back up, then Continue while waiting for EDL, or Try again.
 $("backup").addEventListener("click", () =>
-    task("backup", async () => {
+    task("backup", () => {
         const items = (lists.backup = checklist($("backup-list"), BACKUP));
         visible("backup-card", false);
-        begin(items[0]);
-        const { adb } = await connect("backup");
-        try {
-            await adb.reboot("edl");
-        } finally {
-            await adb.close();
-        }
-        mark(items[0], "waiting");
-        visible("backup", false);
-        awaitEdl(
-            "backup",
-            "backup-edl",
-            "Device rebooted to EDL, please select it in ‘Choose device’!",
-            readBackup,
-        );
-    }),
-);
-$("backup-edl").addEventListener("click", () =>
-    task("backup", async () => {
-        active = lists.backup[0];
-        await readBackup(await chooseEdl());
+        return withPhone("backup", "edl", items[0], readBackup);
     }),
 );
 async function readBackup(device) {
@@ -404,9 +436,9 @@ async function readBackup(device) {
     const [edl, start, first, second, stock, restart] = lists.backup;
     begin(edl);
     say("backup", "");
+    visible("backup", false);
     const link = await claimEdl(device);
     done(edl);
-    visible("backup-edl", false);
     begin(start);
     await startProgrammer(link, programmer);
     const reader = new FirehoseBootReader(link);
@@ -442,7 +474,6 @@ async function readBackup(device) {
     await putImage("stock", image);
     log.add(`Stock boot: ${image.length} bytes, SHA-256 ${hash}, disk ${diskGuid}`);
     save({ backup: "read", stockSha: hash, diskGuid, date: new Date().toISOString() });
-    visible("backup-edl", false);
     visible("save", true);
     readyToSave();
 }
@@ -509,16 +540,14 @@ $("backup-next").addEventListener("click", () => go("root"));
 function rootView() {
     const count = { patched: 4, written: 9, done: 10 }[state.root] ?? 0;
     const items = restore("root", rootSteps(), count);
-    visible("root", state.root !== "patched" && state.root !== "done" && state.root !== "broken");
-    $("root").textContent = state.root === "written" ? "Try again" : "Root";
-    visible("root-edl", false);
+    visible("root", state.root !== "done" && state.root !== "broken");
+    $("root").textContent =
+        state.root === "written" ? "Try again" : state.root === "patched" ? "Continue" : "Root";
     visible("root-next", state.root === "done");
-    edlHelp("root", false);
+    edlHelp("root", state.root === "patched");
     say("root", state.root === "done" ? "Successfully rooted device" : "", state.root === "done");
-    if (state.root === "patched" && programmer) {
-        mark(items[4], "waiting");
-        awaitEdl("root", "root-edl", "Please select the device in ‘Choose device’", writeRoot);
-    }
+    // Patched and installed, not yet written: Continue picks up from EDL.
+    if (state.root === "patched") mark(items[4], "waiting");
     if (state.root === "broken") brokenCallout();
 }
 function brokenCallout() {
@@ -528,75 +557,79 @@ function brokenCallout() {
         { danger: true, actions: [["Open Recovery", () => (location.href = "recovery/")]] },
     );
 }
+// The one button: Root, then Continue while waiting for a mode, or Try again.
+// Where the flow stands decides which mode the phone must be in.
 $("root").addEventListener("click", () =>
-    task("root", async () => {
-        if (state.root === "written") return verifyRoot();
-        const items = (lists.root = checklist($("root-list"), rootSteps()));
-        const [boot, patch, sign, install, edl] = items;
-        const stock = await getImage("stock", state.stockSha);
-        const [magisk, wave] = await Promise.all([apkFor("magisk"), apkFor("wave")]);
-        begin(boot);
-        if (!(await waitForAndroid(state.serial)))
-            throw new Error("Device did not reconnect. Unplug and reconnect device, try again");
-        const { adb } = await connect("root");
-        try {
-            done(boot);
-            begin(patch);
-            let patched;
-            try {
-                patched = await patchOnPhone(adb, {
-                    stock,
-                    apk: magisk,
-                    log: log.add,
-                    onStage: () => {
-                        done(patch);
-                        begin(sign);
-                    },
-                });
-            } catch (error) {
-                if (/^(Insufficient storage|File copying failed|Unsupported device)/.test(error.message))
-                    throw error;
-                throw Object.assign(
-                    new Error("Boot image patching failed, try again. Details are in log"),
-                    { detail: error.message },
-                );
-            }
-            done(sign);
-            begin(install);
-            await installApk(adb, magisk, "/data/local/tmp/wave-magisk.apk", "Magisk");
-            if ((await installedVersion(adb, MAGISK.package)) !== MAGISK.version)
-                throw new Error("Couldn't install Magisk. Version 24.0 did not install.");
-            await installApk(adb, wave, "/data/local/tmp/wave-app.apk", "Wave");
-            if (!(await installedVersion(adb, WAVE_PACKAGE)))
-                throw new Error(`Couldn't install Wave. The bundled APK is not ${WAVE_PACKAGE}.`);
-            done(install);
-            await putImage("patched", patched);
-            save({ root: "patched", patchedSha: await sha256(patched) });
-            begin(edl);
-            await adb.reboot("edl");
-        } finally {
-            await adb.close();
+    task("root", () => {
+        if (state.root === "written") {
+            const items = restore("root", rootSteps(), 8);
+            return withPhone("root", "android", items[8], verifyRoot);
         }
-        mark(edl, "waiting");
-        visible("root", false);
-        awaitEdl("root", "root-edl", "Please select the device in ‘Choose device’", writeRoot);
+        if (state.root === "patched") {
+            const items = restore("root", rootSteps(), 4);
+            return withPhone("root", "edl", items[4], writeRoot);
+        }
+        const items = (lists.root = checklist($("root-list"), rootSteps()));
+        return withPhone("root", "android", items[0], patchRoot);
     }),
 );
-$("root-edl").addEventListener("click", () =>
-    task("root", async () => {
-        active = lists.root[4];
-        await writeRoot(await chooseEdl());
-    }),
-);
+async function patchRoot(device) {
+    visible("root", false);
+    const items = (lists.root = checklist($("root-list"), rootSteps()));
+    const [boot, patch, sign, install, edl] = items;
+    begin(boot);
+    const stock = await getImage("stock", state.stockSha);
+    const [magisk, wave] = await Promise.all([apkFor("magisk"), apkFor("wave")]);
+    const { adb } = await connect("root", device);
+    try {
+        done(boot);
+        begin(patch);
+        let patched;
+        try {
+            patched = await patchOnPhone(adb, {
+                stock,
+                apk: magisk,
+                log: log.add,
+                onStage: () => {
+                    done(patch);
+                    begin(sign);
+                },
+            });
+        } catch (error) {
+            if (/^(Insufficient storage|File copying failed|Unsupported device)/.test(error.message))
+                throw error;
+            throw Object.assign(
+                new Error("Boot image patching failed, try again. Details are in log"),
+                { detail: error.message },
+            );
+        }
+        done(sign);
+        begin(install);
+        await installApk(adb, magisk, "/data/local/tmp/wave-magisk.apk", "Magisk");
+        if ((await installedVersion(adb, MAGISK.package)) !== MAGISK.version)
+            throw new Error("Couldn't install Magisk. Version 24.0 did not install.");
+        await installApk(adb, wave, "/data/local/tmp/wave-app.apk", "Wave");
+        if (!(await installedVersion(adb, WAVE_PACKAGE)))
+            throw new Error(`Couldn't install Wave. The bundled APK is not ${WAVE_PACKAGE}.`);
+        done(install);
+        await putImage("patched", patched);
+        save({ root: "patched", patchedSha: await sha256(patched) });
+        begin(edl);
+        await adb.reboot("edl");
+    } finally {
+        await adb.close();
+    }
+    awaitPhone("root", "edl", edl, writeRoot);
+}
 async function writeRoot(device) {
-    const items = restore("root", rootSteps(), 4);
+    const items = (lists.root = restore("root", rootSteps(), 4));
     const [edl, check, write, verify] = items.slice(4);
-    const stock = await getImage("stock", state.stockSha),
-        patched = await getImage("patched", state.patchedSha);
     begin(edl);
     say("root", "");
+    visible("root", false);
+    const stock = await getImage("stock", state.stockSha),
+        patched = await getImage("patched", state.patchedSha);
     const link = await claimEdl(device);
-    visible("root-edl", false);
     edlHelp("root", false);
     await startProgrammer(link, programmer);
     const writer = new FirehoseBootWriter(link);
@@ -614,6 +647,12 @@ async function writeRoot(device) {
     try {
         await writer.configure();
         await writer.readGpt();
+        // The phone in EDL has no serial: its eMMC disk GUID must be the backup's.
+        if (state.diskGuid && writer.diskGuid() !== state.diskGuid)
+            throw Object.assign(
+                new Error("Wrong device in EDL (not the one backed up). Connect that device and try again"),
+                { code: "other-device", detail: `Disk ${writer.diskGuid()}, backup ${state.diskGuid}` },
+            );
         done(edl);
         await writer.writeBoot(patched, { current: stock, onProgress: onProgress(phases) });
         done(verify, "");
@@ -647,7 +686,8 @@ async function writeRoot(device) {
             throw Object.assign(error, { shown: true });
         }
         await writer.reset().catch(() => {});
-        save({ root: undefined });
+        // Nothing was written; the patched image still fits the right phone.
+        if (error.code !== "other-device") save({ root: undefined });
         $("root").textContent = "Try again";
         visible("root", true);
         if (error instanceof WriteCheckError)
@@ -657,20 +697,22 @@ async function writeRoot(device) {
     save({ root: "written" });
     begin(items[8]);
     await writer.reset().catch(() => log.add("Restart not acknowledged."));
-    await verifyRoot();
+    // Android was chosen in Get ready (it has a serial), so it comes back by itself.
+    const phone = await waitForAndroid(state.serial);
+    if (!phone) throw new Error("Device did not reconnect. Unplug and reconnect device, try again");
+    await verifyRoot(phone);
 }
 function addItem(after, label) {
     const [item] = checklist(document.createElement("ol"), [label]);
     after.after(item);
     return item;
 }
-async function verifyRoot() {
-    const items = lists.root ?? restore("root", rootSteps(), 9);
+async function verifyRoot(device) {
+    const items = lists.root ?? restore("root", rootSteps(), 8);
     const [restart, check] = items.slice(8);
     begin(restart);
-    if (!(await waitForAndroid(state.serial)))
-        throw new Error("Device did not reconnect. Unplug and reconnect device, try again");
-    const { adb } = await connect("root");
+    visible("root", false);
+    const { adb } = await connect("root", device);
     try {
         done(restart);
         begin(check);
@@ -698,33 +740,36 @@ function finishView() {
     say("finish", state.finished ? "Installation complete" : "", state.finished);
     visible("finish-note", !!state.finished);
 }
+// The one button: Open Wave, then Continue while waiting for Android, or Try again.
 $("open-wave").addEventListener("click", () =>
-    task("finish", async () => {
-        const [open] = lists.finish;
-        begin(open);
-        const { adb } = await connect("finish");
-        try {
-            const result = await adb.shell(
-                `monkey -p ${WAVE_PACKAGE} -c android.intent.category.LAUNCHER 1`,
-            );
-            if (
-                result.code !== 0 ||
-                /No activities found|monkey aborted/i.test(result.stdout + result.stderr)
-            )
-                throw new Error(
-                    "Couldn't open Wave. Try setting it as the Push-to-Talk key in settings",
-                );
-        } finally {
-            await adb.close();
-        }
-        done(open);
-        // The backup now lives only in the file the user saved.
-        await dropImages();
-        save({ finished: true, stockSha: undefined, patchedSha: undefined });
-        say("finish", "Installation complete", true);
-        visible("finish-note", true);
-    }),
+    task("finish", () => withPhone("finish", "android", lists.finish[0], openWave)),
 );
+async function openWave(device) {
+    const [open] = lists.finish;
+    begin(open);
+    $("open-wave").textContent = "Open Wave";
+    const { adb } = await connect("finish", device);
+    try {
+        const result = await adb.shell(
+            `monkey -p ${WAVE_PACKAGE} -c android.intent.category.LAUNCHER 1`,
+        );
+        if (
+            result.code !== 0 ||
+            /No activities found|monkey aborted/i.test(result.stdout + result.stderr)
+        )
+            throw new Error(
+                "Couldn't open Wave. Try setting it as the Push-to-Talk key in settings",
+            );
+    } finally {
+        await adb.close();
+    }
+    done(open);
+    // The backup now lives only in the file the user saved.
+    await dropImages();
+    save({ finished: true, stockSha: undefined, patchedSha: undefined });
+    say("finish", "Installation complete", true);
+    visible("finish-note", true);
+}
 
 $("start-over").addEventListener("click", async () => {
     if (!confirm("Really start over?")) return;
