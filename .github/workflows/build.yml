@@ -25,6 +25,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Test QA tools
+        run: python3 -m unittest discover -s tools/qa
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

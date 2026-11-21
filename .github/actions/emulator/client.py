@@ -8,7 +8,7 @@ import sys
 import tempfile
 import time
 
-from mailbox import APP, GitError, Mailbox, MissingMailbox, POLL, ref, repository
+from mailbox import APP, GitError, Mailbox, POLL, ref, repository
 
 OPS = ("launch", "key", "text", "shot", "ui", "log", "stop", "reset", "shell", "close")
 

@@ -34,3 +34,71 @@ see [the rooted phone procedure](../../app/ROOT-TESTING.md).
 Exit the shell to release the lock. The wrapper won't run the command if
 the lock is still held at timeout (exit 75), and it never steals a lock.
 Use `--wait SECONDS` to change the 20-minute default.
+
+# Interactive GitHub Actions emulator
+
+Use this from a Wave Oak worker when the session VM has no `/dev/kvm`.
+GitHub Actions boots an isolated Android 8.1 (API 27), 240×320 mdpi,
+keyboard/d-pad emulator and builds and installs one **debug** APK from the
+exact commit you ask it to test. This is not a physical XP3800, a rooted mod
+check, or a test of removable media or real handset services.
+
+From the `wave` checkout (requires Python 3.9+ and Oak Git access):
+
+```sh
+emu=tools/qa/emulator
+repo=../wave_packages                         # or '.' for Wave, or your private checkout
+app=list                                     # app directory; use 'app' for Wave itself
+sid=$($emu --repo "$repo" start "$app")
+$emu --repo "$repo" "$sid" wait                # waits for boot AND install; initial build can take minutes
+$emu --repo "$repo" "$sid" launch
+$emu --repo "$repo" "$sid" key DPAD_DOWN DPAD_CENTER
+$emu --repo "$repo" --out /tmp/xp3.png "$sid" shot
+$emu --repo "$repo" --out /tmp/xp3.xml "$sid" ui
+$emu --repo "$repo" "$sid" shell 'getprop ro.build.version.sdk; wm size; wm density'
+$emu --repo "$repo" "$sid" close               # stops the runner and deletes both temporary refs
+```
+
+- `start` pushes **local committed `HEAD`**, not working tree changes. The
+  checkout must already include `.github/workflows/emulator.yml`; update or
+  rebase onto current `master` if necessary. Test an unmerged fix by
+  committing it locally and starting a fresh emulator for that commit. This
+  does not merge or publish a release. Use only trusted commits: the launch
+  ref runs that commit's workflow and Gradle build.
+- The device stays up between commands. Use `text 'test query'` (ASCII only),
+  `log` / `log --clear`, `stop`, or `reset` (clear app data). `shell` runs
+  inside the Android guest, not on the Actions host. `shot` and `ui` default
+  to `shot.png` and `ui.xml` in the current directory. Use fixture data only.
+  To start Wave with its `browse` UI fixture, run:
+
+  ```sh
+  $emu --repo . "$sid" shell 'am start -S -W -n com.wave.xp3/.app.WaveActivity --es fixture browse'
+  ```
+- Each session uses `emulator/<session>/start` (candidate commit) and `io`
+  (commands and replies). Start separate sessions for separate agents.
+  These are normal Git refs, not a private channel or credential: anyone
+  with repo read access can read them, and anyone with write access can
+  drive them. On public repos this means screenshots, hierarchy, logs,
+  and every Git object you push can be publicly visible **even after cleanup**.
+  Never use real accounts, tokens, setup files, private content or unreviewed
+  data. Use the private checkout for private apps; do not move its APKs,
+  captures, or output into public channels.
+- If a command times out, use `status` then `result` (with `--out` if needed)
+  to recover the reply instead of repeating input. If boot never becomes
+  ready, find the job via the read-only API, replacing `REPO` with the repo
+  name (`wave`, `wave_packages`, or `wave_private_packages`):
+
+  ```sh
+  oak gh api repos/thooton/REPO/actions/workflows/emulator.yml/runs \
+    --jq ".workflow_runs[] | select(.head_branch == \"emulator/$sid/start\") | [.id,.status,.conclusion,.html_url] | @tsv"
+  ```
+
+  Use `clean` to delete both refs after a failed, abandoned, or timed-out
+  session. A running bridge stops on a missing mailbox; GitHub caps the job
+  at 60 minutes even if setup can't observe cleanup. Start a new session
+  rather than rerunning an old Actions job. No Actions dispatch permission,
+  Actions secret, public tunnel, or Oak deployment is needed.
+
+Record the tested commit, Actions run ID, screen(s) or input verified, and
+any limits. Workflow creation or an Actions job starting is not a device
+check: wait for readiness, drive the UI, and inspect the results.
