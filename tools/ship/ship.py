@@ -37,6 +37,8 @@ OWN_ACTION = re.compile(r'^(commit( \((amend|initial|merge)\))?|cherry-pick|reve
 GOOD_CONCLUSIONS = {'success', 'skipped', 'neutral'}
 # Repository-wide audits, not the commit's own checks: reported, never blocking.
 AUDIT_WORKFLOWS = {'Catalog freshness'}
+PRIVATE_ASSET = re.compile(r'(api\.github\.com/repos|github\.com)/thooton/wave_private_packages/releases/'
+                           r'(assets/\d|download/[^/\s]+/)')
 VERSION_NAME = re.compile(r'^\s*versionName\s*[= ]\s*["\']([^"\']+)["\']', re.M)
 
 
@@ -214,7 +216,8 @@ def is_ancestor(git, sha, rev):
 def fetch(git, repo):
     command = ['oak', 'git'] if shutil.which('oak') else ['git']
     for _ in range(3):
-        result = subprocess.run([*command, 'fetch', '--quiet', '--tags', 'origin'], cwd=git.root,
+        # --force: the legacy `latest` release tag moves on every package build.
+        result = subprocess.run([*command, 'fetch', '--quiet', '--tags', '--force', 'origin'], cwd=git.root,
                                 text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if result.returncode == 0:
             return True, ''
@@ -339,8 +342,7 @@ def private_leaks(git, commits):
                 leaks.append(f'{sha[:7]} commits binary {path}')
         out = git.run('show', '--format=', '--unified=0', '--no-ext-diff', sha, check=False) or ''
         for line in out.splitlines():
-            if line.startswith('+') and not line.startswith('+++') and re.search(
-                    r'wave_private_packages/releases/(assets|download)', line):
+            if line.startswith('+') and not line.startswith('+++') and PRIVATE_ASSET.search(line):
                 leaks.append(f'{sha[:7]} adds a private release asset URL')
     return leaks
 
@@ -403,8 +405,9 @@ def check_repo(repo, git, checkouts, github, args, report):
                 report.add('BLOCKED', f'CI still running for {newest[:7]}: {text}; wait, then rerun ship check')
             else:
                 report.add('BLOCKED', f'CI {state} for {newest[:7]}: {text}')
-    if repo in PUBLIC and commits:
-        for leak in private_leaks(git, commits):
+    shared = [c for c in commits if c in pushed or is_ancestor(git, c, 'HEAD')]
+    if repo in PUBLIC and shared:
+        for leak in private_leaks(git, shared):
             report.add('BLOCKED', f'private boundary: {leak}')
     services = sorted({'/'.join(path.split('/')[:2]) for path in paths
                        if path.startswith('services/') and path.count('/') >= 2})

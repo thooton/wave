@@ -265,13 +265,22 @@ class ShipTest(unittest.TestCase):
 
     def test_private_asset_url_in_public_repo_blocks(self):
         write(self.repos['wave_packages'], 'AGENTS.md',
-              'see https://api.github.com/repos/thooton/wave_private_packages/releases/assets/5\n')
+              'see https://api.github.com/repos/thooton/' + 'wave_private' + '_packages/releases/assets/5\n')
         sha = commit(self.repos['wave_packages'], 'Docs')
         self.push('wave_packages')
         self.github.ci('wave_packages', sha)
         code, out = self.run_ship()
         self.assertEqual(code, 1)
         self.assertIn('private boundary', out)
+        self.assertEqual(out.count('private boundary'), 1)
+
+    def test_describing_the_private_rule_is_not_a_leak(self):
+        write(self.repos['wave_packages'], 'AGENTS.md', 'Never paste wave_private_packages/releases URLs.\n')
+        sha = commit(self.repos['wave_packages'], 'Docs')
+        self.push('wave_packages')
+        self.github.ci('wave_packages', sha)
+        code, out = self.run_ship()
+        self.assertEqual(code, 0, out)
 
     def test_fast_forward_pulls_are_not_own_commits(self):
         other = Path(self.tmp.name) / 'other'
