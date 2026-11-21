@@ -11,6 +11,8 @@ Wave is a package manager for the Sonim XP3800 (Android 8.1, API 27,
   shared phone code conventions.
 - `site/`: static installer and recovery site. See [site/AGENTS.md](site/AGENTS.md).
 - `tools/wavesrc/`: source tooling. See [CLI usage](tools/wavesrc/README.md).
+- `services/book-recommender/`: Book Recs HTTP service, separate from Pages.
+  See [API, tests and provisioning](services/book-recommender/README.md).
 
 Sibling checkouts: `../wave_packages` for package development,
 `../wave_repository` for the default source, `../wave_private_packages` for

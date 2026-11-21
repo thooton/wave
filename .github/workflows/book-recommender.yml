@@ -1,0 +1,33 @@
+name: Book recommender service
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'services/book-recommender/**'
+      - '.github/workflows/book-recommender.yml'
+  pull_request:
+    paths:
+      - 'services/book-recommender/**'
+      - '.github/workflows/book-recommender.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/book-recommender
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache: false
+      - run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go test -race ./...
+      - run: CGO_ENABLED=0 go build ./...
