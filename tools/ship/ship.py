@@ -323,9 +323,6 @@ def publication(checkouts, github, git, package):
             why = (f'no private release yet and the {where} lists {listed or "nothing"}: the private '
                    'publish job runs only when the owner has enabled PRIVATE_PUBLISH_ENABLED; get owner '
                    'authorization or report this blocker')
-        elif package.kind == 'mod':
-            why = (f'no release {package.tag}: mods release only from a manual workflow_dispatch of '
-                   '"Build and publish XP3800 packages" on master, then mirror into wave_repository')
         else:
             why = (f'no release {package.tag}: wait for the master build to release it, or fix its failure '
                    '(a build change needs a versionName and versionCode bump)')

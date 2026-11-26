@@ -30,7 +30,7 @@ For each repository it reports:
 | Working tree | Files are uncommitted or untracked. Commit them or delete scratch files. |
 | Pushed | `HEAD` has commits that are not on `origin/master`. |
 | CI | The worker's newest pushed commit has a failed or unfinished master run, or no run although a package changed. A cancelled run passes only if a later master run of that workflow passed on a descendant commit. |
-| Publication | A changed package's current version is missing from its catalog. The message says whether the release is missing (CI failure or no bump, or a mod waiting for its manual dispatch) or exists but was not mirrored. |
+| Publication | A changed package's current version is missing from its catalog. The message says whether the release is missing (CI failure or no bump) or exists but was not mirrored. |
 | Private boundary | A worker commit to a public repository adds an APK or AAB, or a private release asset URL. |
 
 Changes to documentation, specs, mockups or tooling outside a package's
@@ -39,11 +39,11 @@ channels it checks:
 
 - `wave_packages` apps and mods: an immutable `<name>-<version>` release in
   `thooton/wave_packages`, then `<section>/<name>/package.json` in
-  `thooton/wave_repository`. If CI's mirror step is off
-  (`WAVE_PUBLISH_ENABLED`), mirror the release with
-  [`wavesrc publish`](../wavesrc/README.md) and push `wave_repository`. Mods are
-  released by a manual `workflow_dispatch` of *Build and publish XP3800
-  packages* on master.
+  `thooton/wave_repository`. The master run of *Build and publish XP3800
+  packages* does both for every version bump, apps and mods alike. If CI's
+  mirror step is off (`WAVE_PUBLISH_ENABLED`) or failed, mirror the release with
+  [`wavesrc publish`](../wavesrc/README.md) and push `wave_repository`, or
+  dispatch the workflow with `retry-publish`.
 - The Wave app: a `wave-<version>` release here, then `tools/wave/package.json`
   in `wave_repository`. The website deploys from master with the Build workflow.
 - `wave_private_packages` apps: a private release and

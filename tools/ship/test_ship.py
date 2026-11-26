@@ -234,7 +234,7 @@ class ShipTest(unittest.TestCase):
         code, out = self.run_ship()
         self.assertIn('services/recs changed: ship does not check its deployment', out)
 
-    def test_mod_needs_manual_release(self):
+    def test_mod_waits_for_master_release(self):
         write(self.repos['wave_packages'], 'mods/launcher/module/module.prop',
               'id=launcher_improved\nversion=1.1.0\nversionCode=2\n')
         sha = commit(self.repos['wave_packages'], 'Launcher 1.1.0')
@@ -243,7 +243,8 @@ class ShipTest(unittest.TestCase):
         code, out = self.run_ship()
         self.assertEqual(code, 1)
         self.assertIn('launcher-improved 1.1.0', out)
-        self.assertIn('workflow_dispatch', out)
+        self.assertIn('wait for the master build to release it', out)
+        self.assertNotIn('workflow_dispatch', out)
 
     def test_private_publication_is_owner_gated(self):
         repo = self.repos['wave_private_packages']
