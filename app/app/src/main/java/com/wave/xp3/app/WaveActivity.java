@@ -63,12 +63,16 @@ public final class WaveActivity extends Activity {
     private boolean dialogOpen;
     /** The Confirm sheet while it is up. */
     private ConfirmSheet confirming;
+    /** What Continue Queuing kept for the next Confirm (Cydia's queue); kept while Wave is closed. */
+    final Queued queued = new Queued();
+    private static final String QUEUE_PREFS = "wave.queue", QUEUE_KEY = "queued";
 
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         icons = new AppIcons(this);
         data = Data.open(this);
+        queued.set(Queued.load(getSharedPreferences(QUEUE_PREFS, MODE_PRIVATE).getString(QUEUE_KEY, "")).requests());
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -159,7 +163,7 @@ public final class WaveActivity extends Activity {
         dressBar(next);
         tabBar.setVisibility(next.modal() || next.bare() ? View.GONE : View.VISIBLE);
         tabBar.setOpen(tab);
-        tabBar.setBadge(snapshot.updates.size());
+        badge();
         next.update(snapshot);
         next.shown();
         if (!next.placeFocus()) content.requestFocus();
@@ -239,7 +243,52 @@ public final class WaveActivity extends Activity {
     /** The Confirm sheet's action was pressed: the plan starts and its screen opens. */
     void confirmed(WaveData.PlanView plan) {
         data.confirm(plan);
+        // The plan took the queue along; when it couldn't start, the queue stays for another try.
+        if (data.snapshot().actionError == null && !queued.isEmpty()) {
+            queued.clear();
+            saveQueue();
+        }
         if (find(QueueScreen.class) == null) push(new QueueScreen(this));
+    }
+
+    /** Continue Queuing: the sheet's changes wait in the queue, and the user browses on. */
+    void continueQueuing(WaveData.PlanView plan) {
+        queued.set(Pages.askedRequests(plan));
+        saveQueue();
+        toast(Pages.queuedToast(queued.size()));
+        queueChanged();
+    }
+
+    /** Confirm for everything in the queue. */
+    void confirmQueue() {
+        if (!queued.isEmpty()) plan(Collections.<WaveData.Request>emptyList());
+    }
+
+    void clearQueue() {
+        queued.clear();
+        saveQueue();
+        queueChanged();
+    }
+
+    private void saveQueue() {
+        getSharedPreferences(QUEUE_PREFS, MODE_PRIVATE).edit().putString(QUEUE_KEY, queued.save()).apply();
+    }
+
+    private void queueChanged() {
+        badge();
+        if (showing != null) showing.update(snapshot);
+    }
+
+    /** The Installed tab's badge: "Q'd" while something is queued (as Cydia's Manage tab), else the updates. */
+    private void badge() {
+        tabBar.setBadge(snapshot.updates.size(), !queued.isEmpty());
+    }
+
+    /** The menu's queue items, while something is queued. */
+    void queueMenu(Screen.Menu menu) {
+        if (queued.isEmpty()) return;
+        menu.add(Pages.confirmQueue(queued.size()), this::confirmQueue);
+        menu.add("!Clear Queue", this::clearQueue);
     }
 
     void openTab(int which) {
@@ -269,7 +318,7 @@ public final class WaveActivity extends Activity {
 
     private void changed() {
         snapshot = data.snapshot();
-        tabBar.setBadge(snapshot.updates.size());
+        badge();
 
         // A queue already working (Wave reopened while it runs) gets its screen back.
         if (snapshot.queue != null && !snapshot.queue.finished && find(QueueScreen.class) == null && confirming == null) {
@@ -376,12 +425,28 @@ public final class WaveActivity extends Activity {
 
     /** Works out what doing `action` to `ids` takes, then shows the confirm (or why it can't). */
     void plan(List<String> ids, final WaveData.Action action) {
+        List<WaveData.Request> asked = new ArrayList<>(ids.size());
+        for (String id : ids) asked.add(new WaveData.Request(id, action));
+        plan(asked);
+    }
+
+    /**
+     * Shows the confirm for `asked` together with whatever is queued, as Cydia
+     * does: the sheet then offers to confirm it all or to keep queuing.
+     */
+    void plan(List<WaveData.Request> asked) {
         if (confirming != null) return;
-        data.plan(ids, action, new WaveData.Result<WaveData.PlanView>() {
+        List<WaveData.Request> all = queued.with(asked);
+        if (all.isEmpty()) return;
+        boolean onlyRemoves = true;
+        for (WaveData.Request r : all) if (r.action != WaveData.Action.REMOVE) onlyRemoves = false;
+        final boolean removing = onlyRemoves;
+        final String cant = removing ? "Can't Remove" : "Can't Install";
+        data.plan(all, new WaveData.Result<WaveData.PlanView>() {
             @Override
             public void ok(WaveData.PlanView plan) {
                 if (plan.refusal != null) {
-                    alert(action == WaveData.Action.REMOVE ? "Can't Remove" : "Can't Install", plan.refusal);
+                    alert(cant, plan.refusal);
                     return;
                 }
                 if (confirming != null || find(QueueScreen.class) != null) return;
@@ -394,7 +459,7 @@ public final class WaveActivity extends Activity {
 
             @Override
             public void failed(String reason) {
-                alert(action == WaveData.Action.REMOVE ? "Can't Remove" : "Can't Install", reason);
+                alert(cant, reason);
             }
         });
     }
@@ -576,17 +641,22 @@ public final class WaveActivity extends Activity {
     /** The common package menu: the capsule's action, details, what's new. */
     void packageMenu(Screen.Menu menu, final Pkg p, boolean withDetails, final String sourceId) {
         final Pkg wave = waveUpdate();
-        for (Actions.Item item : Actions.menu(p, withDetails, this::canOpen, p.id.equals(getPackageName()), wave != null)) {
+        WaveData.Detail detail = sourceId != null ? snapshot.detail(sourceId, p.id) : null;
+        if (detail == null) detail = snapshot.detail(p.id);
+        boolean hasHistory = detail != null && !detail.changes.isEmpty();
+        for (Actions.Item item : Actions.menu(p, withDetails, this::canOpen, p.id.equals(getPackageName()), wave != null, hasHistory)) {
             switch (item) {
                 case OPEN: menu.add(item.title, () -> open(p)); break;
                 case GET: case UPDATE: menu.add(item.title, () -> press(p)); break;
                 case UPDATE_WAVE: menu.add(item.title, () -> press(wave)); break;
                 case DETAILS: menu.add(item.title, () -> details(p, sourceId)); break;
+                case HISTORY: menu.add(item.title, () -> push(new VersionHistoryScreen(this, p.id, sourceId))); break;
                 case TURN_ON: menu.add(item.title, () -> data.turnOn(p.id)); break;
                 case REINSTALL: menu.add(item.title, () -> plan(Collections.singletonList(p.id), WaveData.Action.REINSTALL)); break;
                 default: menu.add(item.title, () -> plan(Collections.singletonList(p.id), WaveData.Action.REMOVE));
             }
         }
+        queueMenu(menu);
     }
 
     TextView message(String text) {

@@ -21,7 +21,7 @@ final class Actions {
     /** Entries of a package's menu, in the order shown. */
     enum Item {
         OPEN("Open"), GET("Get"), UPDATE("Update"), UPDATE_WAVE("Update Wave"), DETAILS("Details"),
-        TURN_ON("Turn On"), REINSTALL("Reinstall"), REMOVE("!Remove");
+        HISTORY("See Version History"), TURN_ON("Turn On"), REINSTALL("Reinstall"), REMOVE("!Remove");
 
         /** The menu's text; a leading "!" paints it red. */
         final String title;
@@ -103,6 +103,12 @@ final class Actions {
      * {@code isSelf} is Wave itself, which is never removed from here.
      */
     static List<Item> menu(Pkg p, boolean withDetails, Predicate<Pkg> canOpen, boolean isSelf, boolean waveUpdateOffered) {
+        return menu(p, withDetails, canOpen, isSelf, waveUpdateOffered, false);
+    }
+
+    /** {@link #menu}, with See Version History after the details when the source lists any versions ({@code hasHistory}). */
+    static List<Item> menu(Pkg p, boolean withDetails, Predicate<Pkg> canOpen, boolean isSelf, boolean waveUpdateOffered,
+                           boolean hasHistory) {
         List<Item> items = new ArrayList<>();
         String word = capsule(p, canOpen);
         if (word != null) {
@@ -111,6 +117,7 @@ final class Actions {
         }
         if (p.needsNewerWave && waveUpdateOffered) items.add(Item.UPDATE_WAVE);
         if (withDetails) items.add(Item.DETAILS);
+        if (hasHistory) items.add(Item.HISTORY);
         if (p.state == State.OFF) items.add(Item.TURN_ON);
         boolean installed = p.state != State.NONE && p.state != State.PENDING_REMOVAL;
         // Reinstalling downloads from a source; one kept only by its receipt has none.

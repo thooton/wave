@@ -185,6 +185,11 @@ final class Rows {
                 UpdateRow row = recycled instanceof UpdateRow ? (UpdateRow) recycled : new UpdateRow(app);
                 return row.bind(p, press, last);
             }
+
+            @Override
+            Object look() {
+                return java.util.Arrays.asList(new PkgLook(p, last), capsuleWord(app, p));
+            }
         };
     }
 
@@ -260,6 +265,13 @@ final class Rows {
             View view(View recycled) {
                 InstalledRow row = recycled instanceof InstalledRow ? (InstalledRow) recycled : new InstalledRow(app);
                 return row.bind(p, press, last);
+            }
+
+            @Override
+            Object look() {
+                // What the row draws: the package, its capsule and whether the watchdog turned it off.
+                return java.util.Arrays.asList(new PkgLook(p, last), String.valueOf(Pages.installedCapsule(p, app::canOpen)),
+                    p.state == State.OFF && bootFailed(app, p.id));
             }
         };
     }
@@ -378,6 +390,28 @@ final class Rows {
         row.setOnClickListener(v -> app.askReboot());
         Screen.keyed(row, "reboot");
         row.setContentDescription("Reboot to Finish, " + what);
+        return row;
+    }
+
+    /** The Queue row heading Installed while Continue Queuing holds changes: OK confirms them all. */
+    static Kit.Row queued(WaveActivity app, int changes) {
+        Kit.Row row = new Kit.Row(app);
+        row.setPadding(Kit.dp(app, 10), Kit.dp(app, 8), Kit.dp(app, 10), Kit.dp(app, 8));
+        row.addView(new Glyph(app, Glyph.PLUS, Look.BLUE));
+        LinearLayout texts = new LinearLayout(app);
+        texts.setOrientation(LinearLayout.VERTICAL);
+        texts.addView(Look.text(app, "Queue", 14, Look.TEXT, Look.MEDIUM));
+        TextView sub = Look.text(app, Pages.queuedLine(changes), 12.5f, Look.MUTED, Look.REGULAR);
+        LinearLayout.LayoutParams sl = Kit.wrap();
+        sl.topMargin = Kit.dp(app, 1);
+        texts.addView(sub, sl);
+        LinearLayout.LayoutParams tl = Kit.weight();
+        tl.leftMargin = tl.rightMargin = Kit.dp(app, 8);
+        row.addView(texts, tl);
+        row.addView(Kit.capsule(app, "CONFIRM", false, false));
+        row.setOnClickListener(v -> app.confirmQueue());
+        Screen.keyed(row, "queue");
+        row.setContentDescription("Queue, " + Pages.queuedLine(changes));
         return row;
     }
 

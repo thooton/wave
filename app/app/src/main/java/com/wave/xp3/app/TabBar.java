@@ -11,7 +11,8 @@ import android.view.View;
  * The tab bar, as Cydia's: four tabs, each an icon over its name, the open one
  * in blue with the filled form of its icon, as iOS draws them. It never takes
  * focus: Left and Right move between tabs from the rows. Installed carries a
- * red badge with the number of updates.
+ * red badge with the number of updates, or Cydia's "Q'd" while Continue
+ * Queuing holds changes for the next Confirm.
  *
  * The icons are drawn here from the mockups' SVG paths (24 units across for
  * Wave's waves, 18 for the others), so they stay sharp at any density.
@@ -57,10 +58,25 @@ final class TabBar extends View {
     }
 
     void setBadge(int count) {
-        if (badge == count) return;
+        setBadge(count, false);
+    }
+
+    /** `queue`: Continue Queuing holds changes, so the badge says "Q'd" (Cydia's Manage tab) instead of a count. */
+    void setBadge(int count, boolean queue) {
+        if (badge == count && queued == queue) return;
         badge = count;
+        queued = queue;
         invalidate();
     }
+
+    /** The badge's text: "Q'd" while something is queued, else the count of updates; null for none. */
+    static String badgeText(int count, boolean queue) {
+        if (queue) return "Q'd";
+        if (count <= 0) return null;
+        return count > 99 ? "99+" : String.valueOf(count);
+    }
+
+    private boolean queued;
 
     @Override
     protected void onMeasure(int widthSpec, int heightSpec) {
@@ -84,8 +100,8 @@ final class TabBar extends View {
             canvas.restore();
             label.setColor(color);
             canvas.drawText(NAMES[i], cx, 33 * d - label.descent(), label);
-            if (i == 2 && badge > 0) {
-                String text = badge > 99 ? "99+" : String.valueOf(badge);
+            String text = i == 2 ? badgeText(badge, queued) : null;
+            if (text != null) {
                 float bw = Math.max(14 * d, badgeText.measureText(text) + 6 * d);
                 float left = cx + 4 * d;
                 RectF r = new RectF(left, 2 * d, left + bw, 16 * d);

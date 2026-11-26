@@ -305,22 +305,22 @@ public final class SourceController implements WaveData {
         });
     }
 
-    @Override public void plan(List<String> ids, Action action, Result<PlanView> callback) {
+    @Override public void plan(List<Request> requests, Result<PlanView> callback) {
         Index source = shown;
         CatalogModel model = catalog;
         Inventory here = inventory;
-        List<String> wanted = new ArrayList<>(ids);
+        List<Request> wanted = new ArrayList<>(requests);
         // A finished run's result belongs to that run: a new plan starts from no queue, so its screen can't show the old outcome.
         if (queue != null && queue.finished) { queue = null; render(); }
         if (source == null || model == null) { callback.failed("Still loading. Try again in a moment."); return; }
         boolean rootGranted = root == Root.OK;
-        request(worker, () -> makePlan(wanted, action, source, model, here, rootGranted), new Result<PlanView>() {
+        request(worker, () -> makePlan(wanted, source, model, here, rootGranted), new Result<PlanView>() {
             @Override public void ok(PlanView value) { proposed = (Pending) value.token; callback.ok(value); }
             @Override public void failed(String reason) { callback.failed(reason); }
         });
     }
 
-    private PlanView makePlan(List<String> ids, Action action, Index index, CatalogModel model, Inventory here,
+    private PlanView makePlan(List<Request> asked, Index index, CatalogModel model, Inventory here,
                               boolean rootGranted) throws Plan.Refused {
         Map<String, Plan.Package> offerings = new LinkedHashMap<>();
         for (Index.Entry entry : index.all()) {
@@ -334,7 +334,9 @@ public final class SourceController implements WaveData {
             }
         }
         List<Plan.Request> requests = new ArrayList<>();
-        for (String id : ids) {
+        for (Request ask : asked) {
+            String id = ask.id;
+            Action action = ask.action;
             Index.Entry entry = index.get(id);
             if (action != Action.REMOVE && entry != null) {
                 Compat c = Compat.of(entry, compatibility);

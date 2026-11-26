@@ -11,7 +11,8 @@ import java.util.List;
 /**
  * Installed: updates first (with what's new), then everything else under Up to
  * Date. Update All is in the menu when multiple updates are available.
- * A Reboot row heads the list while a change waits for one. OK presses the
+ * A Queue row heads the list while Continue Queuing holds changes (OK
+ * confirms them all), then a Reboot row while a change waits for one. OK presses the
  * row's capsule (UPDATE, OPEN);
  * a row without one (a mod, Wave itself) opens its details.
  */
@@ -51,6 +52,7 @@ final class InstalledScreen extends Screen {
     @Override
     void update(WaveData.Snapshot s) {
         Mark mark = feed.clear();
+        if (!app.queued.isEmpty()) feed.add(Rows.queued(app, app.queued.size()));
         if (!s.rebootPending.isEmpty()) feed.add(Rows.reboot(app, Rows.rebootText(s.rebootPending)));
         if (!s.updates.isEmpty()) {
             feed.add(Kit.heading(app, "Updates", false));
@@ -72,7 +74,7 @@ final class InstalledScreen extends Screen {
                 : Kit.message(app, null, what.title, what.body, null, what.button);
             TextView retry = Kit.messageButton(message);
             if (retry != null) retry.setOnClickListener(v -> app.data.refreshAll());
-            if (s.rebootPending.isEmpty()) {
+            if (s.rebootPending.isEmpty() && app.queued.isEmpty()) {
                 feed.message(message);
                 return;
             }
@@ -86,7 +88,10 @@ final class InstalledScreen extends Screen {
     @Override
     void menu(Menu menu) {
         View focus = app.getCurrentFocus();
-        if (focus instanceof Kit.Row && ((Kit.Row) focus).about instanceof Pkg) {
+        boolean onPackage = focus instanceof Kit.Row && ((Kit.Row) focus).about instanceof Pkg;
+        // A package's menu ends with the queue's items; elsewhere they come first.
+        if (!onPackage) app.queueMenu(menu);
+        if (onPackage) {
             app.packageMenu(menu, (Pkg) ((Kit.Row) focus).about, true, null);
             Pkg p = (Pkg) ((Kit.Row) focus).about;
             if (p.newestChange != null) {

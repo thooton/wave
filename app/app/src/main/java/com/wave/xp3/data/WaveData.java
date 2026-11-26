@@ -27,7 +27,14 @@ public interface WaveData extends AutoCloseable {
     void add(Preview preview, Result<Void> callback);
     void remove(String sourceId, Result<Void> callback);
     void search(String query, Result<List<Pkg>> callback);
-    void plan(List<String> ids, Action action, Result<PlanView> callback);
+    /** Works out what doing `action` to each of `ids` takes. */
+    default void plan(List<String> ids, Action action, Result<PlanView> callback) {
+        List<Request> requests = new ArrayList<>(ids.size());
+        for (String id : ids) requests.add(new Request(id, action));
+        plan(requests, callback);
+    }
+    /** Works out what the requests take together, each with its own action (a queue: Get one, Remove another). */
+    void plan(List<Request> requests, Result<PlanView> callback);
     void confirm(PlanView plan);
     void cancel();
     void reboot();
@@ -136,6 +143,18 @@ public interface WaveData extends AutoCloseable {
         public TurnedOff(String id, String name, String version, String reason) {
             this.id = id; this.name = name; this.version = version; this.reason = reason;
         }
+    }
+
+    /** One thing asked of a package: Get, Update, Reinstall or Remove it. */
+    final class Request {
+        public final String id;
+        public final Action action;
+        public Request(String id, Action action) { this.id = id; this.action = action; }
+        @Override public boolean equals(Object o) {
+            return o instanceof Request && ((Request) o).id.equals(id) && ((Request) o).action == action;
+        }
+        @Override public int hashCode() { return id.hashCode() * 31 + action.hashCode(); }
+        @Override public String toString() { return action + " " + id; }
     }
 
     final class PlanItem {

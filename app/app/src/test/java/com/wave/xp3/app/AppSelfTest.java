@@ -38,6 +38,8 @@ public final class AppSelfTest {
         check.run("Confirm and queue text", () -> planAndQueue(check));
         check.run("Search states", () -> search(check));
         check.run("Snapshot lookups", () -> snapshots(check));
+        check.run("Continue Queuing", () -> queuing(check));
+        check.run("Version history", () -> history(check));
         com.wave.xp3.data.DataTests.run(check);
         if (!check.report()) System.exit(1);
     }
@@ -228,6 +230,89 @@ public final class AppSelfTest {
         check.same("OK presses get", Actions.Ok.PRESS, Actions.detailsOk(none, OPENABLE));
         check.same("OK on an installed mod opens the menu", Actions.Ok.MENU, Actions.detailsOk(module(installed), NOT_OPENABLE));
         check.same("OK on a turned off mod opens the menu", Actions.Ok.MENU, Actions.detailsOk(pkg("a", State.OFF), OPENABLE));
+    }
+
+    // ---------------------------------------------------------------- Continue Queuing
+
+    private static WaveData.Request ask(String id, WaveData.Action action) {
+        return new WaveData.Request(id, action);
+    }
+
+    private static void queuing(Check check) {
+        Queued q = new Queued();
+        check.ok("starts empty", q.isEmpty());
+        check.same("nothing queued: the plan is what was asked", Collections.singletonList(ask("a", WaveData.Action.GET)),
+            q.with(Collections.singletonList(ask("a", WaveData.Action.GET))));
+        check.ok("asking doesn't queue", q.isEmpty());
+        q.set(Arrays.asList(ask("a", WaveData.Action.GET), ask("b", WaveData.Action.UPDATE)));
+        check.same("the next plan takes the queue along, oldest first",
+            Arrays.asList(ask("a", WaveData.Action.GET), ask("b", WaveData.Action.UPDATE), ask("c", WaveData.Action.REMOVE)),
+            q.with(Collections.singletonList(ask("c", WaveData.Action.REMOVE))));
+        check.same("asking again for a queued package replaces its action in place",
+            Arrays.asList(ask("a", WaveData.Action.REMOVE), ask("b", WaveData.Action.UPDATE)),
+            q.with(Collections.singletonList(ask("a", WaveData.Action.REMOVE))));
+        check.same("Confirm Queue asks for nothing more", q.requests(), q.with(Collections.emptyList()));
+        check.same("kept while Wave is closed", q.requests(), Queued.load(q.save()).requests());
+        check.same("an unreadable entry is left out", Collections.singletonList(ask("x", WaveData.Action.GET)),
+            Queued.load("x:GET,y:FLY,:GET,junk").requests());
+        check.ok("nothing saved, nothing queued", Queued.load(null).isEmpty() && Queued.load("").isEmpty());
+        q.clear();
+        check.ok("Clear Queue empties it", q.isEmpty() && q.size() == 0);
+
+        // What Continue Queuing keeps from a sheet: what was asked, not what it pulled in.
+        Pkg a = pkg("a", State.NONE), dep = pkg("dep", State.NONE), old = pkg("old", State.INSTALLED);
+        PlanView plan = new PlanView(Arrays.asList(new PlanItem(dep, "Needed by Name a", WaveData.Action.GET),
+            new PlanItem(a, null, WaveData.Action.GET), new PlanItem(old, "Replaced by Name a", WaveData.Action.REMOVE)), 0, false, null);
+        check.same("the sheet queues what was asked", Collections.singletonList(ask("a", WaveData.Action.GET)), Pages.askedRequests(plan));
+        check.same("queued line", "1 change waiting", Pages.queuedLine(1));
+        check.same("queued line, several", "3 changes waiting", Pages.queuedLine(3));
+        check.same("toast", "Queued 2 changes", Pages.queuedToast(2));
+        check.same("menu", "Confirm Queue (2)", Pages.confirmQueue(2));
+        check.same("Installed's badge says Q'd while something is queued, as Cydia's", "Q'd", TabBar.badgeText(3, true));
+        check.same("Q'd even with no updates", "Q'd", TabBar.badgeText(0, true));
+        check.same("else the updates", "4", TabBar.badgeText(4, false));
+        check.same("no badge for nothing", null, TabBar.badgeText(0, false));
+        check.same("a long count", "99+", TabBar.badgeText(120, false));
+    }
+
+    // ---------------------------------------------------------------- version history
+
+    private static void history(Check check) {
+        Pkg installed = pkg("a", State.UPDATE); // 1.0 on the phone, 2.0 offered
+        List<Change> changes = new ArrayList<>();
+        for (int i = 9; i >= 1; i--) changes.add(new Change(i + ".0", "2026-0" + i + "-01", "Changes in " + i));
+        changes.add(new Change(null, null, null));
+        Detail d = new Detail(installed, "", "", 0, changes, Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false);
+        List<Pages.Version> versions = Pages.history(installed, d);
+        check.same("every version the source lists, not What's New's few", changes.size(), versions.size());
+        check.ok("more than What's New shows", versions.size() > Pages.MAX_CHANGES);
+        check.same("newest first", "Version 9.0", versions.get(0).title);
+        check.same("with its text", "Changes in 9", versions.get(0).text);
+        check.ok("with its date", versions.get(0).date != null);
+        int marked = 0;
+        for (Pages.Version v : versions) if (v.installed) marked++;
+        check.same("one version marked installed", 1, marked);
+        check.ok("the one on the phone", versions.get(8).installed && "Version 1.0".equals(versions.get(8).title));
+        Pages.Version bare = versions.get(versions.size() - 1);
+        check.ok("a version without number, date or text", "Earlier Version".equals(bare.title) && bare.date == null && bare.text == null);
+        for (Pages.Version v : Pages.history(pkg("a", State.NONE), d)) check.ok("nothing installed, nothing marked", !v.installed);
+        check.same("count", "1 version", Pages.historyCount(1));
+        check.same("count, several", "10 versions", Pages.historyCount(10));
+
+        Pkg none = pkg("a", State.NONE), have = pkg("a", State.INSTALLED);
+        check.same("See Version History after Details", Arrays.asList("Get", "Details", "See Version History"),
+            menu(none, true, true));
+        check.same("on the details page, after the action", Arrays.asList("Open", "See Version History", "Reinstall", "!Remove"),
+            menu(have, false, true));
+        check.same("not without versions listed", Arrays.asList("Get", "Details"), menu(none, true, false));
+        check.same("What's New still goes right after Details", 2,
+            Actions.whatsNewAt(Arrays.asList("Update", "Details", "See Version History", "!Remove")));
+    }
+
+    private static List<String> menu(Pkg p, boolean details, boolean history) {
+        List<String> titles = new ArrayList<>();
+        for (Actions.Item item : Actions.menu(p, details, OPENABLE, false, false, history)) titles.add(item.title);
+        return titles;
     }
 
     // ---------------------------------------------------------------- menus

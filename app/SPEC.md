@@ -43,11 +43,19 @@ and gaps are not focus stops.
 - **Details**: icon, name, author and the selected Get, Update or Open action.
   Show compatibility and reboot notes, then the description and Information.
   Leave package relationships out of Details; Confirm shows actual changes.
-  An update puts What's New before the description. Up/Down scroll; OK presses
-  the action; Reinstall and Remove are menu items.
-- **Installed**: Updates, then Up to Date. The tab badge counts updates.
-  **Update All** is menu-only and appears for multiple updates. OK presses a
-  row's action; mod rows, Wave's own row and turned-off mods open Details.
+  An update puts What's New before the description (at most four versions).
+  Up/Down scroll; OK presses the action; Reinstall and Remove are menu items.
+- **Version History**: the package menu's **See Version History** (after
+  Details, wherever a package's menu opens, when its source lists any
+  versions) shows every version the source lists, newest first, each with its
+  date and what changed; the version on the phone is marked **Installed**.
+  Up/Down scroll.
+- **Installed**: a **Queue** row while changes are queued, then Updates, then
+  Up to Date. The tab badge counts updates, or says **Q'd** while changes are
+  queued, as Cydia's does. **Update All** is menu-only and appears for
+  multiple updates. OK, on its release, presses a row's action even when the
+  list was redrawn while it was held; mod rows, Wave's own row and turned-off
+  mods open Details.
 - **Search**: the field starts focused and says **Search for packages** when
   empty. It supports Sonim's predictive T9, keeps the cursor at the end, and
   updates results across sources as the query changes. Back deletes in the
@@ -63,6 +71,14 @@ and gaps are not focus stops.
   Reinstall, Remove) is on the right. Start on the action unless the plan
   only removes, in which case start on Cancel. Left/Right switch between
   actions, Up/Down scroll a long plan, and Back cancels.
+- **Continue Queuing** (Cydia's): under Cancel and the action, reached with
+  Down once the plan is all shown. It keeps the changes asked for without
+  starting them; the next Confirm (any Get, Update, Reinstall or Remove)
+  plans them together with the new one, and its Continue Queuing keeps them
+  all. Asking again for a queued package replaces its action. Cancel keeps
+  the queue as it was. The Queue row and the menu's **Confirm Queue (N)**
+  open Confirm for the queue; **Clear Queue** empties it. Starting a plan
+  empties the queue; it is kept while Wave is closed.
 - **Installing / Done**: no tab bar. Show each package's progress (download
   ring, spinner, success tick or failure alert). Back while working sends Wave
   to the background. End with Done or, if a reboot is needed, Later and Reboot

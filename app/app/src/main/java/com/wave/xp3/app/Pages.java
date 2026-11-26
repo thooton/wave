@@ -276,6 +276,39 @@ final class Pages {
     /** What's New shows at most this many versions. */
     static final int MAX_CHANGES = 4;
 
+    // ------------------------------------------------------------------ Version history
+
+    /** One version on the Version History page: "Version 1.2", its date, what changed, and whether the phone has it. */
+    static final class Version {
+        final String title, date, text;
+        final boolean installed;
+
+        Version(String title, String date, String text, boolean installed) {
+            this.title = title;
+            this.date = date;
+            this.text = text;
+            this.installed = installed;
+        }
+    }
+
+    /** Every version the source lists for `p`, newest first as listed; the one on the phone is marked. */
+    static List<Version> history(Pkg p, Detail d) {
+        List<Version> out = new ArrayList<>();
+        String onPhone = p.state != State.NONE ? (p.installedVersion != null ? p.installedVersion : p.version) : null;
+        for (WaveData.Change c : d.changes) {
+            String title = !empty(c.version) ? "Version " + c.version : "Earlier Version";
+            String date = c.date != null ? Format.date(c.date) : null;
+            boolean installed = onPhone != null && c.version != null && c.version.equals(onPhone);
+            out.add(new Version(title, date, empty(c.text) ? null : c.text, installed));
+        }
+        return out;
+    }
+
+    /** The grey line under the name on Version History: "1 version", "7 versions". */
+    static String historyCount(int versions) {
+        return versions == 1 ? "1 version" : versions + " versions";
+    }
+
     /** An update puts What's New before the description; everything else after. */
     static boolean changesFirst(Pkg p) {
         return p.state == State.UPDATE;
@@ -332,6 +365,16 @@ final class Pages {
             start = ch == ' ';
         }
         return b.toString();
+    }
+
+    /**
+     * What the sheet's Continue Queuing keeps: the changes the user asked for
+     * (not what they pull in; the next plan works that out again), as requests.
+     */
+    static List<WaveData.Request> askedRequests(WaveData.PlanView plan) {
+        List<WaveData.Request> out = new ArrayList<>();
+        for (WaveData.PlanItem item : confirmAsked(plan)) out.add(new WaveData.Request(item.pkg.id, item.action));
+        return out;
     }
 
     /** What the user asked for in a plan: the items no other item pulled in. */
@@ -474,6 +517,23 @@ final class Pages {
             default:
                 return "";
         }
+    }
+
+    // ------------------------------------------------------------------ Continue Queuing
+
+    /** The Queue row's second line: "1 change waiting", "4 changes waiting". */
+    static String queuedLine(int changes) {
+        return changes == 1 ? "1 change waiting" : changes + " changes waiting";
+    }
+
+    /** What Wave says once the sheet's changes join the queue. */
+    static String queuedToast(int changes) {
+        return changes == 1 ? "Queued 1 change" : "Queued " + changes + " changes";
+    }
+
+    /** The menu's way to the queue: "Confirm Queue (3)". */
+    static String confirmQueue(int changes) {
+        return "Confirm Queue (" + changes + ")";
     }
 
     static String queueTitle(WaveData.QueueView q, boolean started) {

@@ -171,6 +171,13 @@ public final class FakeWaveData implements WaveData {
         List<Change> changes = new ArrayList<>();
         if (p.newestChange != null) changes.add(p.newestChange);
         changes.add(new Change(p.installedVersion != null ? p.installedVersion : "1.0.0", "2026-11-02", "Keep the token after a reboot."));
+        if (p.id.equals("messages_improved")) {
+            // A longer history than What's New shows, for See Version History.
+            String[][] older = {{"0.9.2", "2026-10-21", "Threads load from the newest message."}, {"0.9.0", "2026-10-02", "Search inside a thread."},
+                {"0.8.1", "2026-09-14", "Fix a crash when a contact has no name."}, {"0.8.0", "2026-08-30", "Group messages by day."},
+                {"0.7.0", "2026-08-01", "First release."}};
+            for (String[] o : older) changes.add(new Change(o[0], o[1], o[2]));
+        }
         List<String> replaces = p.id.equals("messages_improved") ? Collections.singletonList("Messages (argon)") : Collections.<String>emptyList();
         List<String> depends = p.id.equals("com.mail.xp3") ? Collections.singletonList("Print 1.2 or later") : Collections.<String>emptyList();
         String description = descriptions.containsKey(p.id) ? descriptions.get(p.id) : p.summary + ".";
@@ -281,11 +288,13 @@ public final class FakeWaveData implements WaveData {
     }
 
     @Override
-    public void plan(List<String> ids, Action action, Result<PlanView> callback) {
+    public void plan(List<Request> requests, Result<PlanView> callback) {
         List<PlanItem> items = new ArrayList<>();
         long bytes = 0;
         boolean reboot = false;
-        for (String id : ids) {
+        for (Request ask : requests) {
+            String id = ask.id;
+            Action action = ask.action;
             Pkg p = pkgs.get(id);
             if (p == null) continue;
             if (id.equals("messages_improved") && action == Action.GET) {

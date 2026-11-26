@@ -27,9 +27,11 @@ import java.util.List;
  * Confirm, as a sheet over the page it was asked from (dimmed behind it):
  * "Install Canvas?" with the version, then what comes along or goes and
  * why, the download and whether a reboot follows; Cancel on the left, the
- * action named on the right. The focus starts on the action, or on Cancel
- * when the action only removes. Left/Right move between the two, Up/Down
- * scroll a long plan, Back is Cancel.
+ * action named on the right, and Continue Queuing under them (Cydia's: the
+ * changes wait for the next Confirm, which takes them along). The focus
+ * starts on the action, or on Cancel when the action only removes.
+ * Left/Right move between the two, Up/Down scroll a long plan and, once it
+ * is all shown, Down reaches Continue Queuing; Back is Cancel.
  */
 final class ConfirmSheet {
 
@@ -37,6 +39,7 @@ final class ConfirmSheet {
     private final WaveData.PlanView plan;
     private final Dialog dialog;
     private ScrollView scroll;
+    private TextView go, queue;
 
     ConfirmSheet(WaveActivity app, WaveData.PlanView plan) {
         this.app = app;
@@ -54,8 +57,22 @@ final class ConfirmSheet {
             window.setWindowAnimations(android.R.style.Animation_InputMethod);
         }
         dialog.setOnKeyListener((d, key, event) -> {
+            View focus = dialog.getCurrentFocus();
+            boolean onQueue = focus != null && focus == queue;
+            // Continue Queuing sits alone under the two actions: Left/Right stay on it.
+            if (onQueue && (key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT)) return true;
             if (key != KeyEvent.KEYCODE_DPAD_UP && key != KeyEvent.KEYCODE_DPAD_DOWN) return false;
-            if (event.getAction() == KeyEvent.ACTION_DOWN) scroll.smoothScrollBy(0, Kit.dp(app, 36) * (key == KeyEvent.KEYCODE_DPAD_UP ? -1 : 1));
+            if (event.getAction() != KeyEvent.ACTION_DOWN) return true;
+            boolean up = key == KeyEvent.KEYCODE_DPAD_UP;
+            if (up && onQueue) {
+                // Back up to the actions, on the one that goes ahead.
+                go.requestFocus();
+            } else if (!up && !onQueue && !scroll.canScrollVertically(1)) {
+                // The plan is all shown: Down reaches Continue Queuing.
+                queue.requestFocus();
+            } else if (!onQueue) {
+                scroll.smoothScrollBy(0, Kit.dp(app, 36) * (up ? -1 : 1));
+            }
             return true;
         });
     }
@@ -129,7 +146,7 @@ final class ConfirmSheet {
         TextView cancel = Kit.button(app, "Cancel", true);
         cancel.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
         cancel.setOnClickListener(v -> dialog.cancel());
-        TextView go = Kit.button(app, Pages.confirmVerb(plan), destroys);
+        go = Kit.button(app, Pages.confirmVerb(plan), destroys);
         go.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         go.setOnClickListener(v -> {
             dialog.dismiss();
@@ -140,6 +157,17 @@ final class ConfirmSheet {
         LinearLayout.LayoutParams al = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         al.topMargin = Kit.dp(app, 6);
         sheet.addView(actions, al);
+
+        // Cydia's Continue Queuing: keep these changes for the next Confirm and browse on.
+        queue = Kit.button(app, "Continue Queuing", false);
+        queue.setOnClickListener(v -> {
+            dialog.dismiss();
+            app.continueQueuing(plan);
+        });
+        View qr = new View(app);
+        qr.setBackgroundColor(0xFFE3E3E8);
+        sheet.addView(qr, Kit.fill(Math.max(1, Kit.dp(app, 1))));
+        sheet.addView(queue, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Kit.dp(app, 36)));
 
         // Removing only: the safe answer is where the focus starts, so OK, OK never removes by accident.
         final TextView first = destroys ? cancel : go;

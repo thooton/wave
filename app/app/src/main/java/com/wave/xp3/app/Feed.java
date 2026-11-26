@@ -131,6 +131,11 @@ final class Feed {
         staged.add(new Fixed(view, cell));
     }
 
+    /** Sonim firmware reports OK as DPAD_CENTER or ENTER. */
+    static boolean isOk(int key) {
+        return key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER || key == KeyEvent.KEYCODE_NUMPAD_ENTER;
+    }
+
     /** Shows the staged lines, the focus back on the row with the mark's key (or `fallbackKey`, or the first). */
     void restore(Screen.Mark mark, String fallbackKey) {
         if (sameLines()) {
@@ -535,9 +540,40 @@ final class Feed {
             return super.dispatchKeyEventPreIme(event);
         }
 
+        /** The line OK went down on, for its release to press; -1 when none. */
+        private int okAt = -1;
+
+        /*
+         * OK presses the focused stop on its release, as the list's own rule
+         * rather than View's: View clicks only if the stop is still pressed
+         * when OK comes up, and any layout of the list in between (a rebind on
+         * background news, an icon arriving, the badge changing) has ListView
+         * set every row it lays out back to not pressed. On Installed, whose
+         * rows are rebound with each snapshot, OK then did nothing at all.
+         */
+        private boolean okKey(KeyEvent event) {
+            View focus = findFocus();
+            if (focus == null || focus.onCheckIsTextEditor()) return false;
+            if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                if (event.getRepeatCount() == 0) {
+                    okAt = positionOf(focus);
+                    focus.setPressed(true);
+                }
+                return true;
+            }
+            if (event.getAction() != KeyEvent.ACTION_UP) return true;
+            int at = positionOf(focus);
+            boolean press = okAt >= 0 && okAt == at && !event.isCanceled();
+            okAt = -1;
+            focus.setPressed(false);
+            if (press && focus.isEnabled()) focus.performClick();
+            return true;
+        }
+
         @Override
         public boolean dispatchKeyEvent(KeyEvent event) {
             int key = event.getKeyCode();
+            if (isOk(key) && okKey(event)) return true;
             if ((key == KeyEvent.KEYCODE_DPAD_DOWN || key == KeyEvent.KEYCODE_DPAD_UP) && findFocus() != null) {
                 if (event.getAction() == KeyEvent.ACTION_DOWN) move(key == KeyEvent.KEYCODE_DPAD_DOWN ? 1 : -1);
                 return true;
