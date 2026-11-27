@@ -72,9 +72,9 @@ and gaps are not focus stops.
   replaces) and, for updates, an **Update** section with each package's
   change of version. A section with nothing in it is left out. A plan that
   needs a reboot says **Reboot required** in grey on the page, just above the
-  foot. The actions are **Add to Queue** on the left (black at rest, green
-  only while selected) and **Confirm** on the right (blue at rest too, red
-  when the plan only removes). The
+  foot. The actions are **Add to Queue** on the left and **Confirm** on the
+  right, both black at rest; selected, Add to Queue is green and Confirm blue
+  (red when the plan only removes). The
   focus starts on Confirm, or on Add to Queue when the plan only removes.
   Left/Right switch between them, Up/Down scroll a long plan, and Back leaves
   without changing anything.

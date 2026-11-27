@@ -18,9 +18,9 @@ import com.wave.xp3.data.WaveData;
  * with its packages on the right) and, for updates, an Update section with
  * each change of version; see {@link Pages#confirmSections}. Just over the
  * foot, a grey "Reboot required" when the plan needs one ({@link Pages#confirmNote}).
- * The foot: Add to Queue on the left (black at rest, green only while
- * selected) and Confirm on the right (blue at rest too, red when the plan
- * only removes). The focus starts
+ * The foot: Add to Queue on the left and Confirm on the right, both black at
+ * rest like every Wave button; selected, Add to Queue is green and Confirm
+ * blue (red when the plan only removes). The focus starts
  * on Confirm, or on Add to Queue when the plan only removes. Left/Right move
  * between the two, Up/Down scroll a long plan; Back leaves, changing nothing.
  */
@@ -86,7 +86,7 @@ final class ConfirmScreen extends Screen {
         TextView[] buttons = foot.setButtons("Add to Queue", (destroys ? "!" : "") + "Confirm");
         // Cydia's Continue Queuing: keep these changes for the next Confirm and browse on. Green, not Confirm's blue.
         queue = ((Kit.Link) buttons[0]).accent(Look.GREEN);
-        go = ((Kit.Link) buttons[1]).tinted();
+        go = buttons[1];
         queue.setOnClickListener(v -> {
             app.pop();
             app.addToQueue(plan);

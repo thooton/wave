@@ -157,8 +157,6 @@ final class Kit {
         private boolean always, off, on, ready;
         /** Its colour while selected, when not blue or red (Add to Queue's green). */
         private int accent;
-        /** In its colour at rest too, not black (Confirm's Confirm). */
-        private boolean tinted;
 
         Link(Context c, String word, float sp, boolean negative) {
             super(c);
@@ -178,13 +176,6 @@ final class Kit {
         /** Selected in `color` rather than blue or red. */
         Link accent(int color) {
             accent = color;
-            paint();
-            return this;
-        }
-
-        /** In its colour at rest as well as selected; selected, it is bold and underlined. */
-        Link tinted() {
-            tinted = true;
             paint();
             return this;
         }
@@ -219,7 +210,7 @@ final class Kit {
             for (int s : getDrawableState()) if (s == android.R.attr.state_focused) focused = true;
             boolean now = !off && (always || focused);
             int lit = accent != 0 ? accent : negative ? Look.RED : Look.BLUE;
-            setTextColor(off ? Look.OFF_TEXT : now || tinted ? lit : Look.TEXT);
+            setTextColor(off ? Look.OFF_TEXT : now ? lit : Look.TEXT);
             android.graphics.Typeface face = now ? Look.BOLD : Look.MEDIUM;
             if (getTypeface() != face) setTypeface(face);
             if (now != on) {
