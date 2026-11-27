@@ -42,6 +42,9 @@ and gaps are not focus stops.
   packages, a blue arrow marks updates, and incompatible packages are dimmed.
 - **Details**: icon, name, author and the selected Get, Update or Open action.
   Show compatibility and reboot notes, then the description and Information.
+  A description is plain text, line breaks kept; a Markdown table in it (a
+  pipe line, a `| --- | ---: |` delimiter line, then pipe rows) is drawn as a
+  table, with the text around it plain as before.
   Leave package relationships out of Details; Confirm shows actual changes.
   An update puts What's New before the description (at most four versions).
   Up/Down scroll; OK presses the action; Reinstall and Remove are menu items.

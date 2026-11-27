@@ -12,6 +12,7 @@ import com.wave.xp3.data.WaveData;
 import com.wave.xp3.data.WaveData.Detail;
 import com.wave.xp3.data.WaveData.Pkg;
 import com.wave.xp3.data.WaveData.State;
+import com.xp3.common.ui.Markdown;
 
 import java.util.Collections;
 
@@ -159,9 +160,17 @@ final class DetailsScreen extends Screen {
     private void description(Detail d) {
         String text = Pages.description(d);
         if (text == null) return;
-        TextView p = paragraph(app, text);
-        p.setPadding(p.getPaddingLeft(), Kit.dp(app, 4), p.getPaddingRight(), p.getPaddingBottom());
-        column.addView(p);
+        boolean first = true;
+        for (Pages.Block block : Pages.descriptionBlocks(text)) {
+            if (block.table) {
+                new Markdown(app, 10, 13).into(column, block.text);
+            } else {
+                TextView p = paragraph(app, block.text);
+                p.setPadding(p.getPaddingLeft(), Kit.dp(app, first ? 4 : 2), p.getPaddingRight(), p.getPaddingBottom());
+                column.addView(p);
+            }
+            first = false;
+        }
     }
 
     private static int glyph(Pages.Icon icon) {

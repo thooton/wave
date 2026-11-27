@@ -269,6 +269,72 @@ final class Pages {
         return !empty(d.pkg.summary) ? d.pkg.summary : null;
     }
 
+    /** A run of a description: plain text, drawn as it is, or a Markdown table. */
+    static final class Block {
+        final boolean table;
+        final String text;
+
+        Block(boolean table, String text) {
+            this.table = table;
+            this.text = text;
+        }
+
+        @Override
+        public String toString() {
+            return (table ? "table:" : "text:") + text;
+        }
+    }
+
+    /**
+     * `text` cut into plain runs and Markdown tables, in order. A table is a line with a
+     * pipe, a delimiter line under it (`| --- | ---: |`) and the pipe lines that follow;
+     * everything else stays plain text, line breaks included, so a description without a
+     * table is one block holding exactly the text it had.
+     */
+    static List<Block> descriptionBlocks(String text) {
+        List<Block> out = new ArrayList<>();
+        if (text == null) return out;
+        String[] lines = text.split("\n", -1);
+        StringBuilder plain = new StringBuilder();
+        int i = 0;
+        while (i < lines.length) {
+            if (i + 1 < lines.length && lines[i].indexOf('|') >= 0 && isTableDelimiter(lines[i + 1])) {
+                addPlain(out, plain);
+                StringBuilder table = new StringBuilder(lines[i]).append('\n').append(lines[i + 1]);
+                i += 2;
+                while (i < lines.length && lines[i].trim().length() > 0 && lines[i].indexOf('|') >= 0) {
+                    table.append('\n').append(lines[i++]);
+                }
+                out.add(new Block(true, table.toString()));
+                continue;
+            }
+            if (plain.length() > 0) plain.append('\n');
+            plain.append(lines[i++]);
+        }
+        addPlain(out, plain);
+        return out;
+    }
+
+    private static void addPlain(List<Block> out, StringBuilder plain) {
+        String run = plain.toString();
+        while (run.startsWith("\n")) run = run.substring(1);
+        while (run.endsWith("\n")) run = run.substring(0, run.length() - 1);
+        if (run.trim().length() > 0) out.add(new Block(false, run));
+        plain.setLength(0);
+    }
+
+    /** `| --- | :---: | ---: |`: cells of dashes, optionally colon-aligned, with a pipe. */
+    private static boolean isTableDelimiter(String line) {
+        String s = line.trim();
+        if (s.indexOf('|') < 0) return false;
+        if (s.startsWith("|")) s = s.substring(1);
+        if (s.endsWith("|")) s = s.substring(0, s.length() - 1);
+        for (String cell : s.split("\\|", -1)) {
+            if (!cell.trim().matches(":?-+:?")) return false;
+        }
+        return true;
+    }
+
     /** What's New shows at most this many versions. */
     static final int MAX_CHANGES = 4;
 

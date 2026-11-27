@@ -538,6 +538,14 @@ public final class AppSelfTest {
         check.same("the summary stands in for a missing description", "Summary of a",
             Pages.description(detail(none, "", "", 0, Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false)));
         check.same("a kept package has neither", null, Pages.description(detail(kept, "", "", 0, Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), false)));
+        check.same("a description without a table is one plain block, line breaks kept", "[text:One.\n\nTwo | three.]",
+            Pages.descriptionBlocks("One.\n\nTwo | three.").toString());
+        check.same("a table after the text is its own block", "[text:Fast., table:| A | B |\n| --- | ---: |\n| x | 1 ms |]",
+            Pages.descriptionBlocks("Fast.\n\n| A | B |\n| --- | ---: |\n| x | 1 ms |").toString());
+        check.same("text after a table is plain again", "[table:a | b\n-|-\n1 | 2, text:After.]",
+            Pages.descriptionBlocks("a | b\n-|-\n1 | 2\n\nAfter.").toString());
+        check.same("a pipe line without a delimiter is not a table", "[text:a | b\nc | d]",
+            Pages.descriptionBlocks("a | b\nc | d").toString());
         check.ok("an update puts its changes first", Pages.changesFirst(update) && !Pages.changesFirst(installed));
 
         check.same("facts of a package", "Version=2.0;Size=48 KB;Source=Source;Section=Section;Author=An Author;Id=a", facts(Pages.facts(none, detail(none))));
