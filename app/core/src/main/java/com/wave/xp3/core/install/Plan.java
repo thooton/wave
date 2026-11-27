@@ -210,7 +210,7 @@ public final class Plan {
             }
             for (String id : removals.keySet()) {
                 if (installs.containsKey(id)) {
-                    throw new Refused(name(id) + " can't be both removed and installed.");
+                    throw new Refused("Wave can't remove and install " + name(id) + " at the same time.");
                 }
             }
             checkConflicts();
@@ -260,9 +260,9 @@ public final class Plan {
             Package pkg = available.get(id);
             if (pkg == null) {
                 throw new Refused(why == null ? "No source offers " + id + "."
-                    : why + " needs " + id + ", which no source offers.");
+                    : why + " needs " + id + ". No source offers " + id + ".");
             }
-            if (pkg.kind == null) throw new Refused(pkg.name + " is a kind of package Wave can't install.");
+            if (pkg.kind == null) throw new Refused(pkg.name + " is a type of package that Wave can't install.");
             compatible(pkg);
             Installed here = installed.get(id);
             Op op;
@@ -270,14 +270,14 @@ public final class Plan {
                 op = Op.INSTALL;
             } else {
                 if (here.kind != pkg.kind) {
-                    throw new Refused(pkg.name + " is installed as a different kind of package.");
+                    throw new Refused(pkg.name + " is installed as a different type of package.");
                 }
                 int c = Version.compare(pkg.version, here.version);
                 if (c > 0) op = Op.UPDATE;
                 else if (c == 0 && why == null) op = Op.REINSTALL;
                 else if (c == 0) return;
-                else throw new Refused("The phone has a newer " + pkg.name + " (" + here.version
-                    + ") than the source's " + pkg.version + ".");
+                else throw new Refused(pkg.name + " " + here.version + " is installed, which is newer than "
+                    + pkg.version + " from the source.");
                 if (reinstall && op != Op.REINSTALL) op = Op.UPDATE;
             }
             visiting.add(id);
@@ -289,7 +289,7 @@ public final class Plan {
                 Package offered = available.get(dep.id);
                 if (offered == null || (dep.min != null && Version.compare(offered.version, dep.min) < 0)) {
                     String wanted = dep.id + (dep.min != null ? " " + dep.min + " or newer" : "");
-                    throw new Refused(pkg.name + " needs " + wanted + ", which no source offers.");
+                    throw new Refused(pkg.name + " needs " + wanted + ". No source offers " + wanted + ".");
                 }
                 install(dep.id, pkg.name, false);
             }
@@ -316,7 +316,7 @@ public final class Plan {
             }
             if (!pkg.devices.isEmpty()) {
                 for (String d : pkg.devices) if (device.names.contains(d)) return;
-                throw new Refused(pkg.name + " isn't made for this phone.");
+                throw new Refused(pkg.name + " doesn't support this model.");
             }
         }
 
@@ -365,7 +365,7 @@ public final class Plan {
                     if (p == null) continue;
                     for (Dep d : p.depends) {
                         if (d.id.equals(gone)) {
-                            throw new Refused(p.name + " needs " + name(gone) + ", so it can't be removed.");
+                            throw new Refused(p.name + " needs " + name(gone) + ", so Wave can't remove " + name(gone) + ".");
                         }
                     }
                 }

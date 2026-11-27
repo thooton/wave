@@ -133,7 +133,7 @@ public final class GitSelfTest {
             check.same("only one advertisement", 1, ads.get());
             check.same("only one pack", 1, packs.get());
             check.same("one HEAD request per refresh", 2, refs.get());
-            check.fails("do not follow redirects", "sends Wave elsewhere", () -> new SmartHttp("https://fixture.invalid/redirect", connection).lsRefs());
+            check.fails("do not follow redirects", "sends Wave to a different address", () -> new SmartHttp("https://fixture.invalid/redirect", connection).lsRefs());
             check.fails("reject plain HTTP", "https://", () -> new SmartHttp("http://fixture.invalid/fixture", connection));
             check.same("display never shows credentials", "https://fixture.invalid/fixture", SmartHttp.publicUrl("https://user:tok%2Ben@fixture.invalid/fixture/"));
         } finally { server.stop(0); }

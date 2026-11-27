@@ -79,7 +79,7 @@ public final class ProcessShell implements Shell {
         try {
             started = builder.start();
         } catch (IOException e) {
-            throw new NoRoot("This phone has no root (no su). See the rooting guide on the Wave website.");
+            throw new NoRoot("No root access (su is missing). Read the rooting guide on the Wave website.");
         }
         process = started;
         stdin = started.getOutputStream();
@@ -101,11 +101,11 @@ public final class ProcessShell implements Shell {
             id = send(Scripts.whoami(), OPEN_TIMEOUT_MS, new int[1]);
         } catch (IOException e) {
             close();
-            throw new NoRoot("Root was refused. Open Magisk, Superuser, and allow Wave.");
+            throw new NoRoot("Root access to Wave was refused. To allow it, you can open Magisk, go to Superuser, and allow Wave root access.");
         }
         if (!Scripts.isRoot(id.output)) {
             close();
-            throw new NoRoot("Root was refused. Open Magisk, Superuser, and allow Wave.");
+            throw new NoRoot("Root access to Wave was refused. To allow it, you can open Magisk, go to Superuser, and allow Wave root access.");
         }
     }
 
@@ -138,13 +138,13 @@ public final class ProcessShell implements Shell {
         int size = 0;
         while (true) {
             long left = deadline - System.currentTimeMillis();
-            if (left <= 0) throw new IOException("The phone took too long to answer.");
+            if (left <= 0) throw new IOException("The root shell didn't answer in time.");
             String line;
             try {
                 line = lines.poll(left, TimeUnit.MILLISECONDS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new IOException("Interrupted.");
+                throw new IOException("Stopped.");
             }
             if (line == null) continue;
             if (line == EOF) throw new IOException("The root shell closed.");

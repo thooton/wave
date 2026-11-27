@@ -155,6 +155,10 @@ final class Kit {
         private final Paint underline = new Paint();
         private final Paint boldPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private boolean always, off, on, ready;
+        /** Its colour while selected, when not blue or red (Add to Queue's green). */
+        private int accent;
+        /** In its colour at rest too, not black (Confirm's Confirm). */
+        private boolean tinted;
 
         Link(Context c, String word, float sp, boolean negative) {
             super(c);
@@ -169,6 +173,20 @@ final class Kit {
             if (android.os.Build.VERSION.SDK_INT >= 26) setDefaultFocusHighlightEnabled(false);
             ready = true;
             paint();
+        }
+
+        /** Selected in `color` rather than blue or red. */
+        Link accent(int color) {
+            accent = color;
+            paint();
+            return this;
+        }
+
+        /** In its colour at rest as well as selected; selected, it is bold and underlined. */
+        Link tinted() {
+            tinted = true;
+            paint();
+            return this;
         }
 
         /** Drawn selected whatever the focus (a details page, where it is the one thing OK does). */
@@ -200,7 +218,8 @@ final class Kit {
             boolean focused = false;
             for (int s : getDrawableState()) if (s == android.R.attr.state_focused) focused = true;
             boolean now = !off && (always || focused);
-            setTextColor(off ? Look.OFF_TEXT : now ? (negative ? Look.RED : Look.BLUE) : Look.TEXT);
+            int lit = accent != 0 ? accent : negative ? Look.RED : Look.BLUE;
+            setTextColor(off ? Look.OFF_TEXT : now || tinted ? lit : Look.TEXT);
             android.graphics.Typeface face = now ? Look.BOLD : Look.MEDIUM;
             if (getTypeface() != face) setTypeface(face);
             if (now != on) {
@@ -275,7 +294,7 @@ final class Kit {
     }
 
     /**
-     * A focus stop of its own (the foot's, a message screen's, the sheet's):
+     * A focus stop of its own (the foot's, a message screen's, Confirm's):
      * a {@link Link} at 15sp; `negative` for one that backs out or destroys,
      * red while selected.
      */

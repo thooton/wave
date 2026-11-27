@@ -369,7 +369,7 @@ final class Rows {
     }
 
     /** The Reboot row of Wave and Installed: a focus stop whose action is Reboot. */
-    static Kit.Row reboot(WaveActivity app, String what) {
+    static Kit.Row reboot(WaveActivity app) {
         Kit.Row row = new Kit.Row(app);
         row.setPadding(Kit.dp(app, 10), Kit.dp(app, 8), Kit.dp(app, 10), Kit.dp(app, 8));
         row.addView(new Glyph(app, Glyph.REBOOT, Look.BLUE));
@@ -377,23 +377,17 @@ final class Rows {
         texts.setOrientation(LinearLayout.VERTICAL);
         TextView title = Look.text(app, "Reboot to Finish", 14, Look.TEXT, Look.MEDIUM);
         texts.addView(title);
-        TextView sub = Look.text(app, what, 12.5f, Look.MUTED, Look.REGULAR);
-        sub.setMaxLines(2);
-        sub.setEllipsize(TextUtils.TruncateAt.END);
-        LinearLayout.LayoutParams sl = Kit.wrap();
-        sl.topMargin = Kit.dp(app, 1);
-        texts.addView(sub, sl);
         LinearLayout.LayoutParams tl = Kit.weight();
         tl.leftMargin = tl.rightMargin = Kit.dp(app, 8);
         row.addView(texts, tl);
         row.addView(Kit.capsule(app, "REBOOT", false, false));
         row.setOnClickListener(v -> app.askReboot());
         Screen.keyed(row, "reboot");
-        row.setContentDescription("Reboot to Finish, " + what);
+        row.setContentDescription("Reboot to Finish");
         return row;
     }
 
-    /** The Queue row heading Installed while Continue Queuing holds changes: OK confirms them all. */
+    /** The Queue row heading Installed while Add to Queue holds changes: OK confirms them all. */
     static Kit.Row queued(WaveActivity app, int changes) {
         Kit.Row row = new Kit.Row(app);
         row.setPadding(Kit.dp(app, 10), Kit.dp(app, 8), Kit.dp(app, 10), Kit.dp(app, 8));
@@ -413,11 +407,6 @@ final class Rows {
         Screen.keyed(row, "queue");
         row.setContentDescription("Queue, " + Pages.queuedLine(changes));
         return row;
-    }
-
-    /** "Messages Improved starts after a reboot", or the count of them. */
-    static String rebootText(java.util.List<String> names) {
-        return Pages.rebootText(names);
     }
 
     /** A label and its value, as text: no focus stop. */

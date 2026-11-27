@@ -24,8 +24,8 @@ import com.wave.xp3.data.WaveData;
  * source first, so the dialog that trusts it with root can say what it is:
  * its name, its maintainer, how many packages.
  *
- * Left/Right move the cursor here; Back deletes, and on an empty field goes
- * back; Down goes to Add.
+ * Left/Right move the cursor here; Clear deletes and Back goes back (as it
+ * always does, even mid-address); Down goes to Add.
  */
 final class AddSourceScreen extends Screen {
 
@@ -149,7 +149,7 @@ final class AddSourceScreen extends Screen {
         final String url = field.getText().toString().trim();
         if (!url.startsWith("https://")) {
             bad = true;
-            setNote("Only https:// addresses.", true);
+            setNote("Use an https:// address.", true);
             field.requestFocus();
             return;
         }
@@ -199,12 +199,10 @@ final class AddSourceScreen extends Screen {
         View head = app.dialogHead(new AppIcons.Ref("preview:" + preview.redactedUrl, preview.name, null, preview.icon(), null),
             preview.name, who + preview.packageCount + (preview.packageCount == 1 ? " package" : " packages")
                 + (preview.unreadable > 0 ? " (" + preview.unreadable + " can't be read)" : ""));
-        String whom = preview.maintainer != null ? preview.maintainer : "its maintainer";
         AlertDialog dialog = new AlertDialog.Builder(app)
             .setCustomTitle(head)
             // The name and maintainer are the source's own words; the address is the one thing it can't choose.
-            .setMessage("Its packages can change anything on this phone. Add it only if you trust " + whom + ".\n\n"
-                + (preview.redactedUrl == null ? "" : preview.redactedUrl.replaceFirst("^https://", "")))
+            .setMessage(preview.redactedUrl == null ? null : preview.redactedUrl.replaceFirst("^https://", ""))
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Add Source", (d, w) -> app.data.add(preview, new WaveData.Result<Void>() {
                 @Override
@@ -248,13 +246,6 @@ final class AddSourceScreen extends Screen {
             attempt++;
             done();
             field.requestFocus();
-            return true;
-        }
-        if (app.getCurrentFocus() == field) {
-            Editable text = field.getText();
-            int end = field.getSelectionEnd();
-            if (text.length() == 0) return false;
-            if (end > 0) text.delete(end - 1, end);
             return true;
         }
         return false;

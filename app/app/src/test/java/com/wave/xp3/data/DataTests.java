@@ -149,7 +149,7 @@ public final class DataTests {
         check.same("and the version on offer", "1.0.0", m.get("com.list.xp3").version);
         check.same("a current app", State.INSTALLED, m.get("com.books.xp3").state);
         check.same("an app newer than the source", State.NEWER, m.get("com.apple.xp3").state);
-        check.same("it says why it isn't offered", "Already on a newer version", m.get("com.apple.xp3").unfitReason);
+        check.same("it says why it isn't offered", "A newer version is installed", m.get("com.apple.xp3").unfitReason);
         check.same("one not on the phone", State.NONE, m.get("com.mail.xp3").state);
         check.same("with no version on the phone", null, m.get("com.mail.xp3").installedVersion);
         check.same("a module that is behind", State.UPDATE, m.get("messages_improved").state);

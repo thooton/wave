@@ -21,7 +21,7 @@ final class Actions {
     /** Entries of a package's menu, in the order shown. */
     enum Item {
         OPEN("Open"), GET("Get"), UPDATE("Update"), UPDATE_WAVE("Update Wave"), DETAILS("Details"),
-        HISTORY("See Version History"), TURN_ON("Turn On"), REINSTALL("Reinstall"), REMOVE("!Remove");
+        HISTORY("See Version History"), TURN_ON("Enable"), REINSTALL("Reinstall"), REMOVE("!Remove");
 
         /** The menu's text; a leading "!" paints it red. */
         final String title;

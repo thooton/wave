@@ -124,7 +124,7 @@ final class InstallTests {
             phone(new Plan.Installed("base", Plan.Kind.MODULE, "1.0", true)), null, self);
         check.same("pending removal: install again", "install base", steps(p));
 
-        check.fails("newer on phone", "newer BASE", () -> Plan.make(ask(Plan.Op.INSTALL, "base"), offered,
+        check.fails("newer on phone", "which is newer than", () -> Plan.make(ask(Plan.Op.INSTALL, "base"), offered,
             phone(new Plan.Installed("base", Plan.Kind.MODULE, "3.0", false)), null, self));
         check.fails("unknown", "No source offers nope", () -> Plan.make(ask(Plan.Op.INSTALL, "nope"), offered,
             phone(), null, self));
@@ -179,7 +179,7 @@ final class InstallTests {
             phone(new Plan.Installed(self, Plan.Kind.APK, "0.1.0", false)), null, self));
         check.fails("remove missing", "isn't installed", () -> Plan.make(ask(Plan.Op.REMOVE, "lib"), offered,
             phone(), null, self));
-        check.fails("remove and install", "both removed and installed", () -> Plan.make(
+        check.fails("remove and install", "remove and install", () -> Plan.make(
             ask(Plan.Op.REMOVE, "base", Plan.Op.INSTALL, "base"), offered,
             phone(new Plan.Installed("base", Plan.Kind.MODULE, "0.5", false)), null, self));
 
@@ -189,15 +189,15 @@ final class InstallTests {
         Plan.Device xp3 = new Plan.Device(27, "XP3plus", "XP3800");
         check.same("compatible", "install picky",
             steps(Plan.make(ask(Plan.Op.INSTALL, "picky"), offer(picky), phone(), xp3, self)));
-        check.fails("other phone", "isn't made for this phone", () -> Plan.make(ask(Plan.Op.INSTALL, "picky"),
+        check.fails("other phone", "doesn't support this model", () -> Plan.make(ask(Plan.Op.INSTALL, "picky"),
             offer(picky), phone(), new Plan.Device(27, "pixel"), self));
         check.fails("old android", "newer Android", () -> Plan.make(ask(Plan.Op.INSTALL, "picky"),
             offer(picky), phone(), new Plan.Device(26, "XP3800"), self));
 
         Plan.Package odd = new Plan.Package("odd", Plan.Kind.of("theme"), "Odd", "1", "https://e/x", 1, sha("x"));
-        check.fails("unknown type", "kind of package", () -> Plan.make(ask(Plan.Op.INSTALL, "odd"), offer(odd),
+        check.fails("unknown type", "type of package", () -> Plan.make(ask(Plan.Op.INSTALL, "odd"), offer(odd),
             phone(), null, self));
-        check.fails("kind changed", "different kind", () -> Plan.make(ask(Plan.Op.INSTALL, "base"), offered,
+        check.fails("kind changed", "different type", () -> Plan.make(ask(Plan.Op.INSTALL, "base"), offered,
             phone(new Plan.Installed("base", Plan.Kind.APK, "0.1", false)), null, self));
     }
 
@@ -429,21 +429,21 @@ final class InstallTests {
             check.fails("no sign-in", "This source needs a sign-in",
                 () -> Download.fetch(source.base() + "/files/a.apk", data.length, sha(data), to, null, null, null));
             Credential wrong = Credential.of(source.base().replace("http://", "http://alice:old@") + "/team/apps");
-            check.fails("a wrong token", "didn't accept its sign-in",
+            check.fails("a wrong token", "didn't accept the sign-in",
                 () -> Download.fetch(source.base() + "/files/a.apk", data.length, sha(data), to, null, null, wrong));
             source.refuseWith = 403;
-            check.fails("403 is the same", "didn't accept its sign-in",
+            check.fails("403 is the same", "didn't accept the sign-in",
                 () -> Download.fetch(source.base() + "/files/a.apk", data.length, sha(data), to, null, null, wrong));
             cdn.needs.put("/blob/c", "Basic x");
-            check.fails("another host wanting one", "only signs in to the source's own host",
+            check.fails("another host wanting one", "signs in only to the host of the source",
                 () -> Download.fetch(cdn.base() + "/blob/c", data.length, sha(data), to, null, null, alice));
             check.ok("no part left", !new File(dir, "a.apk.part").exists());
 
             // A manifest can't carry one, and redirects can't leave https or go on forever.
-            check.fails("sign-in in a manifest's address", "carries a sign-in",
+            check.fails("sign-in in a manifest's address", "contains a sign-in",
                 () -> Download.fetch("https://bob:pw@example.com/a.apk", data.length, sha(data), to, null, null, null));
             source.moved.put("/files/plain", "http://example.com/a.apk");
-            check.fails("redirect off https", "away from https",
+            check.fails("redirect off https", "without https",
                 () -> Download.fetch(source.base() + "/files/plain", data.length, sha(data), to, null, null, null));
             source.moved.put("/files/loop", "/files/loop");
             check.fails("redirect loop", "too many redirects",
@@ -551,7 +551,7 @@ final class InstallTests {
             server.failWith = 0;
 
             to.delete();
-            check.fails("wrong hash", "doesn't match", () -> Download.fetch(server.url("a.zip"), data.length,
+            check.fails("wrong hash", "checksum is different", () -> Download.fetch(server.url("a.zip"), data.length,
                 sha("other"), to, null, null));
             check.ok("wrong hash leaves nothing", !to.exists() && !part.exists());
             check.fails("wrong size", "size", () -> Download.fetch(server.url("a.zip"), data.length - 1,
@@ -603,7 +603,7 @@ final class InstallTests {
             File zip = moduleZip(dir, "m1", "1.2.0");
             check.same("module ok", null, Verify.module(zip, "m1", "1.2.0"));
             check.same("module version parts", null, Verify.module(zip, "m1", "1.2"));
-            check.same("module other id", "The download is module m1, not m2.", Verify.module(zip, "m2", "1.2.0"));
+            check.same("module other id", "The download is module m1. Wave expected module m2.", Verify.module(zip, "m2", "1.2.0"));
             check.ok("module other version", Verify.module(zip, "m1", "1.3").contains("version 1.2.0"));
             File noProp = new File(dir, "noprop.zip");
             writeModuleZip(noProp, null);
@@ -613,17 +613,17 @@ final class InstallTests {
             check.same("not a zip", "The download isn't a module.", Verify.module(notZip, "m1", "1"));
             File badId = new File(dir, "badid.zip");
             writeModuleZip(badId, "id=../x\nversion=1\n");
-            check.same("bad id", "The module has no usable id.", Verify.module(badId, "../x", "1"));
+            check.same("bad id", "The module doesn't have a valid id.", Verify.module(badId, "../x", "1"));
 
             check.same("apk ok new", null, Verify.apk("com.a", "1.0", "com.a", "1.0", 3, -1, null, false));
             check.same("apk ok update", null, Verify.apk("com.a", "1.1", "com.a", "1.1", 4, 3, "1.0", true));
-            check.same("apk unreadable", "The download isn't an app this phone can read.",
+            check.same("apk unreadable", "The download isn't a readable app.",
                 Verify.apk("com.a", "1.0", null, null, 0, -1, null, false));
-            check.same("apk other package", "The download is com.b, not com.a.",
+            check.same("apk other package", "The download is app com.b. Wave expected app com.a.",
                 Verify.apk("com.a", "1.0", "com.b", "1.0", 3, -1, null, false));
             check.ok("apk other version", Verify.apk("com.a", "1.0", "com.a", "0.9", 3, -1, null, false)
                 .contains("0.9"));
-            check.same("apk other key", "The phone's copy is signed with a different key.",
+            check.same("apk other key", "The installed app has a different signing key.",
                 Verify.apk("com.a", "1.0", "com.a", "1.0", 3, 2, "0.9", false));
             check.ok("apk older code", Verify.apk("com.a", "1.0", "com.a", "1.0", 2, 3, "1.0", true)
                 .contains("older"));
@@ -904,7 +904,7 @@ final class InstallTests {
                 });
             e2.run();
             check.ok("modules still need root", e2.items().get(0).phase == Engine.Phase.FAILED
-                && e2.items().get(0).message.contains("no root"));
+                && e2.items().get(0).message.contains("root access"));
         }
     }
 
@@ -916,11 +916,11 @@ final class InstallTests {
             server.files.put("com.h.xp3-1.apk", apk("com.h.xp3", "1", 9));
             Engine e = runOne(box, platform, wrongHash);
             check.same("wrong hash fails", Engine.Phase.FAILED, e.items().get(0).phase);
-            check.ok("wrong hash says so", e.items().get(0).message.contains("doesn't match"));
+            check.ok("wrong hash says so", e.items().get(0).message.contains("checksum is different"));
 
             Plan.Package wrongName = serve(server, "com.n.xp3", Plan.Kind.APK, "1", apk("com.other.xp3", "1", 1));
             e = runOne(box, platform, wrongName);
-            check.same("wrong package", "The download is com.other.xp3, not com.n.xp3.", e.items().get(0).message);
+            check.same("wrong package", "The download is app com.other.xp3. Wave expected app com.n.xp3.", e.items().get(0).message);
 
             Plan.Package cut = serve(server, "com.c.xp3", Plan.Kind.APK, "1", bytes(200000, 3));
             server.cut.put("com.c.xp3-1.apk", 5000);
@@ -934,20 +934,20 @@ final class InstallTests {
             Plan.Package full = serve(server, "com.f.xp3", Plan.Kind.APK, "1", apk("com.f.xp3", "1", 1));
             box.flag("pm-fail", "INSTALL_FAILED_INSUFFICIENT_STORAGE");
             e = runOne(box, platform, full);
-            check.same("no space", "The phone is out of space.", e.items().get(0).message);
+            check.same("no space", "Not enough space.", e.items().get(0).message);
             new File(box.root, "pm-fail").delete();
 
             platform.phoneCodes.put("com.k.xp3", new long[] {1});
             platform.otherKey = true;
             Plan.Package key = serve(server, "com.k.xp3", Plan.Kind.APK, "1", apk("com.k.xp3", "1", 2));
             e = runOne(box, platform, key);
-            check.same("other key", "The phone's copy is signed with a different key.", e.items().get(0).message);
+            check.same("other key", "The installed app has a different signing key.", e.items().get(0).message);
             platform.otherKey = false;
 
             File zip = moduleZip(box.root, "mod_a", "1.0");
             Plan.Package wrongModule = serve(server, "mod_b", Plan.Kind.MODULE, "1.0", Files.readAllBytes(zip.toPath()));
             e = runOne(box, platform, wrongModule);
-            check.same("wrong module", "The download is module mod_a, not mod_b.", e.items().get(0).message);
+            check.same("wrong module", "The download is module mod_a. Wave expected module mod_b.", e.items().get(0).message);
 
             check.ok("nothing installed by failures", !box.calls().contains("pm install")
                 || box.calls().split("pm install").length == 2);
@@ -1012,7 +1012,7 @@ final class InstallTests {
             okShell.close();
             locked.setWritable(true);
             check.same("installed though not noted", Engine.Phase.DONE, noted.items().get(0).phase);
-            check.ok("says it couldn't note it", noted.items().get(0).message.contains("couldn't note"));
+            check.ok("says it couldn't record it", noted.items().get(0).message.contains("couldn't record"));
 
             box.flag("deny");
             e = runOne(box, platform, user.depends.isEmpty() ? user : full);

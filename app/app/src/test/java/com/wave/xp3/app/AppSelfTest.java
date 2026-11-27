@@ -38,7 +38,7 @@ public final class AppSelfTest {
         check.run("Confirm and queue text", () -> planAndQueue(check));
         check.run("Search states", () -> search(check));
         check.run("Snapshot lookups", () -> snapshots(check));
-        check.run("Continue Queuing", () -> queuing(check));
+        check.run("Add to Queue", () -> queuing(check));
         check.run("Version history", () -> history(check));
         com.wave.xp3.data.DataTests.run(check);
         if (!check.report()) System.exit(1);
@@ -73,7 +73,7 @@ public final class AppSelfTest {
 
     static Pkg unfit(Pkg p) {
         Edit e = new Edit(p);
-        e.unfit = "Not compatible with this device";
+        e.unfit = "Not compatible with this model";
         return e.build();
     }
 
@@ -151,9 +151,18 @@ public final class AppSelfTest {
         check.same("yesterday across a year", "Yesterday", Format.date("2025-12-31", newYear));
 
         check.same("never refreshed", null, Format.refreshed(0, now));
-        check.same("refreshed today", "refreshed today", Format.refreshed(millis(2026, Calendar.NOVEMBER, 19, 1), now));
-        check.same("refreshed yesterday", "refreshed yesterday", Format.refreshed(millis(2026, Calendar.NOVEMBER, 18, 23), now));
-        check.same("refreshed earlier", "refreshed Nov 2", Format.refreshed(millis(2026, Calendar.NOVEMBER, 2, 12), now));
+        long at = now.getTimeInMillis(), minute = 60000L, hour = 60 * minute, day = 24 * hour;
+        check.same("refreshed this second", "0 seconds ago", Format.refreshed(at - 400L, now));
+        check.same("refreshed a second ago", "1 second ago", Format.refreshed(at - 1000L, now));
+        check.same("refreshed seconds ago", "59 seconds ago", Format.refreshed(at - 59000L, now));
+        check.same("refreshed a minute ago", "1 minute ago", Format.refreshed(at - minute, now));
+        check.same("refreshed minutes ago", "15 minutes ago", Format.refreshed(at - 15 * minute - 30000L, now));
+        check.same("refreshed an hour ago", "1 hour ago", Format.refreshed(at - 61 * minute, now));
+        check.same("refreshed hours ago", "2 hours ago", Format.refreshed(at - 2 * hour, now));
+        check.same("refreshed a day ago", "1 day ago", Format.refreshed(at - 25 * hour, now));
+        check.same("refreshed a month ago", "1 month ago", Format.refreshed(at - 31 * day, now));
+        check.same("refreshed years ago", "2 years ago", Format.refreshed(at - 800 * day, now));
+        check.same("a clock behind the source", "0 seconds ago", Format.refreshed(at + hour, now));
 
         check.same("scheme and .git dropped", "github.com/thooton/wave_repository", Format.shortUrl("https://github.com/thooton/wave_repository.git"));
         check.same("trailing slash", "example.org/src", Format.shortUrl("https://example.org/src/"));
@@ -232,7 +241,7 @@ public final class AppSelfTest {
         check.same("OK on a turned off mod opens the menu", Actions.Ok.MENU, Actions.detailsOk(pkg("a", State.OFF), OPENABLE));
     }
 
-    // ---------------------------------------------------------------- Continue Queuing
+    // ---------------------------------------------------------------- Add to Queue
 
     private static WaveData.Request ask(String id, WaveData.Action action) {
         return new WaveData.Request(id, action);
@@ -259,13 +268,13 @@ public final class AppSelfTest {
         q.clear();
         check.ok("Clear Queue empties it", q.isEmpty() && q.size() == 0);
 
-        // What Continue Queuing keeps from a sheet: what was asked, not what it pulled in.
+        // What Add to Queue keeps from a sheet: what was asked, not what it pulled in.
         Pkg a = pkg("a", State.NONE), dep = pkg("dep", State.NONE), old = pkg("old", State.INSTALLED);
         PlanView plan = new PlanView(Arrays.asList(new PlanItem(dep, "Needed by Name a", WaveData.Action.GET),
             new PlanItem(a, null, WaveData.Action.GET), new PlanItem(old, "Replaced by Name a", WaveData.Action.REMOVE)), 0, false, null);
         check.same("the sheet queues what was asked", Collections.singletonList(ask("a", WaveData.Action.GET)), Pages.askedRequests(plan));
-        check.same("queued line", "1 change waiting", Pages.queuedLine(1));
-        check.same("queued line, several", "3 changes waiting", Pages.queuedLine(3));
+        check.same("queued line", "1 change", Pages.queuedLine(1));
+        check.same("queued line, several", "3 changes", Pages.queuedLine(3));
         check.same("toast", "Queued 2 changes", Pages.queuedToast(2));
         check.same("menu", "Confirm Queue (2)", Pages.confirmQueue(2));
         check.same("Installed's badge says Q'd while something is queued, as Cydia's", "Q'd", TabBar.badgeText(3, true));
@@ -333,14 +342,14 @@ public final class AppSelfTest {
         check.same("Wave itself is never removed here", Arrays.asList("Open", "Details", "Reinstall"), titles(installed, true, OPENABLE, true, false));
         check.same("newer than the source offers",
             Arrays.asList("Open", "Details", "Reinstall", "!Remove"), titles(pkg("a", State.NEWER), true, OPENABLE, false, false));
-        check.same("turned off", Arrays.asList("Details", "Turn On", "Reinstall", "!Remove"), titles(module(pkg("a", State.OFF)), true, NOT_OPENABLE, false, false));
+        check.same("turned off", Arrays.asList("Details", "Enable", "Reinstall", "!Remove"), titles(module(pkg("a", State.OFF)), true, NOT_OPENABLE, false, false));
         check.same("waiting to install: remove only", Arrays.asList("Details", "!Remove"), titles(module(pkg("a", State.PENDING_INSTALL)), true, NOT_OPENABLE, false, false));
         check.same("waiting to be removed: nothing but details", Collections.singletonList("Details"), titles(module(pkg("a", State.PENDING_REMOVAL)), true, NOT_OPENABLE, false, false));
 
         // What a package kept by its receipt (its source was removed) can't do.
         Pkg kept = kept(installed);
         check.same("kept: no reinstall, no source to download from", Arrays.asList("Open", "Details", "!Remove"), titles(kept, true, OPENABLE, false, false));
-        check.same("kept and off", Arrays.asList("Details", "Turn On", "!Remove"), titles(kept(module(pkg("a", State.OFF))), true, NOT_OPENABLE, false, false));
+        check.same("kept and off", Arrays.asList("Details", "Enable", "!Remove"), titles(kept(module(pkg("a", State.OFF))), true, NOT_OPENABLE, false, false));
 
         // A package this phone can't take.
         check.same("doesn't fit, not installed: only details", Collections.singletonList("Details"), titles(unfit(none), true, OPENABLE, false, false));
@@ -385,8 +394,8 @@ public final class AppSelfTest {
         check.same("a mod's version", "MUTED:System mod, 1.0", Pages.installedLine(module(app), false).toString());
         check.same("the offered version when the phone's is unknown", "MUTED:Version 2.0",
             Pages.installedLine(new Edit(app) {{ installed = null; }}.build(), false).toString());
-        check.same("off, by the user or safe mode", "RED:Turned off", Pages.installedLine(pkg("a", State.OFF), false).toString());
-        check.same("off by the watchdog", "RED:Turned off: boot failed", Pages.installedLine(pkg("a", State.OFF), true).toString());
+        check.same("off, by the user or safe mode", "RED:Disabled", Pages.installedLine(pkg("a", State.OFF), false).toString());
+        check.same("off by the watchdog", "RED:Disabled: boot failed", Pages.installedLine(pkg("a", State.OFF), true).toString());
         check.same("pending install", "BLUE:Starts after a reboot", Pages.installedLine(pkg("a", State.PENDING_INSTALL), false).toString());
         check.same("pending removal", "BLUE:Removed after a reboot", Pages.installedLine(pkg("a", State.PENDING_REMOVAL), false).toString());
         check.same("a pending package has no capsule", null, Pages.installedCapsule(pkg("a", State.PENDING_INSTALL), OPENABLE));
@@ -398,8 +407,6 @@ public final class AppSelfTest {
         check.ok("notes shown", Pages.hasNotes(new Edit(pkg("a", State.UPDATE)) {{ change = new Change("2.0", null, "Fixes."); }}.build()));
         check.ok("empty notes hidden", !Pages.hasNotes(new Edit(pkg("a", State.UPDATE)) {{ change = new Change("2.0", null, ""); }}.build()));
         check.ok("no change, no notes", !Pages.hasNotes(pkg("a", State.UPDATE)));
-        check.same("one waiting change", "Messages Improved starts after a reboot", Pages.rebootText(Collections.singletonList("Messages Improved")));
-        check.same("several waiting changes", "3 changes start after a reboot", Pages.rebootText(Arrays.asList("a", "b", "c")));
 
         // The page with nothing on it: which message, in which precedence.
         Src fetched = src("s", false, null, false, 1700000000000L, 3), never = src("n", false, null, false, 0, 0);
@@ -408,7 +415,7 @@ public final class AppSelfTest {
         check.ok("nothing read yet and no error: a spinner", m.spinner && m.title == null);
         check.ok("no sources at all: a spinner", Pages.installedEmpty(snapshot(null, Collections.emptyList(), none, none)).spinner);
         m = Pages.installedEmpty(snapshot("Couldn't reach the source.", Collections.singletonList(never), none, none));
-        check.same("nothing read and an error: the error", "Cannot Load Sources", m.title);
+        check.same("nothing read and an error: the error", "Can't Load Sources", m.title);
         check.same("with its text", "Couldn't reach the source.", m.body);
         check.same("and a retry", "Try Again", m.button);
         m = Pages.installedEmpty(snapshot("Couldn't reach the source.", Collections.singletonList(fetched), none, none));
@@ -428,7 +435,7 @@ public final class AppSelfTest {
         List<Pkg> none = Collections.emptyList();
         Src never = src("n", false, null, false, 0, 0);
         Snapshot loading = snapshot("Couldn't reach the source.", Collections.singletonList(never), none, none);
-        check.same("Sources tab: the error replaces the list", "Cannot Load Sources", Pages.sourcesEmpty(loading).title);
+        check.same("Sources tab: the error replaces the list", "Can't Load Sources", Pages.sourcesEmpty(loading).title);
         check.same("its retry", "Try Again", Pages.sourcesEmpty(loading).button);
         Snapshot refreshing = snapshot("Couldn't reach the source.", Collections.singletonList(src("n", true, null, false, 0, 0)), none, none);
         check.same("not while one is refreshing", null, Pages.sourcesEmpty(refreshing));
@@ -445,8 +452,8 @@ public final class AppSelfTest {
         check.same("header: refreshing", "MUTED:Refreshing…", Pages.sourceHeader(src("a", true, "Bad.", false, 0, 0)).toString());
         check.same("header: an error says it couldn't refresh", "RED:Couldn't refresh: Bad.", Pages.sourceHeader(src("a", false, "Bad.", false, 5, 1)).toString());
         check.same("header: never refreshed", "MUTED:Maker", Pages.sourceHeader(src("a", false, null, false, 0, 0)).toString());
-        check.same("header: maintainer and when", "MUTED:Maker, refreshed today",
-            Pages.sourceHeader(src("a", false, null, false, System.currentTimeMillis(), 1)).toString());
+        check.same("header: maintainer and when", "MUTED:Maker (last refreshed 5 minutes ago)",
+            Pages.sourceHeader(src("a", false, null, false, System.currentTimeMillis() - 5 * 60000L, 1)).toString());
         Src nameless = new Src("a", "A", "https://example.org/a.git", null, false, null, 0, 0, false, null, false);
         check.same("header: no maintainer, the address", "MUTED:example.org/a", Pages.sourceHeader(nameless).toString());
         check.same("title: all sources", "All Sources", Pages.sourceTitle(null, null));
@@ -462,11 +469,11 @@ public final class AppSelfTest {
         check.same("root status: not granted", "ORANGE:Root access not granted", Pages.rootStatus(WaveData.Root.NONE).toString());
         check.same("root fact: yes", "Yes", Pages.rootText(WaveData.Root.OK));
         check.same("root fact: no", "No", Pages.rootText(WaveData.Root.NONE));
-        List<String[]> facts = Pages.phoneFacts(snapshot(WaveData.Root.NONE, null), "XP3800", "8.1.0");
-        check.same("facts without a snapshot's own: the phone's", "XP3800|8.1.0|No|", join(facts));
-        facts = Pages.phoneFacts(snapshot(WaveData.Root.OK, new WaveData.Facts("Sonim XP3800", "8.1.0", "3A.0", "Magisk 24", "1.2 GB free")), "X", "Y");
-        check.same("facts of the snapshot", "Sonim XP3800|8.1.0, build 3A.0|Magisk 24|1.2 GB free", join(facts));
-        check.same("fact labels", "Model,Android,Root,Storage", labels(facts));
+        List<String[]> facts = Pages.phoneFacts(snapshot(WaveData.Root.NONE, null), "XP3800", "8.1.0", "3A.0");
+        check.same("facts without a snapshot's own: the phone's", "XP3800|8.1.0|3A.0|No|", join(facts));
+        facts = Pages.phoneFacts(snapshot(WaveData.Root.OK, new WaveData.Facts("Sonim XP3800", "8.1.0", "3A.0", "Magisk 24", "1.2 GB free")), "X", "Y", "Z");
+        check.same("facts of the snapshot", "Sonim XP3800|8.1.0|3A.0|Magisk 24|1.2 GB free", join(facts));
+        check.same("fact labels", "Model,Android,Build,Root,Storage", labels(facts));
     }
 
     private static String join(List<String[]> rows) {
@@ -493,19 +500,19 @@ public final class AppSelfTest {
         check.same("and Wave's update is on offer", "[INFO:Update Wave to install this]", Pages.notes(newer, detail(newer), true).toString());
         check.same("the reason isn't repeated as a second warning", 1, Pages.notes(newer, detail(newer), true).size());
         Pkg other = unfit(none);
-        check.same("another reason is the warning", "[WARN:Not compatible with this device]", Pages.notes(other, detail(other), true).toString());
+        check.same("another reason is the warning", "[WARN:Not compatible with this model]", Pages.notes(other, detail(other), true).toString());
         check.same("the warning is red text with an orange icon", Pages.Tone.RED, Pages.notes(other, detail(other), true).get(0).textTone);
-        check.same("update that doesn't fit", "[WARN:Not compatible with this device, INFO:Version 2.0 can't be installed here]",
+        check.same("update that doesn't fit", "[WARN:Not compatible with this model, INFO:Version 2.0 can't be installed here]",
             Pages.notes(unfit(update), detail(unfit(update)), false).toString());
         check.same("update that needs a newer Wave", "[INFO:Update Wave to install this, INFO:Version 2.0 can't be installed here]",
             Pages.notes(needsNewerWave(update), detail(needsNewerWave(update)), true).toString());
         check.same("a mod needs a reboot", "[REBOOT:Requires a reboot]", Pages.notes(module(none), detail(module(none)), false).toString());
-        check.same("a mod turned off", "[REBOOT:Requires a reboot, WARN:Turned off: the phone didn't finish starting with it]",
+        check.same("a mod turned off", "[REBOOT:Requires a reboot, WARN:Disabled: boot failed]",
             Pages.notes(module(pkg("a", State.OFF)), detail(module(pkg("a", State.OFF))), false).toString());
         check.same("waiting to install", "[REBOOT:Starts after a reboot]", Pages.notes(pkg("a", State.PENDING_INSTALL), detail(pkg("a", State.PENDING_INSTALL)), false).toString());
         check.same("waiting to be removed", "[REBOOT:Removed after a reboot]", Pages.notes(pkg("a", State.PENDING_REMOVAL), detail(pkg("a", State.PENDING_REMOVAL)), false).toString());
         Detail rich = detail(none, "Long.", "Me", 0, Collections.emptyList(), Collections.emptyList(), Arrays.asList("Old Messages", "Older"), true);
-        check.same("replacement metadata is hidden but the firmware note remains", "[INFO:Not tested on this phone's firmware]",
+        check.same("replacement metadata is hidden but the firmware note remains", "[INFO:Not tested on this firmware]",
             Pages.notes(none, rich, false).toString());
 
         check.same("byline: the author", "An Author", Pages.byline(none, detail(none)));
@@ -517,7 +524,7 @@ public final class AppSelfTest {
 
         check.same("state word", "INSTALLED", Pages.stateWord(installed));
         check.same("state word: newer", "INSTALLED", Pages.stateWord(pkg("a", State.NEWER)));
-        check.same("state word: off", "TURNED OFF", Pages.stateWord(pkg("a", State.OFF)));
+        check.same("state word: off", "DISABLED", Pages.stateWord(pkg("a", State.OFF)));
         check.same("state word: pending", "AFTER REBOOT", Pages.stateWord(pkg("a", State.PENDING_INSTALL)));
         check.same("state word: pending removal", "AFTER REBOOT", Pages.stateWord(pkg("a", State.PENDING_REMOVAL)));
         check.same("after: the size to get", "48 KB", Pages.afterText(none, detail(none)));
@@ -562,39 +569,33 @@ public final class AppSelfTest {
 
     private static void planAndQueue(Check check) {
         Pkg a = pkg("a", State.NONE), b = pkg("b", State.UPDATE), c = pkg("c", State.INSTALLED);
-        check.same("heading: install", "Install", Pages.confirmHeading(Arrays.asList(item(a, null, WaveData.Action.GET)), false));
-        check.same("heading: update", "Update", Pages.confirmHeading(Arrays.asList(item(b, null, WaveData.Action.UPDATE), item(b, null, WaveData.Action.UPDATE)), false));
-        check.same("heading: reinstall", "Reinstall", Pages.confirmHeading(Arrays.asList(item(c, null, WaveData.Action.REINSTALL)), false));
-        check.same("heading: a mix is an install", "Install", Pages.confirmHeading(Arrays.asList(item(b, null, WaveData.Action.UPDATE), item(a, null, WaveData.Action.GET)), false));
-        check.same("heading: remove", "Remove", Pages.confirmHeading(Arrays.asList(item(c, null, WaveData.Action.REMOVE)), true));
-        check.same("line: a pulled-in package says why", "BLUE:Needed by List", Pages.confirmLine(item(a, "Needed by List", WaveData.Action.GET), false).toString());
-        check.same("line: a removal's reason is not blue", "MUTED:Replaced by Messages Improved", Pages.confirmLine(item(c, "Replaced by Messages Improved", WaveData.Action.REMOVE), true).toString());
-        check.same("line: a removal shows what is installed", "MUTED:Version 1.0", Pages.confirmLine(item(c, null, WaveData.Action.REMOVE), true).toString());
-        check.same("line: an update shows the change", "MUTED:1.0 → 2.0", Pages.confirmLine(item(b, null, WaveData.Action.UPDATE), false).toString());
-        check.same("line: an install shows the version", "MUTED:2.0", Pages.confirmLine(item(a, null, WaveData.Action.GET), false).toString());
-        check.same("line: an update with no installed version", "MUTED:2.0", Pages.confirmLine(item(new Edit(b) {{ installed = null; }}.build(), null, WaveData.Action.UPDATE), false).toString());
+        String A = a.name, B = b.name, C = c.name;
         PlanView one = new PlanView(Arrays.asList(item(a, null, WaveData.Action.GET)), 4_107_233, false, null);
-        check.same("sheet: one install's title", "Install " + a.name + "?", Pages.confirmTitle(one));
-        check.same("sheet: its version under the title", "Version 2.0", Pages.confirmSub(one));
-        check.same("sheet: its facts are the download", "[TEXT:[4.1 MB] to download]", Pages.confirmFacts(one).toString());
-        check.ok("sheet: an install goes ahead in blue", !Pages.confirmDestroys(one));
-        PlanView pulled = new PlanView(Arrays.asList(item(a, null, WaveData.Action.GET), item(b, "Needed by " + a.name, WaveData.Action.GET),
-            item(c, "Replaced by " + a.name, WaveData.Action.REMOVE)), 0, true, null);
-        check.same("sheet: what comes along and goes is named, the reboot said", "[TEXT:Also installs [" + b.name + "], TEXT:Replaces [" + c.name + "], ORANGE:Needs a reboot to finish[]]",
-            Pages.confirmFacts(pulled).toString());
-        check.same("sheet: replacing is still an install", "Install", Pages.confirmVerb(pulled));
-        PlanView all = new PlanView(Arrays.asList(item(b, null, WaveData.Action.UPDATE), item(b, null, WaveData.Action.UPDATE),
-            item(a, "Needed by " + b.name, WaveData.Action.GET)), 0, false, null);
-        check.same("sheet: several updates", "Update 2 Packages?", Pages.confirmTitle(all));
-        check.same("sheet: no single version", null, Pages.confirmSub(all));
-        check.same("sheet: each listed, and what comes along says why", "[TEXT:[" + b.name + "] 1.0 → 2.0, TEXT:[" + b.name + "] 1.0 → 2.0, TEXT:Also installs [" + a.name + "], needed by " + b.name + "]",
-            Pages.confirmFacts(all).toString());
+        check.same("confirm: one install, its download and what it installs",
+            "[Statistics{Downloading=4.1 MB}, Modifications{Install=" + A + "}]", Pages.confirmSections(one).toString());
+        check.ok("confirm: an install goes ahead in blue", !Pages.confirmDestroys(one));
+        PlanView pulled = new PlanView(Arrays.asList(item(a, null, WaveData.Action.GET), item(b, "Needed by " + A, WaveData.Action.GET),
+            item(c, "Replaced by " + A, WaveData.Action.REMOVE)), 0, true, null);
+        check.same("confirm: what comes along and goes is listed, the reboot said",
+            "[Modifications{Install=" + A + "," + B + "; Remove=" + C + "}]", Pages.confirmSections(pulled).toString());
+        check.ok("confirm: replacing is still not only removing", !Pages.confirmDestroys(pulled));
+        PlanView all = new PlanView(Arrays.asList(item(b, null, WaveData.Action.UPDATE), item(a, "Needed by " + B, WaveData.Action.GET)), 0, false, null);
+        check.same("confirm: updates have their own section, with the change of version",
+            "[Modifications{Install=" + A + "}, Update{" + B + "=1.0 \u2192 2.0}]", Pages.confirmSections(all).toString());
+        PlanView updates = new PlanView(Arrays.asList(item(b, null, WaveData.Action.UPDATE)), 0, false, null);
+        check.same("confirm: only updates, no Modifications", "[Update{" + B + "=1.0 \u2192 2.0}]", Pages.confirmSections(updates).toString());
+        PlanView bare = new PlanView(Arrays.asList(item(new Edit(b) {{ installed = null; }}.build(), null, WaveData.Action.UPDATE)), 0, false, null);
+        check.same("confirm: an update with no installed version", "[Update{" + B + "=2.0}]", Pages.confirmSections(bare).toString());
+        PlanView again = new PlanView(Arrays.asList(item(c, null, WaveData.Action.REINSTALL)), 0, false, null);
+        check.same("confirm: a reinstall", "[Modifications{Reinstall=" + C + "}]", Pages.confirmSections(again).toString());
         PlanView remove = new PlanView(Arrays.asList(item(c, null, WaveData.Action.REMOVE)), 0, true, null);
-        check.same("sheet: a removal", "Remove " + c.name + "?", Pages.confirmTitle(remove));
-        check.same("sheet: what is installed", "Version 1.0", Pages.confirmSub(remove));
-        check.ok("sheet: only removing is red and starts on Cancel", Pages.confirmDestroys(remove));
+        check.same("confirm: a removal", "[Modifications{Remove=" + C + "}]", Pages.confirmSections(remove).toString());
+        check.ok("confirm: only removing is red and starts on Add to Queue", Pages.confirmDestroys(remove));
+        check.same("confirm: a reboot is a note over the actions, not a row", "Reboot required", Pages.confirmNote(pulled));
+        check.same("confirm: no reboot, no note", null, Pages.confirmNote(one));
+        check.ok("confirm: an empty plan is not a removal", !Pages.confirmDestroys(new PlanView(Collections.<PlanItem>emptyList(), 0, false, null)));
         check.same("words: as shown", "Get", Pages.shownWord("GET"));
-        check.same("words: each word", "Turned Off", Pages.shownWord("TURNED OFF"));
+        check.same("words: each word", "After Reboot", Pages.shownWord("AFTER REBOOT"));
         check.same("words: Reboot Now is left alone", "Reboot Now", Pages.shownWord("Reboot Now"));
         PlanView mixed = new PlanView(Arrays.asList(item(a, null, WaveData.Action.GET), item(c, null, WaveData.Action.REMOVE)), 0, false, null);
         check.same("plan splits installs from removals", 1, mixed.install.size());
@@ -622,10 +623,10 @@ public final class AppSelfTest {
         check.same("title of a stale finished queue not yet seen", "Installing", Pages.queueTitle(new QueueView(Collections.emptyList(), true, false), false));
         check.same("title with no queue", "Installing", Pages.queueTitle(null, true));
         Pkg weather = new Edit(a) {{ name = "Weather"; }}.build();
-        check.same("failure title", "Weather wasn't installed", Pages.failureTitle(new QueueItem(weather, WaveData.Step.FAILED, 0, 0, 0, "Installing", "x")));
-        check.same("failure title of a removal", "Weather wasn't removed", Pages.failureTitle(new QueueItem(weather, WaveData.Step.FAILED, 0, 0, 0, "Removing the module", "x")));
+        check.same("failure title", "Wave couldn't install Weather", Pages.failureTitle(new QueueItem(weather, WaveData.Step.FAILED, 0, 0, 0, "Installing", "x")));
+        check.same("failure title of a removal", "Wave couldn't remove Weather", Pages.failureTitle(new QueueItem(weather, WaveData.Step.FAILED, 0, 0, 0, "Removing the module", "x")));
         check.same("failure message", "Disk full.", Pages.failureMessage(new QueueItem(weather, WaveData.Step.FAILED, 0, 0, 0, null, "Disk full.")));
-        check.same("failure without a message", "Something went wrong.", Pages.failureMessage(new QueueItem(weather, WaveData.Step.FAILED, 0, 0, 0, null, null)));
+        check.same("failure without a message", "An unknown error occurred.", Pages.failureMessage(new QueueItem(weather, WaveData.Step.FAILED, 0, 0, 0, null, null)));
     }
 
     // ---------------------------------------------------------------- Search

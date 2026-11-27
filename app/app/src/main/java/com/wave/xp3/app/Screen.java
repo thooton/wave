@@ -69,6 +69,11 @@ abstract class Screen {
         return false;
     }
 
+    /** What the bar's Back says over `below`: its title, or nothing on a modal or bare screen. */
+    String backTo(Screen below) {
+        return modal() || bare() ? null : below.title();
+    }
+
     /** The menu's items for where the focus is. */
     void menu(Menu menu) {}
 

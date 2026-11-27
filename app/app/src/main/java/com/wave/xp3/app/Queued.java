@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Cydia's Continue Queuing: what the user asked for on a Confirm sheet but
+ * Add to Queue (Cydia's Continue Queuing): what the user asked for on Confirm but
  * didn't confirm yet, kept so the next Confirm takes it along. One action per
  * package, in the order they were first asked for; asking for a package again
  * replaces its action. Plain values (no View), so AppSelfTest checks it.
@@ -48,7 +48,7 @@ final class Queued {
         return next.requests();
     }
 
-    /** Replaces the queue with `requests` (what a Confirm sheet showed). */
+    /** Replaces the queue with `requests` (what Confirm showed). */
     void set(List<WaveData.Request> requests) {
         asked.clear();
         addAll(requests);

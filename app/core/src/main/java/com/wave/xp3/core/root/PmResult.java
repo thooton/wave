@@ -59,10 +59,10 @@ public final class PmResult {
             return new PmResult(false, code, words(code, inside));
         }
         if (success && !exception) return new PmResult(true, null, null);
-        if (error != null) return new PmResult(false, "ERROR", "Android refused it: " + error);
+        if (error != null) return new PmResult(false, "ERROR", "Android refused the request: " + error);
         String last = lastLine(output);
         return new PmResult(false, "UNKNOWN", last.isEmpty()
-            ? "Android gave no answer (exit " + exit + ")."
+            ? "Android didn't answer (exit code " + exit + ")."
             : "Android said: " + last);
     }
 
@@ -75,22 +75,22 @@ public final class PmResult {
     private static String words(String code, String whole) {
         if (code.equals("INSTALL_FAILED_UPDATE_INCOMPATIBLE")
                 || code.equals("INSTALL_FAILED_SHARED_USER_INCOMPATIBLE")) {
-            return "The phone's copy is signed with a different key.";
+            return "The installed app has a different signing key.";
         }
-        if (code.equals("INSTALL_FAILED_INSUFFICIENT_STORAGE")) return "The phone is out of space.";
-        if (code.equals("INSTALL_FAILED_VERSION_DOWNGRADE")) return "The phone has a newer version.";
-        if (code.equals("INSTALL_FAILED_OLDER_SDK")) return "It needs a newer Android.";
-        if (code.equals("INSTALL_FAILED_NO_MATCHING_ABIS")) return "It isn't built for this phone's processor.";
-        if (code.equals("INSTALL_FAILED_DUPLICATE_PERMISSION")) return "Another app already defines one of its permissions.";
-        if (code.equals("INSTALL_FAILED_CONFLICTING_PROVIDER")) return "Another app already uses one of its names.";
+        if (code.equals("INSTALL_FAILED_INSUFFICIENT_STORAGE")) return "Not enough space.";
+        if (code.equals("INSTALL_FAILED_VERSION_DOWNGRADE")) return "A newer version is installed.";
+        if (code.equals("INSTALL_FAILED_OLDER_SDK")) return "The app needs a newer Android version.";
+        if (code.equals("INSTALL_FAILED_NO_MATCHING_ABIS")) return "The app doesn't support this processor.";
+        if (code.equals("INSTALL_FAILED_DUPLICATE_PERMISSION")) return "Another app already defines a permission that this app uses.";
+        if (code.equals("INSTALL_FAILED_CONFLICTING_PROVIDER")) return "Another app already uses a name that this app needs.";
         if (code.equals("INSTALL_FAILED_INVALID_APK") || code.startsWith("INSTALL_PARSE_FAILED")) {
             return "The file isn't a valid app.";
         }
-        if (code.equals("INSTALL_FAILED_ABORTED")) return "The install was stopped.";
+        if (code.equals("INSTALL_FAILED_ABORTED")) return "The install stopped.";
         if (code.equals("DELETE_FAILED_INTERNAL_ERROR") || code.startsWith("not installed")) {
-            return "It isn't installed.";
+            return "The app isn't installed.";
         }
-        if (code.equals("DELETE_FAILED_DEVICE_POLICY_MANAGER")) return "It's a device administrator and can't be removed.";
-        return "Android refused it: " + whole;
+        if (code.equals("DELETE_FAILED_DEVICE_POLICY_MANAGER")) return "The app is a device administrator. Wave can't remove a device administrator.";
+        return "Android refused the request: " + whole;
     }
 }

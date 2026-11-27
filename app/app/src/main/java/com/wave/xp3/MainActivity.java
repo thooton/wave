@@ -798,7 +798,7 @@ public final class MainActivity extends BaseActivity {
                         apk.length(), getPackageName(), ".MainActivity"), Engine.QUICK_MS);
                     post(() -> {
                         if (r.ok()) {
-                            toast("Wave closes to update itself");
+                            // Android closes Wave to update it.
                         } else {
                             done(done);
                             alert(failure(done), "Couldn't start updating Wave.");
@@ -847,9 +847,6 @@ public final class MainActivity extends BaseActivity {
             .putExtra(Intent.EXTRA_RETURN_RESULT, true)
             .putExtra(HELPER_PACKAGE, done.entry.packageName);
         if (hasHelper()) intent.setComponent(HELPER);
-        if (done.entry.packageName.equals(getPackageName())) {
-            toast("Wave closes to update itself");
-        }
         try {
             startActivityForResult(intent, INSTALL);
         } catch (ActivityNotFoundException e) {

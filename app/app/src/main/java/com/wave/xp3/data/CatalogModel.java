@@ -111,7 +111,7 @@ final class CatalogModel {
             (apps.containsKey(p.id) ? apps.get(p.id).version : null);
         State state = p.supportedType() ? state(p.id, module, p) : State.NONE;
         String reason = compat.reason;
-        if (state == State.NEWER && reason == null) reason = "Already on a newer version";
+        if (state == State.NEWER && reason == null) reason = "A newer version is installed";
         return new Pkg(p.id, p.name, p.summary, entry.icon, p.version, installed, state, reason,
             "Needs a newer Wave".equals(compat.reason), module, p.changes.isEmpty() ? null : change(p.changes.get(0)),
             entry.source.id, entry.source.name, section);

@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
@@ -12,6 +13,7 @@ import android.view.KeyEvent;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -61,9 +63,7 @@ public final class WaveActivity extends Activity {
     private String lastActionError;
     private final List<String> turnedOffShown = new ArrayList<>();
     private boolean dialogOpen;
-    /** The Confirm sheet while it is up. */
-    private ConfirmSheet confirming;
-    /** What Continue Queuing kept for the next Confirm (Cydia's queue); kept while Wave is closed. */
+    /** What Add to Queue kept for the next Confirm (Cydia's queue); kept while Wave is closed. */
     final Queued queued = new Queued();
     private static final String QUEUE_PREFS = "wave.queue", QUEUE_KEY = "queued";
 
@@ -128,7 +128,6 @@ public final class WaveActivity extends Activity {
 
     @Override
     protected void onDestroy() {
-        if (confirming != null) confirming.dismiss();
         content.removeCallbacks(applyChange);
         data.unlisten(onChanged);
         data.close();
@@ -223,7 +222,7 @@ public final class WaveActivity extends Activity {
     /** Opens `screen` on top of the current tab, with Back named after the screen below. */
     void push(Screen screen) {
         Screen below = top();
-        screen.backLabel = screen.modal() || screen.bare() ? null : below.title();
+        screen.backLabel = screen.backTo(below);
         if (!overlay.isEmpty() || screen.modal() || screen.bare()) overlay.add(screen);
         else stacks.get(tab).add(screen);
         show();
@@ -240,7 +239,7 @@ public final class WaveActivity extends Activity {
         show();
     }
 
-    /** The Confirm sheet's action was pressed: the plan starts and its screen opens. */
+    /** Confirm was pressed: the plan starts and its screen opens. */
     void confirmed(WaveData.PlanView plan) {
         data.confirm(plan);
         // The plan took the queue along; when it couldn't start, the queue stays for another try.
@@ -251,8 +250,8 @@ public final class WaveActivity extends Activity {
         if (find(QueueScreen.class) == null) push(new QueueScreen(this));
     }
 
-    /** Continue Queuing: the sheet's changes wait in the queue, and the user browses on. */
-    void continueQueuing(WaveData.PlanView plan) {
+    /** Add to Queue: Confirm's changes wait in the queue, and the user browses on. */
+    void addToQueue(WaveData.PlanView plan) {
         queued.set(Pages.askedRequests(plan));
         saveQueue();
         toast(Pages.queuedToast(queued.size()));
@@ -321,7 +320,7 @@ public final class WaveActivity extends Activity {
         badge();
 
         // A queue already working (Wave reopened while it runs) gets its screen back.
-        if (snapshot.queue != null && !snapshot.queue.finished && find(QueueScreen.class) == null && confirming == null) {
+        if (snapshot.queue != null && !snapshot.queue.finished && find(QueueScreen.class) == null && find(ConfirmScreen.class) == null) {
             overlay.add(new QueueScreen(this));
             show();
             return;
@@ -349,15 +348,14 @@ public final class WaveActivity extends Activity {
             if (turnedOffShown.contains(off.id)) continue;
             turnedOffShown.add(off.id);
             // Which version and why: the watchdog's reason says how the boot failed.
-            String why = off.reason != null && !off.reason.isEmpty() ? off.reason : "The phone didn't finish starting.";
+            String why = off.reason != null && !off.reason.isEmpty() ? off.reason : "Boot failed.";
             String body = off.version != null && !off.version.isEmpty()
                 ? "With version " + off.version + ": " + Character.toLowerCase(why.charAt(0)) + why.substring(1)
                 : why;
-            body += " Wave turned it off, so the phone starts without it.";
             WaveData.Detail known = snapshot.detail(off.id);
             AppIcons.Ref icon = known != null ? Rows.icon(this, known.pkg) : AppIcons.Ref.tile(off.id, off.name);
             AlertDialog dialog = new AlertDialog.Builder(this)
-                .setCustomTitle(dialogHead(icon, off.name, "Turned off"))
+                .setCustomTitle(dialogHead(icon, off.name, "Disabled"))
                 .setMessage(body)
                 .setPositiveButton("OK", (d, w) -> data.ackTurnedOff(off.id))
                 .setNegativeButton(red("Remove It"), (d, w) -> {
@@ -413,13 +411,13 @@ public final class WaveActivity extends Activity {
     void open(Pkg p) {
         Intent launch = getPackageManager().getLaunchIntentForPackage(p.id);
         if (launch == null) {
-            toast(p.name + " can't be opened.");
+            toast("Wave can't open " + p.name + ".");
             return;
         }
         try {
             startActivity(launch);
         } catch (RuntimeException e) {
-            toast(p.name + " can't be opened.");
+            toast("Wave can't open " + p.name + ".");
         }
     }
 
@@ -432,10 +430,10 @@ public final class WaveActivity extends Activity {
 
     /**
      * Shows the confirm for `asked` together with whatever is queued, as Cydia
-     * does: the sheet then offers to confirm it all or to keep queuing.
+     * does: Confirm then offers to confirm it all or to keep queuing.
      */
     void plan(List<WaveData.Request> asked) {
-        if (confirming != null) return;
+        if (find(ConfirmScreen.class) != null) return;
         List<WaveData.Request> all = queued.with(asked);
         if (all.isEmpty()) return;
         boolean onlyRemoves = true;
@@ -449,12 +447,8 @@ public final class WaveActivity extends Activity {
                     alert(cant, plan.refusal);
                     return;
                 }
-                if (confirming != null || find(QueueScreen.class) != null) return;
-                final ConfirmSheet sheet = new ConfirmSheet(WaveActivity.this, plan);
-                confirming = sheet;
-                sheet.show(() -> {
-                    if (confirming == sheet) confirming = null;
-                });
+                if (find(ConfirmScreen.class) != null || find(QueueScreen.class) != null) return;
+                push(new ConfirmScreen(WaveActivity.this, plan));
             }
 
             @Override
@@ -467,7 +461,7 @@ public final class WaveActivity extends Activity {
     void askReboot() {
         new AlertDialog.Builder(this)
             .setTitle("Reboot Now?")
-            .setMessage("The phone restarts, and the changes waiting for it start.")
+            .setMessage("This will apply all pending changes that require a restart.")
             .setNegativeButton("Later", null)
             .setPositiveButton("Reboot", (d, w) -> data.reboot())
             .show()
@@ -518,6 +512,12 @@ public final class WaveActivity extends Activity {
         Screen screen = top();
         if (screen.onKey(event)) return true;
         int key = event.getKeyCode();
+        if (key == KeyEvent.KEYCODE_CLEAR && getCurrentFocus() instanceof EditText) {
+            // The XP3's Clear key is the backspace in every field (Back only goes back). Should it
+            // come as DEL instead, the field handles it itself; as CLEAR, the field would ignore it.
+            if (event.getAction() == KeyEvent.ACTION_DOWN) backspace((EditText) getCurrentFocus());
+            return true;
+        }
         if ((key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT)
             && !screen.modal() && !screen.bare() && overlay.isEmpty()) {
             if (!screen.ownsLeftRight(getCurrentFocus())) {
@@ -528,6 +528,16 @@ public final class WaveActivity extends Activity {
             }
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    /** Deletes the selection, or the character before the cursor. */
+    static void backspace(EditText field) {
+        Editable text = field.getText();
+        int start = Math.min(field.getSelectionStart(), field.getSelectionEnd());
+        int end = Math.max(field.getSelectionStart(), field.getSelectionEnd());
+        if (start < 0) return;
+        if (start != end) text.delete(start, end);
+        else if (start > 0) text.delete(start - 1, start);
     }
 
     /* Menu opens on its release, as the platform's own menus do (the Updater's rule). */

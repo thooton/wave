@@ -98,23 +98,23 @@ final class RootTests {
             + "match the previously installed version; ignoring!]", 1);
         check.ok("failed", !key.ok);
         check.same("code", "INSTALL_FAILED_UPDATE_INCOMPATIBLE", key.code);
-        check.same("words", "The phone's copy is signed with a different key.", key.message);
-        check.same("space", "The phone is out of space.",
+        check.same("words", "The installed app has a different signing key.", key.message);
+        check.same("space", "Not enough space.",
             PmResult.parse("Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE]", 1).message);
-        check.same("downgrade", "The phone has a newer version.",
+        check.same("downgrade", "A newer version is installed.",
             PmResult.parse("Failure [INSTALL_FAILED_VERSION_DOWNGRADE]", 1).message);
         check.same("parse", "The file isn't a valid app.",
             PmResult.parse("Failure [INSTALL_PARSE_FAILED_NO_CERTIFICATES: Package has no certificates]", 1).message);
-        check.same("not installed", "It isn't installed.",
+        check.same("not installed", "The app isn't installed.",
             PmResult.parse("Failure [DELETE_FAILED_INTERNAL_ERROR]", 1).message);
         check.ok("unknown code", PmResult.parse("Failure [INSTALL_FAILED_WEIRD: x]", 1).message.contains("WEIRD"));
         PmResult error = PmResult.parse("Error: java.lang.IllegalArgumentException: bad", 255);
         check.ok("error", !error.ok && error.message.contains("bad"));
-        check.ok("silence", PmResult.parse("", 1).message.contains("no answer"));
+        check.ok("silence", PmResult.parse("", 1).message.contains("didn't answer"));
         PmResult thrown = PmResult.parse("Exception occurred while executing:\njava.lang.IllegalArgumentException: "
             + "Unknown package: com.x\n\tat com.android.server.pm.PackageManagerShellCommand.run(X.java:1)\n", 255);
         check.ok("cmd exception", !thrown.ok);
-        check.same("cmd exception words", "Android refused it: Unknown package: com.x", thrown.message);
+        check.same("cmd exception words", "Android refused the request: Unknown package: com.x", thrown.message);
         check.ok("exception beats a stray Success", !PmResult.parse("Success\nException occurred while executing:\n"
             + "java.lang.RuntimeException: x\n", 1).ok);
         check.ok("su chatter", PmResult.parse("/system/bin/sh: pm: not found", 127).message.contains("not found"));
@@ -219,7 +219,7 @@ final class RootTests {
                 + "while [ -d \"$FAKE\" ]; do /bin/sleep 0.05; done' &\n"
                 + "sh -c 'trap \"\" HUP INT TERM PIPE; echo $$ > \"$FAKE/fg.pid\"; "
                 + "while [ -d \"$FAKE\" ]; do /bin/sleep 0.05; done'";
-            check.fails("timeout", "too long", () -> shell.run(hang, 1500));
+            check.fails("timeout", "in time", () -> shell.run(hang, 1500));
             for (String name : new String[] {"script", "bg", "fg"}) {
                 File f = new File(box.root, name + ".pid");
                 String p = f.isFile() ? new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).trim() : "";
@@ -240,7 +240,7 @@ final class RootTests {
                 check.ok("is NoRoot", true);
             }
             ProcessShell none = new ProcessShell(Arrays.asList(new File(box.root, "nothing-here").getPath()), null);
-            check.fails("no su", "no root", () -> none.run("echo x", 5000));
+            check.fails("no su", "root access", () -> none.run("echo x", 5000));
         }
     }
 
@@ -317,11 +317,11 @@ final class RootTests {
         check.same("disabled", 1, s.disabled.size());
         check.same("id", "m1", s.disabled.get(0).id);
         check.same("time", 1763500000L, s.disabled.get(0).time);
-        check.ok("why", s.disabled.get(0).why().contains("restarted"));
+        check.ok("why", s.disabled.get(0).why().contains("Rebooted"));
         check.same("pending", Arrays.asList("m2"), s.pending);
         check.same("trying", Arrays.asList("m3"), s.trying);
         check.ok("timeout why", Watchdog.parse("@disabled\n1\tm\tboot-timeout\n").disabled.get(0).why()
-            .contains("five minutes"));
+            .contains("5 minutes"));
         check.same("scripts versioned alike", Watchdog.version(Watchdog.postFsData()),
             Watchdog.version(Watchdog.service()));
         // A user restart is seen only in the few seconds Android takes to go

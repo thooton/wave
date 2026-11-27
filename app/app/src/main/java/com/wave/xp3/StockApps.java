@@ -74,7 +74,7 @@ public final class StockApps extends Activity implements Engine.Apps {
         folder.mkdirs();
         String name = "engine-" + SystemClock.elapsedRealtime();
         File served = new File(folder, name + ".apk");
-        if (!apk.renameTo(served)) throw new IOException("Can't hand the download to the installer.");
+        if (!apk.renameTo(served)) throw new IOException("Wave can't give the download to the installer.");
         try {
             long before = lastUpdate(packageName);
             Intent intent = new Intent(Intent.ACTION_INSTALL_PACKAGE)
@@ -90,7 +90,7 @@ public final class StockApps extends Activity implements Engine.Apps {
             // itself. The phone's copy says which.
             SystemClock.sleep(SETTLE_MS);
             if (lastUpdate(packageName) != before && lastUpdate(packageName) != -1) return PmResult.success();
-            return PmResult.failure("CANCELLED", "It wasn't installed.");
+            return PmResult.failure("CANCELLED", "The installer stopped without installing the app.");
         } finally {
             served.delete();
         }
@@ -103,7 +103,7 @@ public final class StockApps extends Activity implements Engine.Apps {
         ask(intent);
         SystemClock.sleep(SETTLE_MS);
         if (lastUpdate(packageName) == -1) return PmResult.success();
-        return PmResult.failure("CANCELLED", "It wasn't removed.");
+        return PmResult.failure("CANCELLED", "The installer stopped without removing the app.");
     }
 
     private Answer ask(Intent intent) throws IOException {
@@ -165,7 +165,7 @@ public final class StockApps extends Activity implements Engine.Apps {
         } catch (RuntimeException e) {
             // No installer, or Installer refused Wave (installed before it).
             reply(RESULT_CANCELED, e instanceof SecurityException
-                ? "This phone's Installer won't take apps from Wave." : "This phone has no app installer.");
+                ? "The system Installer doesn't accept apps from Wave." : "No app installer found.");
         }
     }
 

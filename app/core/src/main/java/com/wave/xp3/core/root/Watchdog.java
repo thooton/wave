@@ -102,9 +102,9 @@ public final class Watchdog {
         /** Why, in words, for the screen. */
         public String why() {
             if (reason.equals("boot-timeout")) {
-                return "The phone didn't finish starting within five minutes after it was installed.";
+                return "Boot didn't finish within 5 minutes.";
             }
-            return "The phone restarted before it finished starting, the first time with it installed.";
+            return "Rebooted during its first boot.";
         }
     }
 

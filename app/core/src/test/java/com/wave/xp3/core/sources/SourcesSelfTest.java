@@ -79,10 +79,10 @@ public final class SourcesSelfTest {
             java.util.List<String> lines = new java.util.ArrayList<>();
             for (Index.Problem p : mixedView.problems) lines.add((p.icon ? "icon " : "") + p.folder + ": " + p.reason);
             check.same("what the page lists", Arrays.asList(
-                "huge: Over 64 KB", "nosummary: summary is required", "zz-copy: Same id as list",
-                "icon big-icon: Over 64 KB", "icon list: Icon must be at most 1024 pixels square"), lines);
+                "huge: The file is larger than 64 KB", "nosummary: summary is required", "zz-copy: It has the same id as list",
+                "icon big-icon: The file is larger than 64 KB", "icon list: The icon must be at most 1024 pixels square"), lines);
             check.same("unreadable packages", 3, mixedView.unreadable());
-            check.same("the page's icon lines", Arrays.asList("big-icon: Over 64 KB", "list: Icon must be at most 1024 pixels square"),
+            check.same("the page's icon lines", Arrays.asList("big-icon: The file is larger than 64 KB", "list: The icon must be at most 1024 pixels square"),
                 Index.pageLines(mixedView, 20).get(1));
             check.ok("an ignored icon keeps its package", store.index().get(APP_ID) != null && store.index().get(APP_ID).icon == null);
             check.ok("the record isn't a package or an issue of its own",
@@ -135,12 +135,12 @@ public final class SourcesSelfTest {
             noHeader.put(com.wave.xp3.core.git.Tree.DROPPED, "wave.json\n".getBytes(StandardCharsets.US_ASCII));
             payload.set(new SourceStore.Update(HEAD_A, noHeader));
             final SourceStore s1 = store;
-            failsSaying(check, "wave.json over 64 KB", "64 KiB", "The source's details are over 64 KB.",
+            failsSaying(check, "wave.json over 64 KB", "64 KiB", "The source details are larger than 64 KB.",
                 () -> s1.preview("https://sample.test/big-header"));
             Map<String, byte[]> unnamed = new LinkedHashMap<>(files);
             unnamed.put("wave.json", edited(files.get("wave.json"), "\"name\": \"Example Source\",", ""));
             payload.set(new SourceStore.Update(HEAD_A, unnamed));
-            failsSaying(check, "wave.json without a name", "name", "The source's details: name is required.",
+            failsSaying(check, "wave.json without a name", "name", "The source details are not valid: name is required.",
                 () -> s1.preview("https://sample.test/unnamed"));
             Map<String, byte[]> missing = new LinkedHashMap<>(files);
             missing.remove("wave.json");
@@ -151,10 +151,10 @@ public final class SourcesSelfTest {
             Path checkout = root.resolve("checkout");
             Files.createDirectories(checkout);
             Files.write(checkout.resolve("wave.json"), unnamed.get("wave.json"));
-            check.same("row words for a saved copy", "The source's details: name is required.",
+            check.same("row words for a saved copy", "The source details are not valid: name is required.",
                 Index.read(null, checkout).headerProblem);
             Files.write(checkout.resolve("wave.json"), "{".getBytes(StandardCharsets.US_ASCII));
-            check.same("row words when it isn't one field", "The source's details can't be read.",
+            check.same("row words when it isn't one field", "Wave can't read the source details.",
                 Index.read(null, checkout).headerProblem);
         } finally { erase(root); }
     }
@@ -309,8 +309,8 @@ public final class SourcesSelfTest {
             SourceStore store = new SourceStore(root.toFile(), fetcher);
             check.same("default present", 1, store.sources().size());
             check.ok("default is protected", store.sources().get(0).builtIn);
-            check.fails("cannot remove default", "can't be removed", () -> store.remove(store.sources().get(0).id));
-            check.fails("default alias is protected", "already added", () -> store.add(SourceStore.DEFAULT_URL.substring(0, SourceStore.DEFAULT_URL.length() - 4)));
+            check.fails("cannot remove default", "can't remove its own source", () -> store.remove(store.sources().get(0).id));
+            check.fails("default alias is protected", "already has that source", () -> store.add(SourceStore.DEFAULT_URL.substring(0, SourceStore.DEFAULT_URL.length() - 4)));
             SourceStore.Preview preview = store.preview("https://sample.test/preview");
             check.same("preview identifies source", "Example Source", preview.manifest.name);
             check.same("preview counts working packages", 2, preview.packageCount);
@@ -318,13 +318,13 @@ public final class SourcesSelfTest {
             check.same("preview is not persisted", 1, store.sources().size());
             SourceStore.Source approved = store.add(preview);
             check.same("approval uses fetched tree", HEAD_A, store.index().source(approved.id).info.commit);
-            check.fails("preview cannot be approved twice", "already added", () -> store.add(preview));
+            check.fails("preview cannot be approved twice", "already has that source", () -> store.add(preview));
             store.remove(approved.id);
             check.fails("HTTPS only", "https://", () -> store.add("http://example.org/source"));
             String privateUrl = "https://user:token@Example.org:443/source/";
             SourceStore.Source added = store.add(privateUrl);
             check.same("private URL redacted", "https://example.org/source", added.url);
-            check.fails("credentials and slashes don't make a duplicate", "already added", () -> store.add("https://example.org/source"));
+            check.fails("credentials and slashes don't make a duplicate", "already has that source", () -> store.add("https://example.org/source"));
             check.ok("first refresh changed", store.refresh(added.id).changed);
             check.same("no known HEAD on first fetch", null, known.get());
             check.same("private URL used only on fetch", privateUrl, requested.get());
@@ -346,7 +346,7 @@ public final class SourcesSelfTest {
             Map<String, byte[]> invalid = new LinkedHashMap<>(valid);
             invalid.put("wave.json", variant("bad-header/wave.json"));
             payload.set(new SourceStore.Update(HEAD_B, invalid));
-            failsSaying(check, "failed validation leaves active tree", "wave.json", "The source's details can't be read.",
+            failsSaying(check, "failed validation leaves active tree", "wave.json", "Wave can't read the source details.",
                 () -> store.refresh(added.id));
             check.same("old HEAD survives validation failure", HEAD_A, store.index().source(added.id).info.commit);
             invalid.put("wave.json", valid.get("wave.json"));
@@ -430,7 +430,7 @@ public final class SourcesSelfTest {
         check.ok("model matches, unlike firmware", ok.fits && ok.reason == null);
         check.same("firmware is only advisory", "Not tested on this firmware", ok.note);
         check.same("device can match instead of model", null, Compat.of(pkg, 1, new Compat.Phone("XP3800", "other", 27, "tested", 1)).note);
-        check.same("device mismatch", "Not compatible with this device", Compat.of(pkg, 1, new Compat.Phone("not", "either", 27, "tested", 1)).reason);
+        check.same("device mismatch", "Not compatible with this model", Compat.of(pkg, 1, new Compat.Phone("not", "either", 27, "tested", 1)).reason);
         check.same("SDK mismatch", "Needs Android 8.1 or later", Compat.of(pkg, 1, new Compat.Phone("argon", "XP3800", 26, "tested", 1)).reason);
         check.same("future source format", "Needs a newer Wave", Compat.of(pkg, 2, phone).reason);
         PackageManifest unknown = PackageManifest.parse(variant("unknown-type/package.json"));
@@ -542,7 +542,7 @@ public final class SourcesSelfTest {
             Files.write(list, Arrays.copyOf(saved, saved.length / 2));
             SourceStore truncated = new SourceStore(root.toFile(), fetcher);
             check.same("truncated list: default source only", 1, truncated.sources().size());
-            check.ok("truncated list: reader told", truncated.notice() != null && truncated.notice().contains("could not read"));
+            check.ok("truncated list: reader told", truncated.notice() != null && truncated.notice().contains("couldn't read"));
             check.ok("truncated list: kept for inspection", Files.exists(root.resolve("sources/damaged.json")));
             check.ok("truncated list: moved aside", !Files.exists(list));
             check.ok("sources can be added again", truncated.add("https://damaged.test/three").url.endsWith("/three"));
@@ -670,11 +670,11 @@ public final class SourcesSelfTest {
             store.remove(id);
             release.countDown();
             refreshing.join();
-            check.ok("late refresh is refused", failure.get() instanceof IOException && failure.get().getMessage().contains("changed while refreshing"));
+            check.ok("late refresh is refused", failure.get() instanceof IOException && failure.get().getMessage().contains("changed while Wave refreshed"));
             check.same("source stays removed", 1, store.sources().size());
             check.ok("and left no files", !Files.exists(root.resolve("sources").resolve(id)));
             check.ok("the list on disk agrees", new SourceStore(root.toFile(), (u, k) -> null).sources().size() == 1);
-            check.fails("refreshing what is gone", "removed", () -> store.refresh(id));
+            check.fails("refreshing what is gone", "no longer has", () -> store.refresh(id));
         } finally { erase(root); }
     }
 

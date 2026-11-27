@@ -25,8 +25,8 @@ Use only the d-pad and keypad:
 3. On Installed, check that there is no Update All link in the title bar. With the browse fixture, confirm Menu still offers Update All (2).
 4. In Search, check that the empty field says "Search for packages". Switch to predictive T9, type a package name, and open a matching result.
 5. Repeat the launch with `--es fixture noroot` and check that OK on the Home root row opens a screen with only "Wave requires root access" and a focused "Grant access" button.
-6. With `browse`, open an install or update confirmation. Check that the previous screen dims, the plan fits or scrolls without clipping, Left/Right moves focus between actions, and Back cancels. A remove-only plan starts on Cancel.
-7. With `browse`, press OK on an Installed row's Update and Open, and on a row without either (Details opens). Press Down to Continue Queuing on a confirmation: Installed's badge says Q'd and its list starts with Queue. Get another package: its confirmation lists both. Confirm Queue and Clear Queue are in the menu.
+6. With `browse`, open an install or update confirmation. Check that Confirm shows Statistics, Modifications and (for updates) Update, the plan fits or scrolls without clipping, the bar says Back, a reboot plan says Reboot required in grey just above the foot, Left/Right moves focus between Add to Queue and Confirm, and Back leaves. A remove-only plan starts on Add to Queue.
+7. With `browse`, press OK on an Installed row's Update and Open, and on a row without either (Details opens). Press Add to Queue on a confirmation: Installed's badge says Q'd and its list starts with Queue. Get another package: its confirmation lists both. Confirm Queue and Clear Queue are in the menu.
 8. On a package with versions listed, Menu offers See Version History, which lists every version with its date.
 
 Record the build, serial, and any failure. The fixture doesn't install

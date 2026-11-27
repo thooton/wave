@@ -59,7 +59,7 @@ public final class Releases {
         try {
             return Catalog.parse(json);
         } catch (IllegalArgumentException e) {
-            throw new IOException("The release's manifest is unreadable.");
+            throw new IOException("Wave can't read the release manifest.");
         }
     }
 
@@ -87,14 +87,14 @@ public final class Releases {
                 int n;
                 while ((n = in.read(buffer)) != -1) {
                     out.write(buffer, 0, n);
-                    if (out.size() > max) throw new IOException(file + " is far too large.");
+                    if (out.size() > max) throw new IOException(file + " is too large.");
                 }
                 return new String(out.toByteArray(), "UTF-8");
             } finally {
                 in.close();
             }
         } catch (IOException e) {
-            throw friendly(e, "The connection was lost.");
+            throw friendly(e, "Wave lost the connection.");
         } finally {
             connection.disconnect();
         }
@@ -115,7 +115,7 @@ public final class Releases {
         try {
             digest = MessageDigest.getInstance("SHA-256");
         } catch (NoSuchAlgorithmException e) {
-            throw new IOException("No SHA-256 on this phone.");
+            throw new IOException("SHA-256 isn't available.");
         }
         File part = new File(to.getPath() + ".part");
         HttpURLConnection connection = open(fresh(base + file));
@@ -123,7 +123,7 @@ public final class Releases {
             InputStream in = body(connection, file);
             long total = connection.getContentLengthLong();
             if (total < 0) total = size;
-            if (total > MAX_APK) throw new IOException(file + " is far too large.");
+            if (total > MAX_APK) throw new IOException(file + " is too large.");
             long done = 0;
             try {
                 OutputStream out = new FileOutputStream(part);
@@ -135,7 +135,7 @@ public final class Releases {
                         out.write(buffer, 0, n);
                         digest.update(buffer, 0, n);
                         done += n;
-                        if (done > MAX_APK) throw new IOException(file + " is far too large.");
+                        if (done > MAX_APK) throw new IOException(file + " is too large.");
                         if (progress != null) progress.update(done, total);
                     }
                 } finally {
@@ -144,16 +144,16 @@ public final class Releases {
             } finally {
                 in.close();
             }
-            if (total >= 0 && done != total) throw new IOException("The download was cut short.");
-            if (size >= 0 && done != size) throw new IOException("The download isn't the size the release gives.");
+            if (total >= 0 && done != total) throw new IOException("The download stopped before it was complete.");
+            if (size >= 0 && done != size) throw new IOException("The download size is different from the size that the release gives.");
             if (sha256 != null && !sha256.equals(hex(digest.digest()))) {
-                throw new IOException("The download doesn't match the release.");
+                throw new IOException("The download checksum is different from the checksum that the release gives.");
             }
-            if (to.exists() && !to.delete()) throw new IOException("Can't replace the old download.");
-            if (!part.renameTo(to)) throw new IOException("Can't save the download.");
+            if (to.exists() && !to.delete()) throw new IOException("Wave can't replace the old download.");
+            if (!part.renameTo(to)) throw new IOException("Wave can't save the download.");
         } catch (IOException e) {
             part.delete();
-            throw friendly(e, "The download was cut short.");
+            throw friendly(e, "The download stopped before it was complete.");
         } finally {
             connection.disconnect();
         }
@@ -181,14 +181,14 @@ public final class Releases {
             connection.setRequestProperty("Accept-Encoding", "identity");
             return connection;
         } catch (IOException e) {
-            throw friendly(e, "Could not connect.");
+            throw friendly(e, "Wave couldn't connect to the server.");
         }
     }
 
     private static InputStream body(HttpURLConnection connection, String file) throws IOException {
         int status = connection.getResponseCode();
-        if (status == 404) throw new IOException("The release has no " + file + ".");
-        if (status != 200) throw new IOException("GitHub answered " + status + " for " + file + ".");
+        if (status == 404) throw new IOException("The release doesn't contain " + file + ".");
+        if (status != 200) throw new IOException("GitHub sent status " + status + " for " + file + ".");
         return connection.getInputStream();
     }
 
@@ -201,13 +201,13 @@ public final class Releases {
      */
     public static IOException friendly(IOException e, String cut) {
         if (e instanceof java.net.SocketTimeoutException) {
-            return new IOException("The connection timed out.");
+            return new IOException("The server didn't answer in time.");
         }
         if (e instanceof java.net.UnknownHostException) {
-            return new IOException("No network.");
+            return new IOException("No network, or the server address doesn't exist.");
         }
         if (e instanceof java.net.ConnectException) {
-            return new IOException("Could not connect.");
+            return new IOException("Wave couldn't connect to the server.");
         }
         if (e instanceof javax.net.ssl.SSLHandshakeException
                 || e instanceof javax.net.ssl.SSLPeerUnverifiedException) {

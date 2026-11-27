@@ -95,8 +95,8 @@ If it doesn't, inspect `/data/adb/wave/self-update` and `d self-result`.
    The next boot should finish with a `disable` flag on the broken module and
    `boot-timeout` in `/data/adb/wave/disabled`. Use recovery if it keeps rebooting.
 2. **Alert and re-enable.** Open Wave: OK is focused, Left reaches Remove It,
-   and Installed marks the mod as turned off. OK acknowledges the alert but
-   leaves the module disabled. Use Installed → Menu → Turn On, reboot, and
+   and Installed marks the mod as disabled. OK acknowledges the alert but
+   leaves the module disabled. Use Installed → Menu → Enable, reboot, and
    wait for the unarmed module to settle. Remove it and reboot again.
 3. **Incomplete trial.** Install the good module again. On a dedicated test
    handset, interrupt the trial boot during the boot animation before Home.

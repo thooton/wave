@@ -107,7 +107,7 @@ final class SourcesScreen extends Screen {
         if (!src.isDefault) {
             menu.add("!Remove Source", () -> new android.app.AlertDialog.Builder(app)
                 .setTitle("Remove " + src.name + "?")
-                .setMessage("Its packages stay installed, but won't get updates from it.")
+                .setMessage("The packages from this repo will no longer receive updates.")
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton(WaveActivity.red("Remove"), (d, w) -> app.data.remove(src.id, new WaveData.Result<Void>() {
                     @Override

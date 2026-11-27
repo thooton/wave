@@ -46,7 +46,7 @@ public final class Verify {
                 int n;
                 while ((n = in.read(buffer)) != -1) {
                     out.write(buffer, 0, n);
-                    if (out.size() > MAX_PROP) throw new IOException("The module's module.prop is far too large.");
+                    if (out.size() > MAX_PROP) throw new IOException("The module.prop file in the module is too large.");
                 }
                 return Prop.parse(new String(out.toByteArray(), "UTF-8"));
             } finally {
@@ -66,11 +66,11 @@ public final class Verify {
             return e.getMessage();
         }
         String found = prop.get("id");
-        if (found == null || !Scripts.isModuleId(found)) return "The module has no usable id.";
-        if (!found.equals(id)) return "The download is module " + found + ", not " + id + ".";
+        if (found == null || !Scripts.isModuleId(found)) return "The module doesn't have a valid id.";
+        if (!found.equals(id)) return "The download is module " + found + ". Wave expected module " + id + ".";
         String v = prop.get("version");
         if (v == null || Version.compare(v, version) != 0) {
-            return "The download is version " + (v == null ? "(none)" : v) + ", not " + version + ".";
+            return (v == null ? "The download has no version" : "The download is version " + v) + ". Wave expected version " + version + ".";
         }
         return null;
     }
@@ -84,16 +84,16 @@ public final class Verify {
      */
     public static String apk(String id, String version, String foundPackage, String foundVersion,
             long foundCode, long phoneCode, String phoneVersion, boolean sameKey) {
-        if (foundPackage == null) return "The download isn't an app this phone can read.";
-        if (!foundPackage.equals(id)) return "The download is " + foundPackage + ", not " + id + ".";
+        if (foundPackage == null) return "The download isn't a readable app.";
+        if (!foundPackage.equals(id)) return "The download is app " + foundPackage + ". Wave expected app " + id + ".";
         if (foundVersion == null || Version.compare(foundVersion, version) != 0) {
-            return "The download is version " + (foundVersion == null ? "(none)" : foundVersion)
-                + ", not " + version + ".";
+            return (foundVersion == null ? "The download has no version" : "The download is version " + foundVersion)
+                + ". Wave expected version " + version + ".";
         }
         if (phoneCode < 0) return null;
-        if (!sameKey) return "The phone's copy is signed with a different key.";
+        if (!sameKey) return "The installed app has a different signing key.";
         if (foundCode < phoneCode) {
-            return "The source's " + foundVersion + " is older than the phone's " + phoneVersion + ".";
+            return "The source has version " + foundVersion + ", which is older than installed version " + phoneVersion + ".";
         }
         return null;
     }

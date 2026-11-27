@@ -228,7 +228,7 @@ public final class SourceController implements WaveData {
 
     @Override public void refreshAll() {
         if (closed) return;
-        if (store == null) { firstLoadError = "Couldn't read Wave's sources."; render(); return; }
+        if (store == null) { firstLoadError = "Wave couldn't read its list of sources."; render(); return; }
         if (shown != null) for (Index.Source source : shown.sources()) refresh(source.info.id);
     }
 
@@ -281,7 +281,7 @@ public final class SourceController implements WaveData {
 
     @Override public void add(Preview preview, Result<Void> callback) {
         request(worker, () -> {
-            if (!(preview.token instanceof SourceStore.Preview)) throw new IOException("Fetch the source again before adding it");
+            if (!(preview.token instanceof SourceStore.Preview)) throw new IOException("Fetch the source again. Then add it.");
             sources().add((SourceStore.Preview) preview.token);
             readPhone(false, true, false);
             return null;
@@ -312,7 +312,7 @@ public final class SourceController implements WaveData {
         List<Request> wanted = new ArrayList<>(requests);
         // A finished run's result belongs to that run: a new plan starts from no queue, so its screen can't show the old outcome.
         if (queue != null && queue.finished) { queue = null; render(); }
-        if (source == null || model == null) { callback.failed("Still loading. Try again in a moment."); return; }
+        if (source == null || model == null) { callback.failed("Wave is still loading the sources. Try again in a moment."); return; }
         boolean rootGranted = root == Root.OK;
         request(worker, () -> makePlan(wanted, source, model, here, rootGranted), new Result<PlanView>() {
             @Override public void ok(PlanView value) { proposed = (Pending) value.token; callback.ok(value); }
@@ -352,7 +352,7 @@ public final class SourceController implements WaveData {
             installed.put(mod.id, new Plan.Installed(mod.id, Plan.Kind.MODULE, mod.version, mod.state == Modules.State.PENDING_REMOVAL));
         }
         Plan plan = Plan.make(requests, offerings, installed, Phone.device(), context.getPackageName());
-        if (plan.needsReboot() && !rootGranted) throw new Plan.Refused("System mods need root access in Wave");
+        if (plan.needsReboot() && !rootGranted) throw new Plan.Refused("System mods need root access in Wave.");
         List<PlanItem> items = new ArrayList<>();
         long bytes = 0;
         for (Plan.Step step : plan.steps) {
@@ -370,9 +370,9 @@ public final class SourceController implements WaveData {
         if (closed || preview == null || pending == null || pending != preview.token || shown != pending.index) {
             actionError = "The package list changed. Review the plan again.";
         } else if (pending.plan.needsReboot() && root != Root.OK) {
-            actionError = "System mods need root access in Wave";
+            actionError = "System mods need root access in Wave.";
         } else if (!EngineService.start(context, pending.plan, null)) {
-            actionError = "Wave is already installing a plan";
+            actionError = "Wave is already installing other changes.";
         } else {
             actionError = null;
             List<QueueItem> waiting = new ArrayList<>();
@@ -439,7 +439,7 @@ public final class SourceController implements WaveData {
     }
 
     private SourceStore sources() throws IOException {
-        if (store == null) throw new IOException("Couldn't read Wave's sources.");
+        if (store == null) throw new IOException("Wave couldn't read its list of sources.");
         return store;
     }
 
@@ -449,7 +449,7 @@ public final class SourceController implements WaveData {
         submit(executor, () -> {
             try { T value = work.run(); post(() -> callback.ok(value)); }
             catch (IOException | Plan.Refused e) { post(() -> callback.failed(message(e))); }
-            catch (RuntimeException e) { post(() -> callback.failed("That didn't work.")); }
+            catch (RuntimeException e) { post(() -> callback.failed("An unknown error occurred.")); }
         });
     }
     private void submit(ExecutorService executor, Runnable task) {
@@ -459,7 +459,7 @@ public final class SourceController implements WaveData {
     }
     /** Core's source failures are written for the screen (SourceFailure, Plan.Refused): shown as they are. */
     private static String message(Exception e) {
-        return e.getMessage() == null || e.getMessage().isEmpty() ? "That didn't work." : e.getMessage();
+        return e.getMessage() == null || e.getMessage().isEmpty() ? "An unknown error occurred." : e.getMessage();
     }
     private void post(Runnable update) { main.post(() -> { if (!closed) update.run(); }); }
 

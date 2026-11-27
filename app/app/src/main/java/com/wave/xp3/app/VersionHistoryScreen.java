@@ -67,7 +67,7 @@ final class VersionHistoryScreen extends Screen {
         column.removeAllViews();
         Detail d = detail(s);
         if (d == null || d.changes.isEmpty()) {
-            column.addView(Kit.message(app, null, "No Versions Listed", "The source doesn't list this package's versions.", null, null),
+            column.addView(Kit.message(app, null, "No Versions Listed", null, null, null),
                 Kit.fill(Kit.dp(app, 200)));
             return;
         }

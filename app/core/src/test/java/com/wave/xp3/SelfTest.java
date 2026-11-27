@@ -116,14 +116,14 @@ public final class SelfTest {
     }
 
     private static void errors(Check check) {
-        String cut = "The download was cut short.";
+        String cut = "The download stopped before it was complete.";
         check.same("dropped mid-read", cut, Releases.friendly(
             new javax.net.ssl.SSLException("Read error: I/O error during system call, Connection reset by peer"), cut).getMessage());
         check.same("handshake", "The secure connection failed.", Releases.friendly(
             new javax.net.ssl.SSLHandshakeException("bad certificate"), cut).getMessage());
         check.same("unverified", "The secure connection failed.", Releases.friendly(
             new javax.net.ssl.SSLPeerUnverifiedException("no peer"), cut).getMessage());
-        check.same("no network", "No network.", Releases.friendly(
+        check.same("no network", "No network, or the server address doesn't exist.", Releases.friendly(
             new java.net.UnknownHostException("github.com"), cut).getMessage());
     }
 
@@ -181,7 +181,7 @@ public final class SelfTest {
             check.same("progress knew the total", Long.valueOf(apk.length), Long.valueOf(last[1]));
             check.ok("no part file left", !new File(dir, "list.apk.part").exists());
 
-            check.fails("wrong SHA-256", "doesn't match", () -> {
+            check.fails("wrong SHA-256", "checksum is different", () -> {
                 releases.download("list.apk", apk.length, hex.toString().replace('0', '1').replace('a', '0'),
                     new File(to.getParentFile(), "bad.apk"), null);
             });
@@ -190,7 +190,7 @@ public final class SelfTest {
             check.fails("wrong size", "size", () -> {
                 releases.download("list.apk", apk.length + 1, null, new File(to.getParentFile(), "bad.apk"), null);
             });
-            check.fails("missing file", "has no gone.apk", () -> {
+            check.fails("missing file", "doesn't contain gone.apk", () -> {
                 releases.download("gone.apk", -1, null, new File(to.getParentFile(), "gone.apk"), null);
             });
             check.ok("failed download leaves nothing", !new File(dir, "gone.apk").exists()

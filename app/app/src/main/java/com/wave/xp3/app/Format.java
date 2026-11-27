@@ -34,17 +34,27 @@ final class Format {
         }
     }
 
-    /** "refreshed today", "refreshed Nov 2", or null before the first refresh. */
+    /** "0 seconds ago", "40 seconds ago", "5 minutes ago", "2 hours ago", "1 day ago", or null before the first refresh. */
     static String refreshed(long millis) {
         return refreshed(millis, Calendar.getInstance());
     }
 
     static String refreshed(long millis, Calendar now) {
         if (millis <= 0) return null;
-        Calendar then = Calendar.getInstance();
-        then.setTimeInMillis(millis);
-        return relative(then, now, "refreshed today", "refreshed yesterday",
-            "refreshed " + new SimpleDateFormat("MMM d", Locale.US).format(new Date(millis)));
+        long seconds = Math.max(0, now.getTimeInMillis() - millis) / 1000;
+        if (seconds < 60) return ago(seconds, "second");
+        long minutes = seconds / 60;
+        if (minutes < 60) return ago(minutes, "minute");
+        long hours = minutes / 60;
+        if (hours < 24) return ago(hours, "hour");
+        long days = hours / 24;
+        if (days < 30) return ago(days, "day");
+        if (days < 365) return ago(days / 30, "month");
+        return ago(days / 365, "year");
+    }
+
+    private static String ago(long n, String unit) {
+        return n + " " + unit + (n == 1 ? "" : "s") + " ago";
     }
 
     private static String relative(Calendar then, Calendar now, String today, String yesterday, String otherwise) {

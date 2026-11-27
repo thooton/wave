@@ -218,7 +218,7 @@ public final class Index {
             packages, issues, problems, headerProblem);
     }
 
-    static final String OWN_DETAILS_BIG = "The source's details are over 64 KB.";
+    static final String OWN_DETAILS_BIG = "The source details are larger than 64 KB.";
     private static final java.util.regex.Pattern FIELD_PROBLEM =
         java.util.regex.Pattern.compile("[a-z][A-Za-z0-9_.\\[\\]]* (is required|must .+|contains .+)");
 
@@ -228,8 +228,8 @@ public final class Index {
      */
     public static String ownDetails(String readerText) {
         String reason = reason(readerText, "wave.json");
-        return FIELD_PROBLEM.matcher(reason).matches() ? "The source's details: " + reason + "."
-            : "The source's details can't be read.";
+        return FIELD_PROBLEM.matcher(reason).matches() ? "The source details are not valid: " + reason + "."
+            : "Wave can't read the source details.";
     }
 
     /** At most {@code max} of the lines, then "and N more" for the rest of {@code total}. */
@@ -266,11 +266,11 @@ public final class Index {
         String text = readerText == null ? "" : readerText;
         if (text.startsWith(file + ": ")) text = text.substring(file.length() + 2);
         else if (text.startsWith(file + " ")) text = text.substring(file.length() + 1);
-        if (text.startsWith("exceeds 64 KiB")) text = "Over 64 KB";
-        else if (text.startsWith("is not UTF-8")) text = "Not UTF-8 text";
-        else if (text.startsWith("PNG icon ")) text = "Icon " + text.substring(9);
-        else if (text.contains("PNG")) text = "Not a readable PNG image";
-        return text.isEmpty() ? "Can't be read" : text;
+        if (text.startsWith("exceeds 64 KiB")) text = "The file is larger than 64 KB";
+        else if (text.startsWith("is not UTF-8")) text = "The file isn't UTF-8 text";
+        else if (text.startsWith("PNG icon ")) text = "The icon " + text.substring(9);
+        else if (text.contains("PNG")) text = "The icon isn't a readable PNG image";
+        return text.isEmpty() ? "Wave can't read the file" : text;
     }
 
     private static void readPackages(SourceStore.Source info, Path tree, SourceManifest header, List<Entry> packages,
@@ -281,7 +281,7 @@ public final class Index {
             String[] parts = path.split("/");
             if (parts.length != 3) continue;
             issues.put(path, "Over 64 KB");
-            problems.add(new Problem(parts[1], "Over 64 KB", "icon.png".equals(parts[2])));
+            problems.add(new Problem(parts[1], "The file is larger than 64 KB", "icon.png".equals(parts[2])));
         }
         try {
             for (Path sectionPath : directories(tree)) {
@@ -294,18 +294,18 @@ public final class Index {
                     String relative = tree.relativize(path).toString();
                     if (!Fields.FOLDER.matcher(section).matches() || !Fields.FOLDER.matcher(folder).matches()) {
                         issues.put(relative, "Invalid section or package folder name");
-                        problems.add(new Problem(folder, "Its folder name isn't allowed", false));
+                        problems.add(new Problem(folder, "The folder name isn't valid", false));
                         continue;
                     }
                     try {
                         if (!budget.take(Files.size(path))) {
                             issues.put(relative, "Not loaded: the sources hold more package data than Wave can keep");
-                            problems.add(new Problem(folder, "Not loaded: Wave's sources hold more packages than it can keep", false));
+                            problems.add(new Problem(folder, "Wave didn't load it because its sources have too many packages", false));
                             continue;
                         }
                     } catch (IOException e) {
                         issues.put(relative, "Could not read package file");
-                        problems.add(new Problem(folder, "Couldn't be read on this phone", false));
+                        problems.add(new Problem(folder, "Wave couldn't read the file", false));
                         continue;
                     }
                     File art = icon(tree, folderPath.resolve("icon.png"), issues, problems, folder);
@@ -315,12 +315,12 @@ public final class Index {
                         if (first != null) {
                             issues.put(relative, "Duplicate package id; also in " + first);
                             String[] other = first.split("/");
-                            problems.add(new Problem(folder, "Same id as " + (other.length == 3 ? other[1] : first), false));
+                            problems.add(new Problem(folder, "It has the same id as " + (other.length == 3 ? other[1] : first), false));
                         } else packages.add(new Entry(info, header, item, section, folder, art));
                     } catch (IOException | IllegalArgumentException e) {
                         issues.put(relative, e.getMessage());
                         problems.add(new Problem(folder, e instanceof IllegalArgumentException
-                            ? reason(e.getMessage(), "package.json") : "Couldn't be read on this phone", false));
+                            ? reason(e.getMessage(), "package.json") : "Wave couldn't read the file", false));
                     }
                 }
             }
@@ -344,7 +344,7 @@ public final class Index {
         } catch (IOException | IllegalArgumentException e) {
             issues.put(root.relativize(icon).toString(), e.getMessage());
             problems.add(new Problem(folder, e instanceof IllegalArgumentException
-                ? reason(e.getMessage(), "icon.png") : "Couldn't be read on this phone", true));
+                ? reason(e.getMessage(), "icon.png") : "Wave couldn't read the file", true));
             return null;
         }
     }

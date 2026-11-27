@@ -11,7 +11,7 @@ import java.util.List;
 /**
  * Installed: updates first (with what's new), then everything else under Up to
  * Date. Update All is in the menu when multiple updates are available.
- * A Queue row heads the list while Continue Queuing holds changes (OK
+ * A Queue row heads the list while Add to Queue holds changes (OK
  * confirms them all), then a Reboot row while a change waits for one. OK presses the
  * row's capsule (UPDATE, OPEN);
  * a row without one (a mod, Wave itself) opens its details.
@@ -53,7 +53,7 @@ final class InstalledScreen extends Screen {
     void update(WaveData.Snapshot s) {
         Mark mark = feed.clear();
         if (!app.queued.isEmpty()) feed.add(Rows.queued(app, app.queued.size()));
-        if (!s.rebootPending.isEmpty()) feed.add(Rows.reboot(app, Rows.rebootText(s.rebootPending)));
+        if (!s.rebootPending.isEmpty()) feed.add(Rows.reboot(app));
         if (!s.updates.isEmpty()) {
             feed.add(Kit.heading(app, "Updates", false));
             for (int i = 0; i < s.updates.size(); i++) {

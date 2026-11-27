@@ -16,19 +16,19 @@ public final class SourceFailure extends IOException {
 
     public enum Kind {
         ADDRESS("Use an https:// address without ? or #."),
-        NOT_FOUND("No Wave source at that address."),
+        NOT_FOUND("Wave found no source at that address."),
         SIGN_IN("That source needs a sign-in."),
-        REDIRECT("That address sends Wave elsewhere. Use the address it ends at."),
+        REDIRECT("That address sends Wave to a different address. Use the final address."),
         SERVER("The source's server had a problem. Try again later."),
         UNSUPPORTED("That source's server doesn't work with Wave."),
         EMPTY("That source is empty."),
-        UNREADABLE("That source sent something Wave can't read."),
+        UNREADABLE("That source sent data that Wave can't read."),
         /** Over what Wave fetches at once: it reads the whole latest commit, whatever else the repository holds. */
-        TOO_BIG("That source is over the 8 MB Wave fetches. Keep only the source there."),
+        TOO_BIG("Wave fetches 8 MB at most. Keep only the source at that address."),
         /** Within the fetch, but more package files and icons than Wave keeps. */
-        TOO_MANY("That source lists too much for Wave (12,000 files, 16 MB at most)."),
-        TIMEOUT("The connection timed out. Try again."),
-        OFFLINE("Couldn't reach the source. Check the connection."),
+        TOO_MANY("Wave reads 12,000 files and 16 MB at most. That source has more."),
+        TIMEOUT("The source didn't answer in time. Try again."),
+        OFFLINE("Wave couldn't connect to the source. Check the network connection."),
         INSECURE("The secure connection to the source failed."),
         STOPPED("Stopped.");
 

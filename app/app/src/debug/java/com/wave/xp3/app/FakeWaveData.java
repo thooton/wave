@@ -352,7 +352,7 @@ public final class FakeWaveData implements WaveData {
                             : "Installed " + item.pkg.version;
                     }
                     rows.add(new QueueItem(item.pkg, s, pct, pct < 0 ? 0 : pct * 41000L, 4100000, text,
-                        s == Step.FAILED ? "The download doesn't match the source. It was deleted; nothing on the phone changed." : null));
+                        s == Step.FAILED ? "The download checksum is different from the checksum that the source gives. Wave deleted the download. Nothing on the phone changed." : null));
                 }
                 queue = new QueueView(rows, finished, finished && reboot);
                 changed();

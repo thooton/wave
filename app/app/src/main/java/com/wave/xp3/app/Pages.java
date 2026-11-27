@@ -55,7 +55,7 @@ final class Pages {
     }
 
     static Message error(String body) {
-        return new Message("Cannot Load Sources", body, "Try Again", false);
+        return new Message("Can't Load Sources", body, "Try Again", false);
     }
 
     // ------------------------------------------------------------------ Installed
@@ -64,7 +64,7 @@ final class Pages {
     static Line installedLine(Pkg p, boolean bootFailed) {
         switch (p.state) {
             case OFF:
-                return new Line(bootFailed ? "Turned off: boot failed" : "Turned off", Tone.RED);
+                return new Line(bootFailed ? "Disabled: boot failed" : "Disabled", Tone.RED);
             case PENDING_INSTALL:
                 return new Line("Starts after a reboot", Tone.BLUE);
             case PENDING_REMOVAL:
@@ -104,11 +104,6 @@ final class Pages {
         return new Message("Nothing Installed", "What Wave installs is listed here.", null, false);
     }
 
-    static String rebootText(List<String> names) {
-        if (names.size() == 1) return names.get(0) + " starts after a reboot";
-        return names.size() + " changes start after a reboot";
-    }
-
     // ------------------------------------------------------------------ Sources
 
     static boolean anyRefreshing(Snapshot s) {
@@ -134,7 +129,7 @@ final class Pages {
         String by = src.maintainer != null ? src.maintainer : Format.shortUrl(src.url);
         String when = Format.refreshed(src.refreshedAt);
         String text = src.refreshing ? "Refreshing…" : src.error != null ? "Couldn't refresh: " + src.error
-            : when != null ? by + ", " + when : by;
+            : when != null ? by + " (last refreshed " + when + ")" : by;
         return new Line(text, src.error != null && !src.refreshing ? Tone.RED : Tone.MUTED);
     }
 
@@ -167,15 +162,16 @@ final class Pages {
         return root == WaveData.Root.OK ? "Yes" : root == WaveData.Root.NONE ? "No" : "Checking…";
     }
 
-    /** The Device facts; the phone's own model and release stand in for what the snapshot lacks. */
-    static List<String[]> phoneFacts(Snapshot s, String ownModel, String ownRelease) {
+    /** The Device facts; the phone's own model, release and build stand in for what the snapshot lacks. */
+    static List<String[]> phoneFacts(Snapshot s, String ownModel, String ownRelease, String ownBuild) {
         WaveData.Facts f = s.facts;
         String model = f != null && f.model != null ? f.model : ownModel;
         String android = f != null && f.android != null ? f.android : ownRelease;
-        if (f != null && f.build != null) android += ", build " + f.build;
+        String build = f != null && f.build != null ? f.build : ownBuild;
         List<String[]> rows = new ArrayList<>();
         rows.add(new String[]{"Model", model});
         rows.add(new String[]{"Android", android});
+        rows.add(new String[]{"Build", build});
         rows.add(new String[]{"Root", f != null && f.root != null ? f.root : rootText(s.root)});
         rows.add(new String[]{"Storage", f != null && f.storageFree != null ? f.storageFree : ""});
         return rows;
@@ -231,11 +227,11 @@ final class Pages {
         }
         if (p.isModule) notes.add(new Note(Icon.REBOOT, Tone.BLUE, "Requires a reboot", Tone.TEXT));
         if (p.state == State.OFF) {
-            notes.add(new Note(Icon.WARN, Tone.ORANGE, "Turned off: the phone didn't finish starting with it", Tone.RED));
+            notes.add(new Note(Icon.WARN, Tone.ORANGE, "Disabled: boot failed", Tone.RED));
         }
         if (p.state == State.PENDING_INSTALL) notes.add(new Note(Icon.REBOOT, Tone.BLUE, "Starts after a reboot", Tone.TEXT));
         if (p.state == State.PENDING_REMOVAL) notes.add(new Note(Icon.REBOOT, Tone.BLUE, "Removed after a reboot", Tone.TEXT));
-        if (d.firmwareNote) notes.add(new Note(Icon.INFO, Tone.MUTED, "Not tested on this phone's firmware", Tone.TEXT));
+        if (d.firmwareNote) notes.add(new Note(Icon.INFO, Tone.MUTED, "Not tested on this firmware", Tone.TEXT));
         return notes;
     }
 
@@ -244,11 +240,11 @@ final class Pages {
         return !empty(d.author) ? d.author : !empty(p.sourceName) ? p.sourceName : null;
     }
 
-    /** The word beside the capsule when there is none ("INSTALLED", "TURNED OFF"). */
+    /** The word beside the capsule when there is none ("INSTALLED", "DISABLED"). */
     static String stateWord(Pkg p) {
         switch (p.state) {
             case OFF:
-                return "TURNED OFF";
+                return "DISABLED";
             case PENDING_INSTALL:
             case PENDING_REMOVAL:
                 return "AFTER REBOOT";
@@ -331,29 +327,9 @@ final class Pages {
 
     // ------------------------------------------------------------------ Confirm and queue
 
-    static String confirmHeading(List<WaveData.PlanItem> items, boolean removing) {
-        if (removing) return "Remove";
-        boolean allUpdates = true, allReinstall = true;
-        for (WaveData.PlanItem item : items) {
-            if (item.action != WaveData.Action.UPDATE) allUpdates = false;
-            if (item.action != WaveData.Action.REINSTALL) allReinstall = false;
-        }
-        return allUpdates ? "Update" : allReinstall ? "Reinstall" : "Install";
-    }
-
-    static Line confirmLine(WaveData.PlanItem item, boolean removing) {
-        Pkg p = item.pkg;
-        if (item.reason != null) return new Line(item.reason, removing ? Tone.MUTED : Tone.BLUE);
-        if (removing) return new Line("Version " + (p.installedVersion != null ? p.installedVersion : p.version), Tone.MUTED);
-        if (item.action == WaveData.Action.UPDATE && p.installedVersion != null) {
-            return new Line(p.installedVersion + " → " + p.version, Tone.MUTED);
-        }
-        return new Line(p.version, Tone.MUTED);
-    }
-
     /**
-     * An action's word as the screen shows it: "GET" is "Get", "TURNED OFF"
-     * is "Turned Off". The words themselves (Actions, stateWord) stay in
+     * An action's word as the screen shows it: "GET" is "Get", "AFTER REBOOT"
+     * is "After Reboot". The words themselves (Actions, stateWord) stay in
      * capitals, as the tests and menus know them.
      */
     static String shownWord(String word) {
@@ -368,7 +344,7 @@ final class Pages {
     }
 
     /**
-     * What the sheet's Continue Queuing keeps: the changes the user asked for
+     * What Confirm's Add to Queue keeps: the changes the user asked for
      * (not what they pull in; the next plan works that out again), as requests.
      */
     static List<WaveData.Request> askedRequests(WaveData.PlanView plan) {
@@ -384,86 +360,74 @@ final class Pages {
         return asked.isEmpty() ? plan.items : asked;
     }
 
-    /** The sheet's main action: Install, Update, Reinstall or Remove. */
-    static String confirmVerb(WaveData.PlanView plan) {
-        List<WaveData.PlanItem> asked = confirmAsked(plan);
-        for (WaveData.PlanItem item : asked) if (item.action != WaveData.Action.REMOVE) {
-            List<WaveData.PlanItem> going = new ArrayList<>();
-            for (WaveData.PlanItem a : asked) if (a.action != WaveData.Action.REMOVE) going.add(a);
-            return confirmHeading(going, false);
-        }
-        return "Remove";
-    }
-
-    /** Whether the sheet's action only takes things away: then it is red and the focus starts on Cancel. */
+    /** Whether the plan only takes things away: then Confirm is red and the focus starts on Add to Queue. */
     static boolean confirmDestroys(WaveData.PlanView plan) {
-        return "Remove".equals(confirmVerb(plan));
+        if (plan.items.isEmpty()) return false;
+        for (WaveData.PlanItem item : plan.items) if (item.action != WaveData.Action.REMOVE) return false;
+        return true;
     }
 
-    /** "Install Canvas?", "Update 3 Packages?". */
-    static String confirmTitle(WaveData.PlanView plan) {
-        List<WaveData.PlanItem> asked = confirmAsked(plan);
-        String what = asked.size() == 1 ? asked.get(0).pkg.name : asked.size() + " Packages";
-        return confirmVerb(plan) + " " + what + "?";
-    }
+    /** A section of Confirm, as Cydia draws it: a grey heading over rows of a label and its value. */
+    static final class Section {
+        final String title;
+        final List<String[]> rows = new ArrayList<>();
 
-    /** The grey line under the title of a one-package sheet: the version, or the change of version. */
-    static String confirmSub(WaveData.PlanView plan) {
-        List<WaveData.PlanItem> asked = confirmAsked(plan);
-        if (asked.size() != 1) return null;
-        WaveData.PlanItem item = asked.get(0);
-        Pkg p = item.pkg;
-        if (item.action == WaveData.Action.REMOVE) {
-            return "Version " + (p.installedVersion != null ? p.installedVersion : p.version);
-        }
-        if (item.action == WaveData.Action.UPDATE && p.installedVersion != null) return p.installedVersion + " → " + p.version;
-        return "Version " + p.version;
-    }
-
-    /** One line of the sheet: plain text around a package name (or size) drawn heavier. */
-    static final class Fact {
-        final String before, name, after;
-        final Tone tone;
-
-        Fact(String before, String name, String after, Tone tone) {
-            this.before = before;
-            this.name = name;
-            this.after = after;
-            this.tone = tone;
+        Section(String title) {
+            this.title = title;
         }
 
         @Override
         public String toString() {
-            return tone + ":" + before + "[" + name + "]" + after;
+            StringBuilder b = new StringBuilder(title).append('{');
+            for (int i = 0; i < rows.size(); i++) {
+                if (i > 0) b.append("; ");
+                b.append(rows.get(i)[0]).append('=').append(rows.get(i)[1].replace('\n', ','));
+            }
+            return b.append('}').toString();
         }
     }
 
     /**
-     * What the sheet says between its title and its actions: each package
-     * asked for when there are several, what comes along or goes and why,
-     * the download, and whether a reboot follows.
+     * Confirm's page, the same whatever the plan does (Cydia's): Statistics
+     * (the download), Modifications (Install, Reinstall and Remove,
+     * each with its packages one per line, what the plan pulls in or replaces
+     * included) and Update (each package with its change of version). A
+     * section with nothing to say is left out.
      */
-    static List<Fact> confirmFacts(WaveData.PlanView plan) {
-        List<Fact> facts = new ArrayList<>();
-        List<WaveData.PlanItem> asked = confirmAsked(plan);
-        boolean one = asked.size() == 1;
-        if (!one) {
-            for (WaveData.PlanItem item : asked) {
-                boolean removing = item.action == WaveData.Action.REMOVE;
-                facts.add(new Fact("", item.pkg.name, " " + confirmLine(item, removing).text, Tone.TEXT));
-            }
-        }
-        for (WaveData.PlanItem item : plan.items) {
-            if (asked.contains(item)) continue;
-            boolean removing = item.action == WaveData.Action.REMOVE;
-            String why = item.reason == null ? "" : ", " + Character.toLowerCase(item.reason.charAt(0)) + item.reason.substring(1);
-            if (removing) facts.add(one ? new Fact("Replaces ", item.pkg.name, "", Tone.TEXT) : new Fact("Removes ", item.pkg.name, why, Tone.TEXT));
-            else facts.add(new Fact("Also installs ", item.pkg.name, one ? "" : why, Tone.TEXT));
-        }
+    static List<Section> confirmSections(WaveData.PlanView plan) {
+        List<Section> out = new ArrayList<>();
+        Section stats = new Section("Statistics");
         String size = Format.size(plan.downloadBytes);
-        if (size != null) facts.add(new Fact("", size, " to download", Tone.TEXT));
-        if (plan.needsReboot) facts.add(new Fact("Needs a reboot to finish", "", "", Tone.ORANGE));
-        return facts;
+        if (size != null) stats.rows.add(new String[]{"Downloading", size});
+        if (!stats.rows.isEmpty()) out.add(stats);
+
+        Section mods = new Section("Modifications");
+        WaveData.Action[] kinds = {WaveData.Action.GET, WaveData.Action.REINSTALL, WaveData.Action.REMOVE};
+        String[] words = {"Install", "Reinstall", "Remove"};
+        for (int k = 0; k < kinds.length; k++) {
+            StringBuilder names = new StringBuilder();
+            for (WaveData.PlanItem item : plan.items) {
+                if (item.action != kinds[k]) continue;
+                if (names.length() > 0) names.append('\n');
+                names.append(item.pkg.name);
+            }
+            if (names.length() > 0) mods.rows.add(new String[]{words[k], names.toString()});
+        }
+        if (!mods.rows.isEmpty()) out.add(mods);
+
+        Section update = new Section("Update");
+        for (WaveData.PlanItem item : plan.items) {
+            if (item.action != WaveData.Action.UPDATE) continue;
+            Pkg p = item.pkg;
+            update.rows.add(new String[]{p.name, p.installedVersion != null ? p.installedVersion + " \u2192 " + p.version : p.version});
+        }
+        if (!update.rows.isEmpty()) out.add(update);
+        return out;
+    }
+
+    /** The quiet line over Confirm's actions: "Reboot required" when the plan needs one, else nothing. */
+    static String confirmNote(WaveData.PlanView plan) {
+        return plan.needsReboot ? "Reboot required" : null;
     }
 
     enum Right { NONE, TICK, SPINNER }
@@ -519,14 +483,14 @@ final class Pages {
         }
     }
 
-    // ------------------------------------------------------------------ Continue Queuing
+    // ------------------------------------------------------------------ Add to Queue
 
-    /** The Queue row's second line: "1 change waiting", "4 changes waiting". */
+    /** The Queue row's second line: "1 change", "4 changes". */
     static String queuedLine(int changes) {
-        return changes == 1 ? "1 change waiting" : changes + " changes waiting";
+        return changes == 1 ? "1 change" : changes + " changes";
     }
 
-    /** What Wave says once the sheet's changes join the queue. */
+    /** What Wave says once Confirm's changes join the queue. */
     static String queuedToast(int changes) {
         return changes == 1 ? "Queued 1 change" : "Queued " + changes + " changes";
     }
@@ -540,13 +504,13 @@ final class Pages {
         return q != null && q.finished && started ? "Done" : "Installing";
     }
 
-    /** "Weather wasn't installed" or "wasn't removed", by what the step said. */
+    /** "Wave couldn't install Weather" or "couldn't remove", by what the step said. */
     static String failureTitle(WaveData.QueueItem item) {
-        String verb = item.text != null && item.text.toLowerCase(java.util.Locale.US).contains("remov") ? "removed" : "installed";
-        return item.pkg.name + " wasn't " + verb;
+        String verb = item.text != null && item.text.toLowerCase(java.util.Locale.US).contains("remov") ? "remove" : "install";
+        return "Wave couldn't " + verb + " " + item.pkg.name;
     }
 
     static String failureMessage(WaveData.QueueItem item) {
-        return item.failure != null ? item.failure : "Something went wrong.";
+        return item.failure != null ? item.failure : "An unknown error occurred.";
     }
 }

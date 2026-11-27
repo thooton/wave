@@ -36,7 +36,7 @@ public final class Compat {
             reason = "Needs a newer Wave";
         } else if (!pkg.requires.device.isEmpty() && !pkg.requires.device.contains(phone.model) &&
             !pkg.requires.device.contains(phone.device)) {
-            reason = "Not compatible with this device";
+            reason = "Not compatible with this model";
         } else if (pkg.requires.sdk > phone.sdk) {
             reason = "Needs " + androidName(pkg.requires.sdk) + " or later";
         }

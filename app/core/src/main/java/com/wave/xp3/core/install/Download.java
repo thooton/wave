@@ -83,18 +83,18 @@ public final class Download {
     public static void fetch(String url, long size, String sha256, File to, Progress progress, Cancel cancel,
             Credential credential) throws IOException {
         checkUrl(url);
-        if (size < 0 || size > MAX) throw new IOException("The source gives a size Wave won't download.");
+        if (size < 0 || size > MAX) throw new IOException("The source gives a download size that isn't valid or is too large.");
         if (sha256 == null || !sha256.matches("[0-9a-f]{64}")) {
-            throw new IOException("The source gives no usable SHA-256.");
+            throw new IOException("The source doesn't give a valid SHA-256 checksum.");
         }
         File part = new File(to.getPath() + ".part");
         File dir = to.getAbsoluteFile().getParentFile();
-        if (dir != null && !dir.isDirectory() && !dir.mkdirs()) throw new IOException("Can't make the download folder.");
+        if (dir != null && !dir.isDirectory() && !dir.mkdirs()) throw new IOException("Wave can't make the download folder.");
         if (part.length() > size) part.delete();
         long have = part.isFile() ? part.length() : 0;
         if (dir != null && dir.getUsableSpace() < size - have + SPARE) {
             part.delete();
-            throw new IOException("Not enough space: it needs " + megabytes(size + SPARE) + ".");
+            throw new IOException("Not enough space. The download needs " + megabytes(size + SPARE) + ".");
         }
         try {
             // A connection cut part way resumes from what arrived, as long as
@@ -116,19 +116,19 @@ public final class Download {
                     pause(attempt, cancel);
                 }
             }
-            if (part.length() != size) throw new Discard("The download isn't the size the source gives.");
-            if (!sha256.equals(sha256(part))) throw new Discard("The download doesn't match the source.");
-            if (to.exists() && !to.delete()) throw new Discard("Can't replace the old download.");
-            if (!part.renameTo(to)) throw new Discard("Can't save the download.");
+            if (part.length() != size) throw new Discard("The download size is different from the size that the source gives.");
+            if (!sha256.equals(sha256(part))) throw new Discard("The download checksum is different from the checksum that the source gives.");
+            if (to.exists() && !to.delete()) throw new Discard("Wave can't replace the old download.");
+            if (!part.renameTo(to)) throw new Discard("Wave can't save the download.");
         } catch (Discard | Stopped e) {
             part.delete();
             throw e;
         } catch (IOException e) {
             if (outOfSpace(e)) {
                 part.delete();
-                throw new IOException("The phone is out of space.");
+                throw new IOException("Not enough space.");
             }
-            throw Releases.friendly(e, "The download was cut short.");
+            throw Releases.friendly(e, "The download stopped before it was complete.");
         }
     }
 
@@ -167,33 +167,33 @@ public final class Download {
             if (!redirect(status)) break;
             String location = c.getHeaderField("Location");
             c.disconnect();
-            if (location == null || hop >= REDIRECTS) throw new Discard("The source's file can't be reached: too many redirects.");
+            if (location == null || hop >= REDIRECTS) throw new Discard("Wave can't download the file. The source sent too many redirects.");
             try {
                 at = new java.net.URI(at).resolve(location.trim()).toString();
             } catch (java.net.URISyntaxException | IllegalArgumentException e) {
-                throw new Discard("The source's file can't be reached: a bad redirect.");
+                throw new Discard("Wave can't download the file. The source sent a redirect that isn't valid.");
             }
             try {
                 checkUrl(at);
             } catch (IOException e) {
-                throw new Discard("The source's file can't be reached: a redirect away from https.");
+                throw new Discard("Wave can't download the file. The source sent a redirect to an address without https.");
             }
         }
         try {
             if (status >= 500) {
                 // The server's trouble, not the file's: keep what arrived.
-                throw new IOException("The server answered " + status + ". Try again later.");
+                throw new IOException("The server sent status " + status + ". Try again later.");
             }
             if (status == 401 || status == 403) throw new Discard(signInProblem(credential, signedIn));
             if (from > 0) {
                 if (status == 416 || status == 200) return false;
                 if (status != 206 || !rangeStartsAt(c.getHeaderField("Content-Range"), from)) return false;
             } else if (status != 200) {
-                throw new Discard(status == 404 ? "The source's file is missing." : "The server answered " + status + ".");
+                throw new Discard(status == 404 ? "The file is missing from the source." : "The server sent status " + status + ".");
             }
             long length = c.getContentLengthLong();
             if (length >= 0 && from + length != size) {
-                throw new Discard("The download isn't the size the source gives.");
+                throw new Discard("The download size is different from the size that the source gives.");
             }
             long done = from;
             InputStream in = c.getInputStream();
@@ -206,7 +206,7 @@ public final class Download {
                     while ((n = in.read(buffer)) != -1) {
                         if (cancel != null && cancel.cancelled()) throw new Stopped();
                         done += n;
-                        if (done > size) throw new Discard("The download isn't the size the source gives.");
+                        if (done > size) throw new Discard("The download size is different from the size that the source gives.");
                         out.write(buffer, 0, n);
                         if (progress != null) progress.update(done, size);
                     }
@@ -216,7 +216,7 @@ public final class Download {
             } finally {
                 in.close();
             }
-            if (done != size) throw new IOException("The download was cut short.");
+            if (done != size) throw new IOException("The download stopped before it was complete.");
             return true;
         } finally {
             c.disconnect();
@@ -236,10 +236,10 @@ public final class Download {
     /** What a refused download says, by whether a sign-in went with it. */
     static String signInProblem(Credential credential, boolean signedIn) {
         if (credential == null) {
-            return "This source needs a sign-in. Add it again with a user name and token in its address.";
+            return "This source needs a sign-in. Add the source again with a user name and a token in its address.";
         }
-        if (signedIn) return "The source didn't accept its sign-in. Check the token in its address.";
-        return "The download needs a sign-in, and Wave only signs in to the source's own host.";
+        if (signedIn) return "The source didn't accept the sign-in. Check the token in the source address.";
+        return "The download needs a sign-in. Wave signs in only to the host of the source.";
     }
 
     private static HttpURLConnection open(String url) throws IOException {
@@ -256,7 +256,7 @@ public final class Download {
 
     /** Only https, but plain http to this machine for the tests. */
     static void checkUrl(String url) throws IOException {
-        if (url == null) throw new IOException("The source gives no download.");
+        if (url == null) throw new IOException("The source doesn't give a download address.");
         String u = url.toLowerCase(Locale.US);
         int scheme = u.indexOf("://");
         if (scheme > 0) {
@@ -264,12 +264,12 @@ public final class Download {
             while (end < u.length() && "/?#".indexOf(u.charAt(end)) < 0) end++;
             // A sign-in belongs to the phone's copy of the source's address, never in a manifest.
             if (u.substring(scheme + 3, end).indexOf('@') >= 0) {
-                throw new IOException("The source's download address carries a sign-in, which Wave won't use.");
+                throw new IOException("The download address contains a sign-in. Wave doesn't use sign-ins from download addresses.");
             }
         }
         if (u.startsWith("https://")) return;
         if (u.startsWith("http://127.0.0.1:") || u.startsWith("http://localhost:")) return;
-        throw new IOException("Wave only downloads over https.");
+        throw new IOException("Wave downloads only over https.");
     }
 
     static boolean outOfSpace(IOException e) {
@@ -282,7 +282,7 @@ public final class Download {
         try {
             digest = MessageDigest.getInstance("SHA-256");
         } catch (NoSuchAlgorithmException e) {
-            throw new IOException("No SHA-256 on this phone.");
+            throw new IOException("SHA-256 isn't available.");
         }
         InputStream in = new FileInputStream(file);
         try {

@@ -18,7 +18,8 @@ import java.util.List;
 /**
  * Search: the field takes the bar's place, as in Cydia, and has the keys as
  * soon as the tab opens. Results follow each key, across every source. The
- * cursor stays at the end, so Left/Right still switch tabs; Back deletes;
+ * cursor stays at the end, so Left/Right still switch tabs; Clear deletes;
+ * Back from the results returns to the field, and from the field goes back;
  * Down goes into the results and Up on the first comes back.
  */
 final class SearchScreen extends Screen {
@@ -187,10 +188,7 @@ final class SearchScreen extends Screen {
             field.requestFocus();
             return true;
         }
-        Editable text = field.getText();
-        if (text.length() == 0) return false;
-        text.delete(text.length() - 1, text.length());
-        return true;
+        return false;
     }
 
     @Override

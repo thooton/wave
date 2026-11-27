@@ -61,7 +61,7 @@ final class TabBar extends View {
         setBadge(count, false);
     }
 
-    /** `queue`: Continue Queuing holds changes, so the badge says "Q'd" (Cydia's Manage tab) instead of a count. */
+    /** `queue`: Add to Queue holds changes, so the badge says "Q'd" (Cydia's Manage tab) instead of a count. */
     void setBadge(int count, boolean queue) {
         if (badge == count && queued == queue) return;
         badge = count;

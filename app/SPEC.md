@@ -33,7 +33,7 @@ and gaps are not focus stops.
   Links. Add a Source lives in Sources, not Home.
 - **Sources**: no title-bar actions; a spinner appears while refreshing.
   All Sources comes first, followed by each source's icon, name, address and
-  refresh status. If nothing was fetched and a refresh failed, show **Cannot
+  refresh status. If nothing was fetched and a refresh failed, show **Can't
   Load Sources**, the reason and **Try Again**. The menu offers Refresh, Copy
   Address, Remove Source (confirmed; not for the default source), Refresh
   Sources and Add a Source.
@@ -50,7 +50,7 @@ and gaps are not focus stops.
   versions) shows every version the source lists, newest first, each with its
   date and what changed; the version on the phone is marked **Installed**.
   Up/Down scroll.
-- **Installed**: a **Queue** row while changes are queued, then Updates, then
+- **Installed**: a **Queue** row (**N changes**) while changes are queued, then Updates, then
   Up to Date. The tab badge counts updates, or says **Q'd** while changes are
   queued, as Cydia's does. **Update All** is menu-only and appears for
   multiple updates. OK, on its release, presses a row's action even when the
@@ -58,31 +58,37 @@ and gaps are not focus stops.
   mods open Details.
 - **Search**: the field starts focused and says **Search for packages** when
   empty. It supports Sonim's predictive T9, keeps the cursor at the end, and
-  updates results across sources as the query changes. Back deletes in the
-  field. Down enters results; Up on the first result returns to the field.
+  updates results across sources as the query changes. Clear deletes in the
+  field and Back goes back (from the results, to the field). Down enters
+  results; Up on the first result returns to the field.
 - **Add a Source**: starts at `https://github.com/`. Left/Right move the
-  cursor, Back deletes and Down reaches Add. Fetch before asking for trust;
+  cursor, Clear deletes, Back goes back and Down reaches Add. Fetch before asking for trust;
   the prompt shows the source name, maintainer and package count. Back
   abandons a fetch; failures appear below the field.
-- **Confirm**: a sheet dims the page behind it. Show the action and version
-  change, packages in a multi-package plan, dependencies or removals and why
-  (**Also installs**, **Replaces**, **Removes**), download size and any reboot
-  requirement. Cancel is on the left; the named action (Install, Update,
-  Reinstall, Remove) is on the right. Start on the action unless the plan
-  only removes, in which case start on Cancel. Left/Right switch between
-  actions, Up/Down scroll a long plan, and Back cancels.
-- **Continue Queuing** (Cydia's): under Cancel and the action, reached with
-  Down once the plan is all shown. It keeps the changes asked for without
-  starting them; the next Confirm (any Get, Update, Reinstall or Remove)
-  plans them together with the new one, and its Continue Queuing keeps them
-  all. Asking again for a queued package replaces its action. Cancel keeps
+- **Confirm** (Cydia's): one screen, titled Confirm, whatever the plan does,
+  with no tab bar and **Back** on the bar. **Statistics** (Downloading and its
+  size), **Modifications** (Install, Reinstall and Remove, each with its
+  packages on the right, one a line, including what the plan pulls in or
+  replaces) and, for updates, an **Update** section with each package's
+  change of version. A section with nothing in it is left out. A plan that
+  needs a reboot says **Reboot required** in grey on the page, just above the
+  foot. The actions are **Add to Queue** on the left (black at rest, green
+  only while selected) and **Confirm** on the right (blue at rest too, red
+  when the plan only removes). The
+  focus starts on Confirm, or on Add to Queue when the plan only removes.
+  Left/Right switch between them, Up/Down scroll a long plan, and Back leaves
+  without changing anything.
+- **Add to Queue** (Cydia's Continue Queuing): keeps the changes asked for
+  without starting them; the next Confirm (any Get, Update, Reinstall or
+  Remove) plans them together with the new one, and its Add to Queue keeps
+  them all. Asking again for a queued package replaces its action. Back keeps
   the queue as it was. The Queue row and the menu's **Confirm Queue (N)**
   open Confirm for the queue; **Clear Queue** empties it. Starting a plan
   empties the queue; it is kept while Wave is closed.
 - **Installing / Done**: no tab bar. Show each package's progress (download
   ring, spinner, success tick or failure alert). Back while working sends Wave
   to the background. End with Done or, if a reboot is needed, Later and Reboot
-  Now. A watchdog turn-off is an alert on launch with OK and Remove It.
+  Now. A mod the watchdog disabled is an alert on launch with OK and Remove It.
 
 ## Catalog and install rules
 

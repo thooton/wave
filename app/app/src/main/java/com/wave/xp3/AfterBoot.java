@@ -64,12 +64,12 @@ public final class AfterBoot {
                 new Handler(Looper.getMainLooper()).post(() -> {
                     Activity now = shown.get();
                     if (now == null || now.isDestroyed() || now.isFinishing()) {
-                        Toast.makeText(app, pm.ok ? "Wave was updated" : "Wave wasn't updated: " + pm.message,
+                        Toast.makeText(app, pm.ok ? "Wave was updated" : "The Wave update failed: " + pm.message,
                             Toast.LENGTH_LONG).show();
                     } else if (pm.ok) {
                         new AfterBoot(now).toast("Wave was updated");
                     } else {
-                        new AfterBoot(now).alert("Wave wasn't updated", pm.message);
+                        new AfterBoot(now).alert("The Wave update failed", pm.message);
                     }
                 });
             } catch (IOException e) {
@@ -84,7 +84,7 @@ public final class AfterBoot {
         final PmResult pm = PmResult.parse(said, 0);
         post(() -> {
             if (pm.ok) toast("Wave was updated");
-            else alert("Wave wasn't updated", pm.message);
+            else alert("The Wave update failed", pm.message);
         });
     }
 
@@ -116,13 +116,13 @@ public final class AfterBoot {
         final Watchdog.Disabled d = off.get(at);
         String name = names.containsKey(d.id) ? names.get(d.id) : d.id;
         new AlertDialog.Builder(activity)
-            .setTitle(name + " was turned off")
-            .setMessage(d.why() + " Wave turned it off so the phone could start.")
+            .setTitle("Wave disabled " + name)
+            .setMessage(d.why())
             .setPositiveButton("Remove", (dialog, which) -> work(() -> root(Scripts.removeModule(d.id)),
-                "Removed when the phone restarts"))
+                "Removed upon restart"))
             .setNeutralButton("Try Again", (dialog, which) -> work(() -> root(Scripts.enableModule(d.id)),
-                "On again when the phone restarts"))
-            .setNegativeButton("Leave Off", null)
+                "Enabled upon restart"))
+            .setNegativeButton("Keep Disabled", null)
             .setOnDismissListener(dialog -> explain(off, at + 1, names))
             .show();
     }
@@ -133,12 +133,12 @@ public final class AfterBoot {
         String[] items = new String[disabled.size()];
         for (int i = 0; i < items.length; i++) items[i] = disabled.get(i).name;
         new AlertDialog.Builder(activity)
-            .setTitle("Every mod is off")
+            .setTitle("Every mod is disabled")
             .setItems(items, (dialog, which) -> {
                 final Modules.Module m = disabled.get(which);
-                work(() -> root(Scripts.enableModule(m.id)), m.name + " is on again when the phone restarts");
+                work(() -> root(Scripts.enableModule(m.id)), m.name + " is enabled upon restart");
             })
-            .setNegativeButton("Leave Off", null)
+            .setNegativeButton("Keep Disabled", null)
             .show();
     }
 

@@ -135,7 +135,7 @@ public final class SourceStore {
             sources = load();
             sweep();
         } catch (IOException e) {
-            throw new IOException("Couldn't read Wave's sources.", e);
+            throw new IOException("Wave couldn't read its list of sources.", e);
         }
     }
 
@@ -184,13 +184,13 @@ public final class SourceStore {
     }
 
     private void checkNew(Source source) throws IOException {
-        if (sources.containsKey(source.id)) throw new IOException("That source is already added");
-        if (sources.size() >= MAX_SOURCES) throw new IOException("Wave can't hold more sources. Remove one first.");
+        if (sources.containsKey(source.id)) throw new IOException("Wave already has that source.");
+        if (sources.size() >= MAX_SOURCES) throw new IOException("Wave can't add more sources. Remove a source first.");
     }
 
     public synchronized void remove(String id) throws IOException {
         Source source = require(id);
-        if (source.builtIn) throw new IOException("Wave's own source can't be removed.");
+        if (source.builtIn) throw new IOException("Wave can't remove its own source.");
         Map<String, Source> next = new LinkedHashMap<>(sources);
         next.remove(id);
         saving(() -> save(next));
@@ -209,7 +209,7 @@ public final class SourceStore {
         Update update = fetch(before.fetchUrl, known);
         if (!COMMIT.matcher(update.commit).matches()) throw new SourceFailure(SourceFailure.Kind.UNREADABLE, "Invalid source HEAD");
         synchronized (this) {
-            if (sources.get(id) != before) throw new IOException("The source changed while refreshing. Try again.");
+            if (sources.get(id) != before) throw new IOException("The source changed while Wave refreshed it. Try again.");
             if (update.files == null) {
                 if (!update.commit.equals(known)) throw new SourceFailure(SourceFailure.Kind.UNREADABLE, "Source refresh did not return a tree");
                 Source next = new Source(before.fetchUrl, before.name, before.commit, System.currentTimeMillis());
@@ -248,7 +248,7 @@ public final class SourceStore {
     private static void saving(Disk work) throws IOException {
         try { work.run(); }
         catch (SourceFailure e) { throw e; }
-        catch (IOException e) { throw new IOException("Couldn't save the source on this phone.", e); }
+        catch (IOException e) { throw new IOException("Wave couldn't save the source.", e); }
     }
 
     /** Refreshes sources independently with two bounded workers; results remain in source order. */
@@ -264,7 +264,7 @@ public final class SourceStore {
             List<Refresh> results = new ArrayList<>();
             for (int i = 0; i < jobs.size(); i++) {
                 try { results.add(jobs.get(i).get()); }
-                catch (ExecutionException e) { results.add(new Refresh(order.get(i), false, "Could not refresh this source")); }
+                catch (ExecutionException e) { results.add(new Refresh(order.get(i), false, "Wave couldn't refresh this source.")); }
             }
             return Collections.unmodifiableList(results);
         } finally { pool.shutdownNow(); }
@@ -459,7 +459,7 @@ public final class SourceStore {
 
     private Source require(String id) throws IOException {
         Source source = sources.get(id);
-        if (source == null) throw new IOException("That source was removed");
+        if (source == null) throw new IOException("Wave no longer has that source.");
         return source;
     }
 
@@ -479,7 +479,7 @@ public final class SourceStore {
         catch (IOException | RuntimeException e) {
             // Truncated, corrupt or not ours: keep it for the owner to inspect and start from the default source.
             setAside(true);
-            notice = "Wave could not read its list of sources, so only the default source is shown.";
+            notice = "Wave couldn't read its list of sources. Wave shows only the default source.";
             return result;
         }
         int skipped = Math.max(0, entries.size() - MAX_SOURCES);
@@ -497,8 +497,8 @@ public final class SourceStore {
         }
         if (skipped > 0) {
             setAside(false);
-            notice = skipped == 1 ? "Wave could not read one of its saved sources and left it out." :
-                "Wave could not read " + skipped + " of its saved sources and left them out.";
+            notice = skipped == 1 ? "Wave couldn't read one of its saved sources. Wave doesn't show that source." :
+                "Wave couldn't read " + skipped + " of its saved sources. Wave doesn't show those sources.";
             // Write the usable part back, so this is told once; the original stays in damaged.json.
             try { save(result); } catch (IOException ignored) { /* The next change saves it. */ }
         }
@@ -520,7 +520,7 @@ public final class SourceStore {
         for (Source source : next.values()) entries.add(Json.map("url", source.fetchUrl, "name", source.name,
             "commit", source.commit, "lastRefresh", source.lastRefresh));
         byte[] data = Json.write(entries).getBytes(StandardCharsets.UTF_8);
-        if (data.length > MAX_STORE) throw new IOException("Wave source list is too large");
+        if (data.length > MAX_STORE) throw new IOException("Wave's list of sources is too large.");
         // Keep the credential-bearing temporary file inside the backup-excluded sources directory.
         Files.createDirectories(root);
         Path temporary = Files.createTempFile(root, "catalog-", ".tmp");

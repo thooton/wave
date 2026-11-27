@@ -182,7 +182,7 @@ public final class Engine {
         try {
             Item failed = prepareModules();
             if (failed != null) {
-                skipRest("Not done, because " + failed.step.name + " failed.");
+                skipRest("Wave skipped this change because " + failed.step.name + " failed.");
             } else {
                 for (Item item : items) {
                     if (stop) {
@@ -190,7 +190,7 @@ public final class Engine {
                         break;
                     }
                     if (!step(item)) {
-                        skipRest("Not done, because " + item.step.name + " failed.");
+                        skipRest("Wave skipped this change because " + item.step.name + " failed.");
                         break;
                     }
                 }
@@ -225,13 +225,13 @@ public final class Engine {
         try {
             Facts facts = Facts.parse(shell.run(Scripts.facts(), QUICK_MS).output);
             if (!facts.hasMagisk()) {
-                fail(first, "Magisk isn't installed, and modules need it.");
+                fail(first, "Magisk isn't installed. Modules need Magisk.");
                 return first;
             }
             if (Watchdog.needsInstall(facts)) {
                 Shell.Result r = shell.run(Watchdog.install(), QUICK_MS);
                 if (!r.ok()) {
-                    fail(first, "Couldn't set up the boot watchdog, which keeps a mod that stops the phone starting from staying on.");
+                    fail(first, "Wave couldn't install the boot watchdog.");
                     return first;
                 }
                 watchdogNote = "Boot watchdog " + Watchdog.version() + " installed.";
@@ -274,7 +274,7 @@ public final class Engine {
             return fail(item, message(e));
         } catch (IllegalArgumentException e) {
             // An id or version the scripts won't put in a shell (see Scripts): the step fails, the app doesn't.
-            return fail(item, "Wave won't run " + item.step.name + ": its name or version isn't one it can use safely.");
+            return fail(item, "Wave won't run " + item.step.name + ". Wave can't use its name or version safely.");
         }
     }
 
@@ -293,14 +293,14 @@ public final class Engine {
             if (!pm.ok) return fail(item, pm.message);
         } else {
             Shell.Result r = shell.run(Scripts.removeModule(s.id), QUICK_MS);
-            if (!r.ok()) return fail(item, "Couldn't mark it for removal.");
+            if (!r.ok()) return fail(item, "Wave couldn't mark the mod for removal.");
             rebootNeeded = true;
-            item.message = "Removed when the phone restarts.";
+            item.message = "Removed upon restart";
         }
         try {
             receipts.forget(s.id);
         } catch (IOException e) {
-            item.message = "Removed, but Wave couldn't update its list: " + message(e);
+            item.message = "Wave removed it, but couldn't update its records: " + message(e);
         }
         item.phase = Phase.DONE;
         changed();
@@ -348,7 +348,6 @@ public final class Engine {
                 Receipts.Receipt before = receipts.get(s.id);
                 note(item, receipt);
                 selfUpdating = true;
-                item.message = "Wave closes to update itself.";
                 changed();
                 String failed;
                 if (apps != null) {
@@ -357,7 +356,7 @@ public final class Engine {
                 } else {
                     Shell.Result r = shell.run(Scripts.selfUpdate(file.getAbsolutePath(), file.length(), self,
                         platform.selfActivity()), QUICK_MS);
-                    failed = r.ok() ? null : "Couldn't start updating Wave.";
+                    failed = r.ok() ? null : "Wave couldn't start its update.";
                 }
                 if (failed != null) {
                     selfUpdating = false;
@@ -388,7 +387,7 @@ public final class Engine {
                 Shell.Result r = shell.run(Scripts.installModule(file.getAbsolutePath(), s.id), INSTALL_MS);
                 if (!r.ok()) return fail(item, moduleFailure(r.output));
                 rebootNeeded = true;
-                item.message = "Takes effect when the phone restarts.";
+                item.message = "Effective upon restart";
                 note(item, receipt);
             }
             item.phase = Phase.DONE;
@@ -408,7 +407,7 @@ public final class Engine {
         try {
             receipts.record(receipt);
         } catch (IOException e) {
-            item.message = "Installed, but Wave couldn't note it: " + message(e);
+            item.message = "Wave installed it, but couldn't record the install: " + message(e);
         }
     }
 
@@ -431,7 +430,7 @@ public final class Engine {
             }
         }
         // Anything else it printed is for a shell, not a person.
-        return found == null || found.isEmpty() ? "Magisk couldn't install it." : "Magisk couldn't install it: " + found;
+        return found == null || found.isEmpty() ? "Magisk couldn't install the mod." : "Magisk couldn't install the mod: " + found;
     }
 
     /** Leaves no download behind (Wave's own update has its own copy by now). */
@@ -454,6 +453,6 @@ public final class Engine {
     }
 
     private static String message(IOException e) {
-        return e.getMessage() != null && !e.getMessage().trim().isEmpty() ? e.getMessage() : "Something went wrong.";
+        return e.getMessage() != null && !e.getMessage().trim().isEmpty() ? e.getMessage() : "An unknown error occurred.";
     }
 }
