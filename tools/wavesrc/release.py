@@ -49,15 +49,32 @@ def changes(repository, directory, name, folder, version):
     prefix = "" if relative == Path(".") else re.sub(r"([\\*?\[\]])", r"\\\1", relative.as_posix()) + "/"
     scope = [f":(top,literal){relative.as_posix()}"] if prefix else ["."]
     exclusions = [f":(top,glob,exclude){prefix}{docs}" for docs in DOCS]
-    history = run(["git", "-C", root, "log", "--no-merges", "-n", "10",
-                   "-z", "--format=%cs%x00%s", "--", *scope, *exclusions])
+    git = ["git", "-C", root]
+    tag_prefix = f"{folder}-"
+    tag_list = [*git, "tag", "--list", f"{tag_prefix}*"]
+    tags = {}
+    for tag in run([*tag_list, "--merged", "HEAD"]).splitlines():
+        tagged_version = tag[len(tag_prefix):]
+        if re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", tagged_version) and version_key(tagged_version) <= version_key(version):
+            tags[tag] = tagged_version
+    current_tag = tag_prefix + version
+    tip = f"refs/tags/{current_tag}" if current_tag in tags else "HEAD"
+    history = run([*git, "log", "--no-merges", "-n", "10", "-z", "--format=%H%x00%cs%x00%s",
+                   tip, "--", *scope, *exclusions])
     notes = []
     names = {name.casefold(), folder.casefold(), directory.name.casefold()}
     fields = history.split("\0")
-    for date, subject in zip(fields[::2], fields[1::2]):
-        if subject.strip():
-            release, text = note(subject.strip(), names, version)
-            notes.append({"version": release, "date": date, "text": text})
+    for commit, date, subject in zip(fields[::3], fields[1::3], fields[2::3]):
+        if not subject.strip():
+            continue
+        release, text = note(subject.strip(), names, None)
+        if release is None and tags:
+            # Use the first release that contains the change, not the version
+            # being published now. Off-branch and unrelated tags do not count.
+            containing = run([*tag_list, "--merged", tip, "--contains", commit]).splitlines()
+            release = min((tags[t] for t in containing if t in tags),
+                          key=version_key, default=None)
+        notes.append({"version": release or version, "date": date, "text": text})
     return notes
 
 

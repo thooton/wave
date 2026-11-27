@@ -20,6 +20,15 @@ integration test uses the sibling `../wave_packages` List build if it exists, or
 a tiny fixture with the installed SDK. Set `WAVESRC_TEST_APK` to exercise
 another APK. No tests contact GitHub or need network credentials.
 
+`publish` generates up to ten change notes from the package's Git history.
+Use a checkout with release tags and full history. A tag named
+`<package-folder>-<version>` marks a release: for notes without an explicit
+version in the commit title, the tool uses the earliest version whose tag
+contains the change. If the version being published has a matching tag,
+notes stop at that tag even if the checkout contains newer work. If no tag
+covers a change and its title does not give a version, the tool uses the
+binary version.
+
 See the [example source](../../spec/example-source/) and the schemas for
 [`wave.json`](../../spec/wave.schema.json) and
 [`package.json`](../../spec/package.schema.json).

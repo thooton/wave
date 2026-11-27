@@ -365,6 +365,36 @@ class PublishTest(Fixtures):
         self.assertEqual(first, (self.source / MODULE).read_bytes())
         self.assertEqual(0, self.lint()[0])
 
+    def test_publish_uses_release_tags_for_notes_without_versions(self):
+        tracked = self.package / "app.txt"
+        git(self.repo, "tag", "messages-improved-1.3")
+        tracked.write_text("fourth", encoding="utf-8")
+        self.commit("restore the shortcut")
+        shared = git(self.repo, "rev-parse", "HEAD").strip()
+        git(self.repo, "tag", "other-package-1.4")
+        git(self.repo, "tag", "messages-improved-1.4-preview")
+        git(self.repo, "checkout", "--detach", shared)
+        git(self.repo, "commit", "--allow-empty", "-m", "side branch")
+        git(self.repo, "tag", "messages-improved-1.4")
+        git(self.repo, "checkout", "-")
+        tracked.write_text("fifth", encoding="utf-8")
+        self.commit("show the inbox count")
+        git(self.repo, "tag", "-a", "messages-improved-1.9", "-m", "Release 1.9")
+        tracked.write_text("sixth", encoding="utf-8")
+        self.commit("show dates")
+        git(self.repo, "tag", "messages-improved-1.10")
+        tracked.write_text("seventh", encoding="utf-8")
+        self.commit("unreleased work")
+        self.zip("messages_improved", "1.10")
+
+        status, output = self.publish()
+        self.assertEqual(0, status, output)
+        data = read_json(self.source / MODULE)
+        self.assertEqual([("1.10", "Show dates."), ("1.9", "Show the inbox count."),
+                          ("1.9", "Restore the shortcut."), ("1.3", "Restore notifications."),
+                          ("1.3", "Fix the inbox."), ("1.1", "Open the thread.")],
+                         [(entry["version"], entry["text"]) for entry in data["changes"]])
+
     def test_publish_rejects_id_mismatch_without_writing(self):
         self.zip("incorrect_id", "1.3")
         status, output = self.publish()
